@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/acceso/page": "app/acceso/page.js",
+  "/camino-decisiones/page": "app/camino-decisiones/page.js",
+  "/ingresar/page": "app/ingresar/page.js",
+  "/inicio/page": "app/inicio/page.js",
+  "/lava-conocimiento/page": "app/lava-conocimiento/page.js",
+  "/invitado/page": "app/invitado/page.js",
+  "/logros/page": "app/logros/page.js",
+  "/perfil/page": "app/perfil/page.js",
+  "/page": "app/page.js",
+  "/juegos/page": "app/juegos/page.js"
+}

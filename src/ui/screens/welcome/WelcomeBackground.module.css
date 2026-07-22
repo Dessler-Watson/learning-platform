@@ -1,0 +1,54 @@
+.background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 60%;
+  display: block;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -webkit-optimize-contrast: auto;
+}
+
+/* Móviles en portrait: mantener árbol y horizonte visibles */
+@media (max-aspect-ratio: 3/4) {
+  .background img {
+    object-position: center 55%;
+  }
+}
+
+/* Tablets y pantallas medianas */
+@media (min-aspect-ratio: 4/3) and (max-aspect-ratio: 16/9) {
+  .background img {
+    object-position: center 65%;
+  }
+}
+
+/* Pantallas anchas (Full HD, 2K, 4K, ultrawide): mostrar más paisaje horizontal */
+@media (min-aspect-ratio: 16/9) {
+  .background img {
+    object-position: center 70%;
+  }
+}
+
+/* Pantallas muy anchas (ultrawide 21:9+) */
+@media (min-aspect-ratio: 21/9) {
+  .background img {
+    object-position: center 75%;
+  }
+}
+
+/* Pantallas muy pequeñas */
+@media (max-width: 360px) {
+  .background img {
+    object-position: center 50%;
+  }
+}

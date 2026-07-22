@@ -1,0 +1,44 @@
+{
+  "..\\node_modules\\@react-three\\drei\\core\\VideoTexture.js -> hls.js": {
+    "id": null,
+    "files": []
+  },
+  "..\\node_modules\\@react-three\\drei\\web\\FaceLandmarker.js -> @mediapipe/tasks-vision": {
+    "id": null,
+    "files": []
+  },
+  "..\\node_modules\\@react-three\\rapier\\dist\\react-three-rapier.esm.js -> @dimforge/rapier3d-compat": {
+    "id": 9285,
+    "files": []
+  },
+  "app\\camino-decisiones\\page.tsx -> @/engine/renderer/GameCanvas": {
+    "id": 9497,
+    "files": [
+      "static/chunks/080de1a6.f4f42c341431e766.js",
+      "static/chunks/b536a0f1.69e6f0c640780c54.js",
+      "static/chunks/0f8af13e.1c384dc93d8326c3.js",
+      "static/chunks/260.964e4f23b3cacce9.js",
+      "static/chunks/510.6cdd3dfcb1344df5.js",
+      "static/chunks/16.faa7f11f8c4809e4.js",
+      "static/chunks/497.34332caeff61895a.js"
+    ]
+  },
+  "app\\lava-conocimiento\\page.tsx -> @/engine/renderer/LavaCanvas": {
+    "id": 9137,
+    "files": [
+      "static/chunks/080de1a6.f4f42c341431e766.js",
+      "static/chunks/b536a0f1.69e6f0c640780c54.js",
+      "static/chunks/260.964e4f23b3cacce9.js",
+      "static/chunks/16.faa7f11f8c4809e4.js",
+      "static/chunks/137.9dcc9355f7e3df06.js"
+    ]
+  },
+  "app\\page.tsx -> @/ui/screens/welcome/WelcomePage": {
+    "id": 9003,
+    "files": [
+      "static/css/cfdd08c8aa47eb7c.css",
+      "static/chunks/521-9a2bd7f91d9c1b66.js",
+      "static/chunks/3.17f2b02d15be9b8b.js"
+    ]
+  }
+}

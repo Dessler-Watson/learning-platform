@@ -1,0 +1,75 @@
+export const colors = {
+  // Primarios
+  primary: {
+    50: '#F3EBFF',
+    100: '#E0CCFF',
+    200: '#C4A3FF',
+    300: '#A87AFF',
+    400: '#8C51FF',
+    500: '#7C4DFF',
+    600: '#651FFF',
+    700: '#4D00CC',
+    800: '#3A0099',
+    900: '#260066',
+  },
+  // Secundarios (coral/rosa)
+  secondary: {
+    50: '#FFF0F4',
+    100: '#FFD6E2',
+    200: '#FFADC6',
+    300: '#FF85A9',
+    400: '#FF5C8D',
+    500: '#FF6B9D',
+    600: '#E64A7A',
+    700: '#CC2E5E',
+    800: '#991A42',
+    900: '#660D2B',
+  },
+  // Acento (cyan/azul)
+  accent: {
+    50: '#E6F9FF',
+    100: '#B3EEFF',
+    200: '#80E0FF',
+    300: '#4DD2FF',
+    400: '#4FC3F7',
+    500: '#29B6F6',
+    600: '#039BE5',
+    700: '#0277BD',
+    800: '#01579B',
+    900: '#003D6B',
+  },
+  success: {
+    50: '#E8F5E9',
+    400: '#66BB6A',
+    500: '#4CAF50',
+    600: '#43A047',
+  },
+  error: {
+    50: '#FFEBEE',
+    400: '#EF5350',
+    500: '#FF4B4B',
+    600: '#E53935',
+  },
+  warning: {
+    50: '#FFF8E1',
+    400: '#FFCA28',
+    500: '#FFD93D',
+    600: '#FFB300',
+  },
+  neutral: {
+    0: '#FFFFFF',
+    50: '#F8F7FF',
+    100: '#F0EEFA',
+    200: '#E0DDF0',
+    300: '#C4C0D4',
+    400: '#9E99B0',
+    500: '#7B7690',
+    600: '#5C5870',
+    700: '#3E3B50',
+    800: '#252236',
+    900: '#1A1A2E',
+    950: '#0F0F1E',
+  },
+} as const;
+
+export type ColorKey = keyof typeof colors;
