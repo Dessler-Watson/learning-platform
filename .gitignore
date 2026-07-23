@@ -19,6 +19,11 @@ dist/
 .env.development
 .env.production
 
+# removed folders
+backend-nestjs/
+juego-godot/
+panel-nextjs/
+
 # vercel
 .vercel
 
