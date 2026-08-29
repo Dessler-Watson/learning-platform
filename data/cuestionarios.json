@@ -1,0 +1,4 @@
+[
+  { "id_cuestionario": 1, "nombre": "Competitivo", "descripcion": "Cuestionario para modos competitivos (Camino de las Decisiones y La Lava del Conocimiento)", "nivel": "intermedio" },
+  { "id_cuestionario": 2, "nombre": "Avanzado", "descripcion": "Cuestionario para Modo Estudio con preguntas más detalladas", "nivel": "avanzado" }
+]

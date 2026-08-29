@@ -1,0 +1,6 @@
+[
+  { "id_curso": 1, "docente_id": 1, "nombre": "Derechos Humanos Básico" },
+  { "id_curso": 2, "docente_id": 1, "nombre": "Prevención de Violencia Escolar" },
+  { "id_curso": 3, "docente_id": 7, "nombre": "Igualdad de Género en el Aula" },
+  { "id_curso": 4, "docente_id": 7, "nombre": "Ciudadanía y Derechos" }
+]

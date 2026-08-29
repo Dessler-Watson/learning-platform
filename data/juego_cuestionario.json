@@ -1,0 +1,5 @@
+[
+  { "id": 1, "juego_id": 1, "cuestionario_id": 1 },
+  { "id": 2, "juego_id": 2, "cuestionario_id": 1 },
+  { "id": 3, "juego_id": 3, "cuestionario_id": 2 }
+]

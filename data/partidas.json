@@ -1,0 +1,5 @@
+[
+  { "id_partida": 1, "sala_id": 3, "fecha_inicio": "2026-07-10T10:00:00Z", "fecha_fin": "2026-07-10T10:30:00Z", "ganador_id": 2 },
+  { "id_partida": 2, "sala_id": 3, "fecha_inicio": "2026-07-11T14:00:00Z", "fecha_fin": "2026-07-11T14:25:00Z", "ganador_id": 4 },
+  { "id_partida": 3, "sala_id": 4, "fecha_inicio": "2026-07-12T09:00:00Z", "fecha_fin": "2026-07-12T09:20:00Z", "ganador_id": 3 }
+]

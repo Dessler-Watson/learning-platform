@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { motion } from 'framer-motion';
 import { TopBar } from '@/ui/components/navigation/TopBar';
@@ -9,7 +9,8 @@ const GAMES = [
   {
     title: 'El Camino de las Decisiones',
     description: 'Avanza por un camino flotante eligiendo la respuesta correcta en cada puerta gigante.',
-    color: '#7C4DFF',
+    color: '#F087A9',
+    colorSecondary: '#FDDB33',
     route: '/camino-decisiones',
     available: true,
     emoji: '🚪',
@@ -17,7 +18,8 @@ const GAMES = [
   {
     title: 'La Lava del Conocimiento',
     description: 'Responde preguntas, haz crecer tu torre y evita que la lava te alcance.',
-    color: '#FF4B4B',
+    color: '#E94930',
+    colorSecondary: '#FDDB33',
     route: '/lava-conocimiento',
     available: true,
     emoji: '🌋',
@@ -42,24 +44,22 @@ export default function JuegosPage() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32,
         }}
       >
-        {/* Header */}
         <motion.div variants={fadeUp} style={{ textAlign: 'center' }}>
           <motion.span
             animate={{ y: [0, -6, 0] }}
             transition={{ repeat: Infinity, duration: 2 }}
-            style={{ fontSize: 36, display: 'block', marginBottom: 4 }}
+            style={{ fontSize: 40, display: 'block', marginBottom: 4 }}
           >
             🎮
           </motion.span>
-          <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 900, margin: '0 0 6px' }}>
+          <h1 style={{ color: '#344054', fontSize: 28, fontWeight: 900, margin: '0 0 6px', fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>
             Elige tu aventura
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, margin: 0 }}>
+          <p style={{ color: '#6B7A94', fontSize: 15, margin: 0 }}>
             Selecciona un minijuego para empezar a aprender
           </p>
         </motion.div>
 
-        {/* Game cards */}
         <motion.div variants={fadeUp}>
           <GameGrid>
             {GAMES.map((game) => (
@@ -68,7 +68,6 @@ export default function JuegosPage() {
           </GameGrid>
         </motion.div>
 
-        {/* Back button */}
         <motion.button
           variants={fadeUp}
           whileHover={{ scale: 1.03 }}
@@ -76,11 +75,11 @@ export default function JuegosPage() {
           onClick={() => { window.location.href = '/inicio'; }}
           style={{
             background: 'none', border: 'none',
-            color: 'rgba(255,255,255,0.45)', fontSize: 14,
-            cursor: 'pointer', fontWeight: 600, marginTop: 8,
+            color: '#6B7A94', fontSize: 14,
+            cursor: 'pointer', fontWeight: 700, marginTop: 8,
           }}
         >
-          ← Volver al inicio
+          &larr; Volver al inicio
         </motion.button>
       </motion.div>
     </main>

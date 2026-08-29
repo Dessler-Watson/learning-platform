@@ -1,0 +1,14 @@
+[
+  { "id_liga": 1, "nombre": "Novato 1", "copas_min": 0, "copas_max": 100 },
+  { "id_liga": 2, "nombre": "Novato 2", "copas_min": 101, "copas_max": 200 },
+  { "id_liga": 3, "nombre": "Novato 3", "copas_min": 201, "copas_max": 350 },
+  { "id_liga": 4, "nombre": "Aprendiz 1", "copas_min": 351, "copas_max": 500 },
+  { "id_liga": 5, "nombre": "Aprendiz 2", "copas_min": 501, "copas_max": 650 },
+  { "id_liga": 6, "nombre": "Aprendiz 3", "copas_min": 651, "copas_max": 800 },
+  { "id_liga": 7, "nombre": "Explorador 1", "copas_min": 801, "copas_max": 950 },
+  { "id_liga": 8, "nombre": "Explorador 2", "copas_min": 951, "copas_max": 1100 },
+  { "id_liga": 9, "nombre": "Explorador 3", "copas_min": 1101, "copas_max": 1300 },
+  { "id_liga": 10, "nombre": "Experto 1", "copas_min": 1301, "copas_max": 1500 },
+  { "id_liga": 11, "nombre": "Experto 2", "copas_min": 1501, "copas_max": 1750 },
+  { "id_liga": 12, "nombre": "Experto 3", "copas_min": 1751, "copas_max": 2000 }
+]

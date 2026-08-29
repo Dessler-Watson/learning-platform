@@ -17,10 +17,11 @@ export function Card({ children, className = '', onClick, hover = false, padding
   const Element = onClick ? motion.button : motion.div;
   return (
     <Element
-      whileHover={hover ? { y: -4, scale: 1.02 } : {}}
+      whileHover={hover ? { y: -6, scale: 1.02 } : {}}
       whileTap={onClick ? { scale: 0.97 } : {}}
       onClick={onClick}
-      className={`bg-neutral-0 rounded-2xl shadow-md border border-neutral-100 ${pads[padding]} ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`bg-white rounded-3xl shadow-card border border-surface-100 ${pads[padding]} ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      style={hover ? { transition: 'box-shadow 0.3s ease' } : {}}
     >
       {children}
     </Element>
@@ -33,12 +34,12 @@ interface BadgeProps {
   size?: 'sm' | 'md';
 }
 
-export function Badge({ children, color = '#7C4DFF', size = 'md' }: BadgeProps) {
+export function Badge({ children, color = '#30BCE6', size = 'md' }: BadgeProps) {
   const cls = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm';
   return (
     <span
       className={`inline-flex items-center font-bold rounded-full ${cls}`}
-      style={{ backgroundColor: color + '20', color }}
+      style={{ backgroundColor: color + '18', color }}
     >
       {children}
     </span>
@@ -53,7 +54,7 @@ interface AvatarProps {
 }
 
 const dims = { sm: 32, md: 48, lg: 64 };
-const leagueColors = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', diamond: '#B9F2FF' };
+const leagueColors = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FDDB33', diamond: '#30BCE6' };
 
 export function Avatar({ src, name, size = 'md', league }: AvatarProps) {
   const d = dims[size];
@@ -63,7 +64,7 @@ export function Avatar({ src, name, size = 'md', league }: AvatarProps) {
   return (
     <div
       style={{ width: d, height: d, borderColor, borderWidth: league ? 3 : 0 }}
-      className="rounded-full overflow-hidden bg-primary-100 flex items-center justify-center font-extrabold text-primary-600 border-2 border-transparent"
+      className="rounded-full overflow-hidden bg-edu-blue/10 flex items-center justify-center font-extrabold text-edu-blue border-2 border-transparent"
     >
       {src ? (
         <img src={src} alt={name || ''} className="w-full h-full object-cover" />

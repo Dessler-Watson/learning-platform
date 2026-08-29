@@ -1,0 +1,14 @@
+[
+  { "id": 1, "curso_id": 1, "usuario_id": 2 },
+  { "id": 2, "curso_id": 1, "usuario_id": 3 },
+  { "id": 3, "curso_id": 1, "usuario_id": 4 },
+  { "id": 4, "curso_id": 2, "usuario_id": 3 },
+  { "id": 5, "curso_id": 2, "usuario_id": 5 },
+  { "id": 6, "curso_id": 3, "usuario_id": 2 },
+  { "id": 7, "curso_id": 3, "usuario_id": 4 },
+  { "id": 8, "curso_id": 3, "usuario_id": 5 },
+  { "id": 9, "curso_id": 4, "usuario_id": 2 },
+  { "id": 10, "curso_id": 4, "usuario_id": 3 },
+  { "id": 11, "curso_id": 4, "usuario_id": 4 },
+  { "id": 12, "curso_id": 4, "usuario_id": 5 }
+]

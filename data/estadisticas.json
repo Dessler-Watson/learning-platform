@@ -1,0 +1,10 @@
+[
+  { "id_estadistica": 1, "usuario_id": 2, "juego_id": 1, "partidas": 7, "victorias": 5, "derrotas": 2, "correctas": 45, "incorrectas": 18, "tiempo_promedio": 12.5 },
+  { "id_estadistica": 2, "usuario_id": 2, "juego_id": 2, "partidas": 6, "victorias": 3, "derrotas": 3, "correctas": 30, "incorrectas": 20, "tiempo_promedio": 15.2 },
+  { "id_estadistica": 3, "usuario_id": 3, "juego_id": 1, "partidas": 6, "victorias": 4, "derrotas": 2, "correctas": 40, "incorrectas": 15, "tiempo_promedio": 11.8 },
+  { "id_estadistica": 4, "usuario_id": 3, "juego_id": 2, "partidas": 5, "victorias": 4, "derrotas": 1, "correctas": 35, "incorrectas": 10, "tiempo_promedio": 10.5 },
+  { "id_estadistica": 5, "usuario_id": 4, "juego_id": 1, "partidas": 9, "victorias": 6, "derrotas": 3, "correctas": 55, "incorrectas": 25, "tiempo_promedio": 14.1 },
+  { "id_estadistica": 6, "usuario_id": 4, "juego_id": 2, "partidas": 6, "victorias": 2, "derrotas": 4, "correctas": 25, "incorrectas": 30, "tiempo_promedio": 16.3 },
+  { "id_estadistica": 7, "usuario_id": 5, "juego_id": 1, "partidas": 4, "victorias": 2, "derrotas": 2, "correctas": 20, "incorrectas": 15, "tiempo_promedio": 13.0 },
+  { "id_estadistica": 8, "usuario_id": 5, "juego_id": 2, "partidas": 2, "victorias": 1, "derrotas": 1, "correctas": 10, "incorrectas": 8, "tiempo_promedio": 18.1 }
+]

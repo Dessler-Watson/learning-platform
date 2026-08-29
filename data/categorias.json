@@ -1,0 +1,8 @@
+[
+  { "id_categoria": 1, "cuestionario_id": 1, "nombre": "Derechos Humanos", "descripcion": "Preguntas sobre derechos fundamentales de las personas" },
+  { "id_categoria": 2, "cuestionario_id": 1, "nombre": "Igualdad de Género", "descripcion": "Preguntas sobre equidad y género" },
+  { "id_categoria": 3, "cuestionario_id": 1, "nombre": "Prevención de Violencia", "descripcion": "Preguntas sobre prevención de la violencia" },
+  { "id_categoria": 4, "cuestionario_id": 2, "nombre": "Derechos Humanos Avanzado", "descripcion": "Preguntas detalladas sobre derechos humanos" },
+  { "id_categoria": 5, "cuestionario_id": 2, "nombre": "Igualdad de Género Avanzado", "descripcion": "Preguntas detalladas sobre igualdad de género" },
+  { "id_categoria": 6, "cuestionario_id": 2, "nombre": "Prevención de Violencia Avanzado", "descripcion": "Preguntas detalladas sobre prevención de violencia" }
+]

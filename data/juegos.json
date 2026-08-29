@@ -1,0 +1,5 @@
+[
+  { "id_juego": 1, "nombre": "Camino de las Decisiones", "descripcion": "Avanza por un camino celestial eligiendo entre dos puertas. Responde correctamente para seguir, falla y serás eliminado.", "imagen": "camino_decisiones.png" },
+  { "id_juego": 2, "nombre": "La Lava del Conocimiento", "descripcion": "Sobrevive al ascenso de la lava respondiendo preguntas. Cada acierto te eleva, cada error hace subir la lava.", "imagen": "lava_conocimiento.png" },
+  { "id_juego": 3, "nombre": "Modo Estudio", "descripcion": "Modo individual tipo Duolingo para aprender a tu propio ritmo con preguntas de opción múltiple.", "imagen": "modo_estudio.png" }
+]

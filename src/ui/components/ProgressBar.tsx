@@ -11,13 +11,13 @@ interface ProgressBarProps {
   animate?: boolean;
 }
 
-export function ProgressBar({ value, max = 100, color = '#7C4DFF', showLabel, size = 'md', animate = true }: ProgressBarProps) {
+export function ProgressBar({ value, max = 100, color = '#30BCE6', showLabel, size = 'md', animate = true }: ProgressBarProps) {
   const pct = Math.min(Math.max((value / max) * 100, 0), 100);
   const h = size === 'sm' ? 6 : 10;
 
   return (
     <div className="w-full">
-      <div style={{ height: h }} className="rounded-full bg-neutral-200 overflow-hidden">
+      <div style={{ height: h }} className="rounded-full bg-surface-200 overflow-hidden">
         <motion.div
           initial={animate ? { width: 0 } : { width: `${pct}%` }}
           animate={{ width: `${pct}%` }}
@@ -26,7 +26,7 @@ export function ProgressBar({ value, max = 100, color = '#7C4DFF', showLabel, si
         />
       </div>
       {showLabel && (
-        <span className="text-xs text-neutral-500 mt-1 block text-right font-semibold">
+        <span className="text-xs text-surface-500 mt-1 block text-right font-semibold">
           {Math.round(pct)}%
         </span>
       )}
@@ -35,5 +35,5 @@ export function ProgressBar({ value, max = 100, color = '#7C4DFF', showLabel, si
 }
 
 export function XPBar({ value, max = 100 }: { value: number; max?: number }) {
-  return <ProgressBar value={value} max={max} color="linear-gradient(90deg, #7C4DFF, #FF6B9D)" size="sm" />;
+  return <ProgressBar value={value} max={max} color="#30BCE6" size="sm" />;
 }

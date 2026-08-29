@@ -1,0 +1,8 @@
+[
+  { "id_avatar": 1, "nombre": "Aventurero", "imagen": "aventurero.png", "desbloqueado": true },
+  { "id_avatar": 2, "nombre": "Explorador", "imagen": "explorador.png", "desbloqueado": true },
+  { "id_avatar": 3, "nombre": "Sabio", "imagen": "sabio.png", "desbloqueado": true },
+  { "id_avatar": 4, "nombre": "Guerrero", "imagen": "guerrero.png", "desbloqueado": true },
+  { "id_avatar": 5, "nombre": "Mago", "imagen": "mago.png", "desbloqueado": false },
+  { "id_avatar": 6, "nombre": "Ninja", "imagen": "ninja.png", "desbloqueado": false }
+]

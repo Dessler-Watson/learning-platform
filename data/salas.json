@@ -1,0 +1,56 @@
+[
+  {
+    "id_sala": 1,
+    "juego_id": 1,
+    "creador_id": 1,
+    "codigo": "CD-001",
+    "tipo": "privada",
+    "estado": "esperando",
+    "max_jugadores": 8
+  },
+  {
+    "id_sala": 2,
+    "juego_id": 2,
+    "creador_id": 1,
+    "codigo": "LV-001",
+    "tipo": "privada",
+    "estado": "esperando",
+    "max_jugadores": 8
+  },
+  {
+    "id_sala": 3,
+    "juego_id": 1,
+    "creador_id": 2,
+    "codigo": "CD-ABC",
+    "tipo": "publica",
+    "estado": "jugando",
+    "max_jugadores": 6
+  },
+  {
+    "id_sala": 4,
+    "juego_id": 2,
+    "creador_id": 3,
+    "codigo": "LV-XYZ",
+    "tipo": "publica",
+    "estado": "esperando",
+    "max_jugadores": 8
+  },
+  {
+    "id_sala": 5,
+    "juego_id": 3,
+    "creador_id": 1,
+    "codigo": "ES-001",
+    "tipo": "privada",
+    "estado": "esperando",
+    "max_jugadores": 1
+  },
+  {
+    "id_sala": 6,
+    "juego_id": 3,
+    "creador_id": 1,
+    "codigo": "6rt5",
+    "tipo": "privada",
+    "estado": "esperando",
+    "max_jugadores": 8
+  }
+]

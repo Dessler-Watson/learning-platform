@@ -1,0 +1,9 @@
+[
+  { "id_resultado": 1, "partida_id": 1, "usuario_id": 2, "puntaje": 120, "copas": 30, "posicion": 1, "correctas": 6, "incorrectas": 1 },
+  { "id_resultado": 2, "partida_id": 1, "usuario_id": 3, "puntaje": 90, "copas": 20, "posicion": 2, "correctas": 4, "incorrectas": 3 },
+  { "id_resultado": 3, "partida_id": 1, "usuario_id": 4, "puntaje": 60, "copas": 10, "posicion": 3, "correctas": 3, "incorrectas": 4 },
+  { "id_resultado": 4, "partida_id": 2, "usuario_id": 4, "puntaje": 140, "copas": 35, "posicion": 1, "correctas": 7, "incorrectas": 1 },
+  { "id_resultado": 5, "partida_id": 2, "usuario_id": 2, "puntaje": 100, "copas": 25, "posicion": 2, "correctas": 5, "incorrectas": 3 },
+  { "id_resultado": 6, "partida_id": 3, "usuario_id": 3, "puntaje": 110, "copas": 30, "posicion": 1, "correctas": 5, "incorrectas": 2 },
+  { "id_resultado": 7, "partida_id": 3, "usuario_id": 5, "puntaje": 80, "copas": 15, "posicion": 2, "correctas": 4, "incorrectas": 3 }
+]

@@ -1,10 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Fredoka } from 'next/font/google';
+import { Baloo_2 } from 'next/font/google';
 import styles from './WoodenButton.module.css';
 
-const fredoka = Fredoka({
+const baloo = Baloo_2({
   subsets: ['latin'],
   weight: ['600', '700'],
   display: 'swap',
@@ -31,7 +31,7 @@ export function WoodenButton({ title, subtitle, onClick }: WoodenButtonProps) {
         className={styles.bg}
         draggable={false}
       />
-      <div className={`${styles.content} ${fredoka.className}`}>
+      <div className={`${styles.content} ${baloo.className}`}>
         <span className={styles.title}>{title}</span>
         {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
       </div>

@@ -1,0 +1,9 @@
+[
+  { "id_usuario": 1, "avatar_id": 1, "nombre": "Prof. Ana García", "correo": "ana@ejemplo.com", "rol": "docente", "estado": "activo", "fecha_registro": "2026-01-15T10:00:00Z" },
+  { "id_usuario": 2, "avatar_id": 2, "nombre": "Carlos López", "correo": "carlos@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-02-01T10:00:00Z" },
+  { "id_usuario": 3, "avatar_id": 3, "nombre": "María Pérez", "correo": "maria@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-02-10T10:00:00Z" },
+  { "id_usuario": 4, "avatar_id": 4, "nombre": "José Martínez", "correo": "jose@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-03-01T10:00:00Z" },
+  { "id_usuario": 5, "avatar_id": 1, "nombre": "Laura Rodríguez", "correo": "laura@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-03-15T10:00:00Z" },
+  { "id_usuario": 6, "avatar_id": 2, "nombre": "Pedro Sánchez", "correo": "pedro@ejemplo.com", "rol": "estudiante", "estado": "inactivo", "fecha_registro": "2026-04-01T10:00:00Z" },
+  { "id_usuario": 7, "avatar_id": 3, "nombre": "Prof. Luis Torres", "correo": "luis@ejemplo.com", "rol": "docente", "estado": "activo", "fecha_registro": "2026-04-10T10:00:00Z" }
+]
