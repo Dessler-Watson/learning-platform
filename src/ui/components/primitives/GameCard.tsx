@@ -51,7 +51,7 @@ export function GameCard({ title, description, color, colorSecondary, route, ava
       </div>
 
       <div style={{ padding: '18px 18px 16px' }}>
-        <h3 style={{ color: '#344054', fontSize: 17, fontWeight: 800, margin: '0 0 6px', fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{title}</h3>
+        <h3 style={{ color: '#344054', fontSize: 17, fontWeight: 800, margin: '0 0 6px', fontFamily: "inherit" }}>{title}</h3>
         <p style={{ color: '#6B7A94', fontSize: 12, margin: '0 0 14px', lineHeight: 1.5 }}>{description}</p>
         <motion.button
           whileHover={available ? { scale: 1.04 } : {}}
@@ -63,7 +63,7 @@ export function GameCard({ title, description, color, colorSecondary, route, ava
             background: `linear-gradient(135deg, ${color}, ${color}dd)`,
             color: '#fff', fontSize: 15, fontWeight: 800, cursor: available ? 'pointer' : 'default',
             boxShadow: `0 4px 16px ${color}40`,
-            fontFamily: "var(--font-baloo), system-ui, sans-serif",
+            fontFamily: "inherit",
           }}
         >
           🎮 Jugar

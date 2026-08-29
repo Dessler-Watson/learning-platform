@@ -33,7 +33,7 @@ export function WelcomePage() {
           </motion.div>
           <h1 style={{
             fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 900, margin: 0,
-            fontFamily: "var(--font-baloo), system-ui, sans-serif",
+            fontFamily: "inherit",
             letterSpacing: '-0.01em',
           }}>
             <span style={{ color: '#1E2A3A' }}>Edu</span>
@@ -85,7 +85,7 @@ function WelcomeBtn({ title, subtitle, color, onClick }: { title: string; subtit
         color: '#fff', border: 'none', borderRadius: 20,
         cursor: 'pointer', textAlign: 'center',
         boxShadow: `0 6px 24px ${color}55`,
-        fontFamily: "var(--font-baloo), system-ui, sans-serif",
+        fontFamily: "inherit",
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 700 }}>{title}</div>

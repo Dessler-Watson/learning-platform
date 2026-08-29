@@ -49,7 +49,7 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.2 }}
             style={{
               fontSize: 'clamp(42px, 10vw, 56px)', fontWeight: 800, margin: 0,
-              fontFamily: "var(--font-baloo), system-ui, sans-serif", lineHeight: 1,
+              fontFamily: "inherit", lineHeight: 1,
               letterSpacing: '-0.02em',
             }}
           >
@@ -67,7 +67,7 @@ export default function Home() {
             fontSize: 18, 
             margin: '0 0 32px', 
             fontWeight: 600,
-            fontFamily: "var(--font-nunito), system-ui, sans-serif",
+            fontFamily: "inherit",
           }}
         >
           ¡Aprender es una aventura!
@@ -85,7 +85,7 @@ export default function Home() {
             fontSize: 14, fontWeight: 700, letterSpacing: 1,
             marginBottom: 24,
             boxShadow: '0 4px 12px rgba(253, 219, 51, 0.3)',
-            fontFamily: "var(--font-baloo), system-ui, sans-serif",
+            fontFamily: "inherit",
           }}
         >
           CONTINUAR COMO
@@ -164,7 +164,7 @@ function RoleCard({ icon, title, subtitle, color, borderColor, onClick }: {
       <div style={{ flex: 1, minWidth: 0 }}>
         <h3 style={{
           margin: '0 0 4px', fontSize: 20, fontWeight: 800,
-          fontFamily: "var(--font-baloo), system-ui, sans-serif", color,
+          fontFamily: "inherit", color,
           letterSpacing: '-0.01em',
         }}>
           {title}
@@ -174,7 +174,7 @@ function RoleCard({ icon, title, subtitle, color, borderColor, onClick }: {
           fontSize: 14, 
           color: '#6B7A94', 
           fontWeight: 600,
-          fontFamily: "var(--font-nunito), system-ui, sans-serif",
+          fontFamily: "inherit",
         }}>
           {subtitle}
         </p>

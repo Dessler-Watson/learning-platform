@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 
 export default function EstudiantePage() {
@@ -18,20 +19,28 @@ export default function EstudiantePage() {
           width: '100%', maxWidth: 420, padding: '32px 24px',
         }}
       >
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 40, height: 40, borderRadius: '50%',
-            background: '#fff', border: '2px solid #C8EFFA',
-            color: '#30BCE6', marginBottom: 16,
-          }}
-          aria-label="Volver al inicio"
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          style={{ marginBottom: 24 }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: 20, height: 20 }}>
-            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
-          </svg>
-        </Link>
+          <Link
+            href="/"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              textDecoration: 'none', cursor: 'pointer',
+              color: '#6B7A94', fontSize: 14, fontWeight: 800,
+              padding: '12px 20px', borderRadius: 14,
+              background: 'rgba(255,255,255,0.7)',
+              border: '2px solid #E4EAF4',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <ArrowLeft size={18} />
+            Volver
+          </Link>
+        </motion.div>
 
         <div style={{ textAlign: 'center' }}>
           <motion.div
@@ -66,7 +75,7 @@ export default function EstudiantePage() {
             />
             <span style={{
               fontSize: 34, fontWeight: 800, lineHeight: 1,
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
               letterSpacing: '-0.01em',
             }}>
               <span style={{ color: '#1E2A3A' }}>Edu</span>
@@ -80,7 +89,7 @@ export default function EstudiantePage() {
             transition={{ delay: 0.3 }}
             style={{
               color: '#1E2A3A', fontSize: 32, fontWeight: 900,
-              fontFamily: "var(--font-baloo), system-ui, sans-serif", margin: '0 0 6px',
+              fontFamily: "inherit", margin: '0 0 6px',
             }}
           >
             Iniciar sesión
@@ -169,7 +178,7 @@ function OptionCard({ icon, title, subtitle, color, borderColor, href }: {
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{
             margin: '0 0 4px', fontSize: 20, fontWeight: 800,
-            fontFamily: "var(--font-baloo), system-ui, sans-serif", color,
+            fontFamily: "inherit", color,
             lineHeight: 1.2, letterSpacing: '-0.01em',
           }}>
             {title}

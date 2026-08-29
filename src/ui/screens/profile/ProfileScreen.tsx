@@ -27,7 +27,7 @@ export function ProfileScreen() {
           <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
             onClick={() => { window.location.href = '/inicio'; }}
             style={{ width: 40, height: 40, borderRadius: 14, border: 'none', background: 'rgba(240,135,169,0.12)', color: '#344054', fontSize: 18, cursor: 'pointer' }}>&larr;</motion.button>
-          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>Mi Perfil</h1>
+          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: "inherit" }}>Mi Perfil</h1>
         </motion.div>
 
         <motion.div variants={it} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
@@ -36,7 +36,7 @@ export function ProfileScreen() {
             overflow: 'hidden', boxShadow: '0 8px 30px rgba(240,135,169,0.3)', marginBottom: 14,
             border: '4px solid #F087A9',
           }}><img src="/images/logo.svg" alt="EduPlay" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
-          <h2 style={{ color: '#344054', fontSize: 24, fontWeight: 800, margin: '0 0 2px', fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{DATA.name}</h2>
+          <h2 style={{ color: '#344054', fontSize: 24, fontWeight: 800, margin: '0 0 2px', fontFamily: "inherit" }}>{DATA.name}</h2>
           <p style={{ color: '#6B7A94', fontSize: 13, fontWeight: 700, margin: 0 }}>Miembro desde {DATA.joined}</p>
         </motion.div>
 
@@ -63,14 +63,14 @@ export function ProfileScreen() {
               background: 'linear-gradient(135deg, #F087A9, #D96B91)',
               color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer',
               boxShadow: '0 4px 16px rgba(240,135,169,0.3)',
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
             }}>✏️ Editar perfil</motion.button>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
             style={{
               width: '100%', padding: '15px', borderRadius: 18,
               border: '2px solid #E4EAF4', background: 'rgba(255,255,255,0.6)',
               color: '#344054', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
             }}>📷 Cambiar avatar</motion.button>
         </motion.div>
       </motion.div>
@@ -82,7 +82,7 @@ function StatBox({ icon, value, label, color, bg }: { icon: string; value: strin
   return (
     <div style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 20, background: bg, border: '1px solid rgba(0,0,0,0.04)' }}>
       <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-      <div style={{ color, fontSize: 15, fontWeight: 800, fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{value}</div>
+      <div style={{ color, fontSize: 15, fontWeight: 800, fontFamily: "inherit" }}>{value}</div>
       {label && <div style={{ color: '#6B7A94', fontSize: 11, fontWeight: 700, marginTop: 2 }}>{label}</div>}
     </div>
   );
@@ -95,7 +95,7 @@ function InfoRow({ icon, label, value, accent }: { icon: string; label: string; 
         <span style={{ fontSize: 16 }}>{icon}</span>
         <span style={{ color: '#6B7A94', fontSize: 13, fontWeight: 700 }}>{label}</span>
       </div>
-      <span style={{ color: accent || '#344054', fontSize: 14, fontWeight: 800, fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{value}</span>
+      <span style={{ color: accent || '#344054', fontSize: 14, fontWeight: 800, fontFamily: "inherit" }}>{value}</span>
     </div>
   );
 }

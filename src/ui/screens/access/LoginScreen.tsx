@@ -38,7 +38,7 @@ export function LoginScreen() {
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <img src="/images/logo.svg" alt="EduPlay" style={{ width: 72, height: 'auto', display: 'block', margin: '0 auto' }} draggable={false} />
-          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '8px 0 4px', fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>Bienvenido de vuelta</h1>
+          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '8px 0 4px', fontFamily: "inherit" }}>Bienvenido de vuelta</h1>
           <p style={{ color: '#6B7A94', fontSize: 13, margin: 0 }}>Inicia sesion para continuar</p>
         </div>
 
@@ -53,7 +53,7 @@ export function LoginScreen() {
                 border: `2px solid ${errors.email ? '#E94930' : '#E4EAF4'}`,
                 background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
                 boxSizing: 'border-box', transition: 'border-color 0.2s',
-                fontFamily: "var(--font-nunito), system-ui, sans-serif",
+                fontFamily: "inherit",
               }}
               onFocus={e => { if (!errors.email) e.target.style.borderColor = '#30BCE6'; }}
               onBlur={e => { if (!errors.email) e.target.style.borderColor = '#E4EAF4'; }}
@@ -71,7 +71,7 @@ export function LoginScreen() {
                 border: `2px solid ${errors.password ? '#E94930' : '#E4EAF4'}`,
                 background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
                 boxSizing: 'border-box', transition: 'border-color 0.2s',
-                fontFamily: "var(--font-nunito), system-ui, sans-serif",
+                fontFamily: "inherit",
               }}
               onFocus={e => { if (!errors.password) e.target.style.borderColor = '#30BCE6'; }}
               onBlur={e => { if (!errors.password) e.target.style.borderColor = '#E4EAF4'; }}
@@ -88,7 +88,7 @@ export function LoginScreen() {
               background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
               color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer',
               marginTop: 4, boxShadow: '0 4px 16px rgba(48, 188, 230, 0.35)',
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
             }}
           >
             Iniciar sesion

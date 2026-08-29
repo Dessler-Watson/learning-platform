@@ -44,7 +44,7 @@ export function DashboardScreen() {
             </motion.button>
             <div>
               <p style={{ color: '#6B7A94', fontSize: 12, fontWeight: 700, margin: 0 }}>Bienvenido!</p>
-              <h2 style={{ color: '#344054', fontSize: 20, fontWeight: 800, margin: '2px 0 0', fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{DATA.name}</h2>
+              <h2 style={{ color: '#344054', fontSize: 20, fontWeight: 800, margin: '2px 0 0', fontFamily: "inherit" }}>{DATA.name}</h2>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -99,7 +99,7 @@ export function DashboardScreen() {
               <span style={{ fontSize: 48, opacity: 0.9 }}>🎮</span>
             </div>
             <div style={{ padding: '14px 20px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginBottom: 2, fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>JUGAR!</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginBottom: 2, fontFamily: "inherit" }}>JUGAR!</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>Tu aventura te espera</div>
             </div>
           </motion.button>
@@ -147,7 +147,7 @@ function Stat({ icon, value, color }: { icon: string; value: string; color: stri
   return (
     <div>
       <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-      <div style={{ color, fontSize: 15, fontWeight: 800, fontFamily: "var(--font-baloo), system-ui, sans-serif" }}>{value}</div>
+      <div style={{ color, fontSize: 15, fontWeight: 800, fontFamily: "inherit" }}>{value}</div>
     </div>
   );
 }
@@ -161,7 +161,7 @@ function NavPill({ icon, label, href, color }: { icon: string; label: string; hr
         background: `${color}20`, color: '#344054',
         fontSize: 13, fontWeight: 700, cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        fontFamily: "var(--font-baloo), system-ui, sans-serif",
+        fontFamily: "inherit",
       }}>
       {icon} {label}
     </motion.button>

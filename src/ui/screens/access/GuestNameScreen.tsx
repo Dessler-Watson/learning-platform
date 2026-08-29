@@ -37,6 +37,29 @@ export function GuestNameScreen() {
           width: '100%', maxWidth: 420, padding: '32px 24px',
         }}
       >
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          style={{ marginBottom: 24 }}
+        >
+          <Link
+            href="/estudiante"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              textDecoration: 'none', cursor: 'pointer',
+              color: '#6B7A94', fontSize: 14, fontWeight: 800,
+              padding: '12px 20px', borderRadius: 14,
+              background: 'rgba(255,255,255,0.7)',
+              border: '2px solid #E4EAF4',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <ArrowLeft size={18} />
+            Volver
+          </Link>
+        </motion.div>
+
         <div style={{ textAlign: 'center' }}>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -95,7 +118,7 @@ export function GuestNameScreen() {
             transition={{ delay: 0.3 }}
             style={{
               color: '#1E2A3A', fontSize: 30, fontWeight: 900,
-              fontFamily: "var(--font-baloo), system-ui, sans-serif", margin: '0 0 6px',
+              fontFamily: "inherit", margin: '0 0 6px',
             }}
           >
             ¿Cómo te llamas?
@@ -133,7 +156,7 @@ export function GuestNameScreen() {
                 width: '100%', padding: '15px 48px 15px 48px', borderRadius: 18,
                 border: '2px solid #E4EAF4', background: '#fff',
                 color: '#1E2A3A', fontSize: 16, outline: 'none', boxSizing: 'border-box',
-                fontFamily: "var(--font-nunito), system-ui, sans-serif", fontWeight: 700,
+                fontFamily: "inherit", fontWeight: 700,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
               }}
               onFocus={e => { e.target.style.borderColor = '#30BCE6'; e.target.style.boxShadow = '0 0 0 4px rgba(48,188,230,0.12)'; }}
@@ -158,7 +181,7 @@ export function GuestNameScreen() {
               border: '2px dashed #FDDB33', background: '#FFF8D6',
               color: '#D4A600', fontSize: 15, fontWeight: 800,
               cursor: 'pointer', marginBottom: 14,
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             }}
           >
@@ -175,7 +198,7 @@ export function GuestNameScreen() {
               width: '100%', padding: '16px', borderRadius: 18, border: 'none',
               background: '#8CD54D', color: '#fff',
               fontSize: 17, fontWeight: 800, cursor: 'pointer',
-              fontFamily: "var(--font-baloo), system-ui, sans-serif",
+              fontFamily: "inherit",
               boxShadow: '0 4px 16px rgba(140,213,77,0.35)',
               opacity: name.trim() ? 1 : 0.6,
               transition: 'opacity 0.2s',
@@ -192,22 +215,6 @@ export function GuestNameScreen() {
           }}>
             Tu progreso no se guardará porque estás jugando como invitado.
           </p>
-
-          <Link
-            href="/"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              marginTop: 24, color: '#6B7A94', fontSize: 14,
-              fontWeight: 800, textDecoration: 'none',
-              padding: '12px 20px', borderRadius: 14,
-              background: 'rgba(255,255,255,0.7)',
-              border: '2px solid #E4EAF4',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <ArrowLeft size={18} />
-            Volver al inicio
-          </Link>
         </motion.div>
       </motion.div>
     </main>
