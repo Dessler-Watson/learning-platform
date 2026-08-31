@@ -120,7 +120,7 @@ export default function Home() {
             subtitle="Gestiona tus clases y alumnos"
             color="#F087A9"
             borderColor="#FFE4ED"
-            onClick={() => router.push('/login-docente')}
+            onClick={() => router.push('/panel/login')}
           />
         </motion.div>
       </motion.div>

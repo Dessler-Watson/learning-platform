@@ -1,47 +1,49 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Card, CardContent } from '../ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { ConfirmDialog } from '../ui/confirm-dialog';
-import { PageHeader } from '../components/shared/PageHeader';
-import { SearchBar } from '../components/shared/SearchBar';
-import { EmptyState } from '../components/shared/EmptyState';
-import { StatusBadge } from '../components/shared/StatusBadge';
-import { BackButton } from '../components/shared/BackButton';
-import { GameIcon, GAME_ICON_COLORS } from '../ui/game-icons';
-import { AIGenerateModal } from '../components/shared/AIGenerateModal';
-import { GeneratedQuestion } from '../lib/aiGenerator';
-import { usePanelStore } from '../store/usePanelStore';
-import { useToast } from '../ui/toast';
-import { audioManager } from '../lib/audio';
-import { useClickLock } from '../hooks/useClickLock';
-import { cursosService, juegosService, preguntasService } from '../services';
-import { Curso, Juego } from '../types';
-import { formatDateTime } from '../utils';
+import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles, ArrowLeft, Book, HelpCircle } from 'lucide-react';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Label } from '../../../ui/label';
+import { Textarea } from '../../../ui/textarea';
+import { Card, CardContent } from '../../../ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { ConfirmDialog } from '../../../ui/confirm-dialog';
+import { PageHeader } from '../../../components/shared/PageHeader';
+import { SearchBar } from '../../../components/shared/SearchBar';
+import { EmptyState } from '../../../components/shared/EmptyState';
 
-const c = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+import { BackButton } from '../../../components/shared/BackButton';
+import { GameIcon, GAME_ICON_COLORS } from '../../../ui/game-icons';
+import { AIGenerateModal } from '../../../components/shared/AIGenerateModal';
+import { GeneratedQuestion } from '../../../lib/aiGenerator';
+import { usePanelStore } from '../../../store/usePanelStore';
+import { useToast } from '../../../ui/toast';
+import { audioManager } from '../../../lib/audio';
+import { useClickLock } from '../../../hooks/useClickLock';
+import { cursosService, juegosService, preguntasService } from '../../../services';
+import { CursoConDetalles } from '../../../services';
+import { Curso, Juego } from '../../../types';
+import { formatDateTime } from '../../../utils';
+
+const st = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const it = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } } };
 
 interface CursoForm {
   nombre: string;
   descripcion: string;
   estado: 'activo' | 'inactivo' | 'borrador';
-  gameModeId: string;
 }
 
-const DEFAULT_FORM: CursoForm = { nombre: '', descripcion: '', estado: 'activo', gameModeId: '' };
+const DEFAULT_FORM: CursoForm = { nombre: '', descripcion: '', estado: 'activo' };
 
-export default function CursosPage() {
+export default function CursosPorJuegoPage() {
+  const params = useParams();
   const router = useRouter();
+  const gameModeId = params.id as string;
   const teacherId = usePanelStore((s) => s.docente?.id);
   const cursoCopiado = usePanelStore((s) => s.cursoCopiado);
   const setCursoCopiado = usePanelStore((s) => s.setCursoCopiado);
@@ -49,8 +51,8 @@ export default function CursosPage() {
   const { toast } = useToast();
   const clickLock = useClickLock();
 
-  const [cursos, setCursos] = useState<Curso[]>([]);
-  const [juegos, setJuegos] = useState<Juego[]>([]);
+  const [cursos, setCursos] = useState<CursoConDetalles[]>([]);
+  const [juego, setJuego] = useState<Juego | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -71,14 +73,14 @@ export default function CursosPage() {
   useEffect(() => {
     if (!teacherId) return;
     Promise.all([
-      cursosService.obtenerTodos(teacherId),
-      juegosService.obtenerTodos(teacherId),
+      cursosService.obtenerPorGameMode(teacherId, gameModeId),
+      juegosService.obtenerPorId(gameModeId),
     ]).then(([c, j]) => {
       setCursos(c);
-      setJuegos(j);
+      setJuego(j ?? null);
       setLoading(false);
     });
-  }, [teacherId]);
+  }, [teacherId, gameModeId]);
 
   const filtered = cursos.filter(
     (c) =>
@@ -86,11 +88,9 @@ export default function CursosPage() {
       c.descripcion.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getJuegoNombre = (gameModeId: string) => juegos.find((j) => j.id === gameModeId)?.nombre ?? '';
-
   const openCreate = () => {
     setEditingCurso(null);
-    setForm({ ...DEFAULT_FORM, gameModeId: juegos[0]?.id ?? '' });
+    setForm(DEFAULT_FORM);
     setFormOpen(true);
   };
 
@@ -100,7 +100,6 @@ export default function CursosPage() {
       nombre: curso.nombre,
       descripcion: curso.descripcion,
       estado: curso.estado,
-      gameModeId: curso.gameModeId,
     });
     setFormOpen(true);
     setMenuOpen(null);
@@ -117,12 +116,12 @@ export default function CursosPage() {
       await cursosService.actualizar(editingCurso.id, form);
       toast('Curso actualizado correctamente.');
     } else {
-      await cursosService.crear(teacherId, { ...form });
+      await cursosService.crear(teacherId, { ...form, gameModeId });
       toast('Curso creado correctamente.');
     }
     audioManager.play('success');
     setFormOpen(false);
-    const updated = await cursosService.obtenerTodos(teacherId);
+    const updated = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
     setCursos(updated);
   };
 
@@ -133,7 +132,7 @@ export default function CursosPage() {
     toast('Curso eliminado.');
     setDeleteOpen(false);
     setDeleteTarget(null);
-    const updated = await cursosService.obtenerTodos(teacherId!);
+    const updated = await cursosService.obtenerPorGameMode(teacherId!, gameModeId);
     setCursos(updated);
   };
 
@@ -156,18 +155,18 @@ export default function CursosPage() {
 
   const handlePegar = async () => {
     if (!teacherId || !cursoCopiado || !clickLock()) return;
-    const existe = await cursosService.existeCursoConNombre(teacherId, cursoCopiado.curso.gameModeId, pasteName);
+    const existe = await cursosService.existeCursoConNombre(teacherId, gameModeId, pasteName);
     if (existe) {
       toast('Ya existe un curso con ese nombre en este modo de juego.', 'error');
       return;
     }
     audioManager.play('submit');
-    await cursosService.pegarCurso(teacherId, cursoCopiado.curso.gameModeId, cursoCopiado, pasteName);
+    await cursosService.pegarCurso(teacherId, gameModeId, cursoCopiado, pasteName);
     limpiarCursoCopiado();
     setPasteOpen(false);
     toast('Curso pegado correctamente.');
     audioManager.play('success');
-    const updated = await cursosService.obtenerTodos(teacherId);
+    const updated = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
     setCursos(updated);
   };
 
@@ -178,14 +177,14 @@ export default function CursosPage() {
       nombre: courseName || 'Curso generado con IA',
       descripcion: 'Curso creado automaticamente con IA',
       estado: 'activo',
-      gameModeId: juegos[0]?.id ?? '',
+      gameModeId,
     });
 
     for (const q of generated) {
       const opciones: [string, string] = [q.optionA, q.optionB];
       const respuestaCorrecta = q.correctAnswer === 'A' ? opciones[0] : opciones[1];
       await preguntasService.crear(teacherId, {
-        juegoId: nuevoCurso.gameModeId,
+        juegoId: gameModeId,
         cursoId: nuevoCurso.id,
         enunciado: q.question,
         opciones,
@@ -196,7 +195,7 @@ export default function CursosPage() {
 
     toast(`Curso generado correctamente. Se agregaron ${generated.length} preguntas.`);
     audioManager.play('success');
-    const refreshed = await cursosService.obtenerTodos(teacherId);
+    const refreshed = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
     setCursos(refreshed);
   };
 
@@ -208,11 +207,28 @@ export default function CursosPage() {
     );
   }
 
+  const totalCursos = cursos.length;
+  const totalPreguntas = cursos.reduce((sum, c) => sum + c.totalPreguntas, 0);
+
   return (
     <div className="relative z-10">
-      <motion.div variants={c} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={st} initial="hidden" animate="show" className="space-y-6">
         <motion.div variants={it}>
-          <PageHeader title="Cursos" description="Gestiona tus cursos y contenido educativo">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => { audioManager.play('navigate'); router.push('/panel'); }}
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            {juego && (
+              <div className="flex items-center gap-2">
+                <GameIcon juegoId={gameModeId} size={20} />
+                <span className="text-sm font-semibold text-foreground">{juego.nombre}</span>
+              </div>
+            )}
+          </div>
+          <PageHeader title="Cursos" description={`Gestiona los cursos de ${juego?.nombre ?? 'este modo de juego'}`}>
             <div className="flex items-center gap-2">
               {cursoCopiado && (
                 <Button variant="outline" onClick={() => { audioManager.play('click'); openPaste(); }}>
@@ -232,6 +248,31 @@ export default function CursosPage() {
             </div>
           </PageHeader>
         </motion.div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <motion.div variants={it}>
+            <Card variant="cyan">
+              <CardContent className="p-4 text-center">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50">
+                  <Book className="h-5 w-5 text-cyan-500" />
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalCursos}</p>
+                <p className="text-xs text-gray-400">Total cursos</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div variants={it}>
+            <Card variant="emerald">
+              <CardContent className="p-4 text-center">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                  <HelpCircle className="h-5 w-5 text-emerald-500" />
+                </div>
+                <p className="text-2xl font-bold text-foreground">{totalPreguntas}</p>
+                <p className="text-xs text-gray-400">Total preguntas</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
 
         {cursoCopiado && (
           <motion.div variants={it}>
@@ -264,7 +305,6 @@ export default function CursosPage() {
             <AnimatePresence>
               {filtered.map((curso) => {
                 const iconColors = GAME_ICON_COLORS[curso.gameModeId];
-                const juegoNombre = getJuegoNombre(curso.gameModeId);
                 return (
                   <motion.div
                     key={curso.id}
@@ -273,11 +313,8 @@ export default function CursosPage() {
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                     whileHover={{ y: -3, scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group relative rounded-3xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-sm transition-all hover:shadow-glow-cyan hover:border-cyan-300 card-shimmer card-corner-decoration overflow-hidden"
+                    className="group relative rounded-3xl border border-violet-200 bg-white p-5 shadow-sm transition-all hover:shadow-glow-violet hover:border-violet-300"
                   >
-                    {/* Decorative elements */}
-                    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-cyan-300 opacity-[0.04] pointer-events-none" />
-                    <div className="absolute -bottom-5 -left-5 h-16 w-16 rounded-full bg-emerald-300 opacity-[0.03] pointer-events-none" />
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
                         <BookOpen className="h-5 w-5 text-gray-400" />
@@ -292,7 +329,7 @@ export default function CursosPage() {
                         {menuOpen === curso.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(null)} />
-                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-cyan-200 bg-white py-1 shadow-md">
+                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-violet-200 bg-white py-1 shadow-md">
                               <button onClick={() => openEdit(curso)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
                                 <Pencil className="h-3.5 w-3.5 text-gray-400" /> Editar curso
                               </button>
@@ -313,21 +350,10 @@ export default function CursosPage() {
                     </div>
                     <h3 className="font-bold tracking-tight text-foreground">{curso.nombre}</h3>
                     <p className="mt-1 text-sm text-gray-400 line-clamp-2">{curso.descripcion || 'Sin descripcion'}</p>
-                    <div className="mt-3 flex items-center gap-2">
-                      {curso.gameModeId && (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${iconColors?.bg ?? 'bg-gray-50'} ${iconColors?.text ?? 'text-gray-500'}`}>
-                          <GameIcon juegoId={curso.gameModeId} size={12} />
-                          {juegoNombre}
-                        </span>
-                      )}
-                      <StatusBadge
-                        label={curso.estado}
-                        className={
-                          curso.estado === 'activo' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
-                          curso.estado === 'inactivo' ? 'bg-gray-50 text-gray-400 border border-gray-200' :
-                          'bg-amber-50 text-amber-600 border border-amber-200'
-                        }
-                      />
+
+                    <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                      <span>{curso.totalEstudiantes} estudiantes</span>
+                      <span>{curso.totalPreguntas} preguntas</span>
                     </div>
                     <p className="mt-2 text-xs text-gray-400">{formatDateTime(curso.fechaCreacion)}</p>
                     <Button
@@ -371,19 +397,6 @@ export default function CursosPage() {
                 value={form.descripcion}
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Modo de juego</Label>
-              <Select value={form.gameModeId} onValueChange={(v) => setForm({ ...form, gameModeId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar modo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {juegos.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>{j.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label>Estado</Label>
@@ -444,7 +457,7 @@ export default function CursosPage() {
       <AIGenerateModal
         open={aiModalOpen}
         onOpenChange={setAiModalOpen}
-        gameModeName={juegos[0]?.nombre ?? 'Camino de Decisiones'}
+        gameModeName={juego?.nombre ?? 'Camino de Decisiones'}
         onQuestionsGenerated={handleAiQuestionsGenerated}
       />
     </div>
