@@ -68,19 +68,11 @@ export default function EstudiantePage() {
             }}
           >
             <img
-              src="/images/logo.svg"
+              src="/images/logo.png"
               alt="EduPlay"
-              style={{ width: 100, height: 100, objectFit: 'contain' }}
+              style={{ width: 155, height: 155, objectFit: 'contain' }}
               draggable={false}
             />
-            <span style={{
-              fontSize: 34, fontWeight: 800, lineHeight: 1,
-              fontFamily: "inherit",
-              letterSpacing: '-0.01em',
-            }}>
-              <span style={{ color: '#1E2A3A' }}>Edu</span>
-              <span style={{ color: '#30BCE6' }}>Play</span>
-            </span>
           </motion.div>
 
           <motion.h1
@@ -88,8 +80,7 @@ export default function EstudiantePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             style={{
-              color: '#1E2A3A', fontSize: 32, fontWeight: 900,
-              fontFamily: "inherit", margin: '0 0 6px',
+              color: '#1E2A3A', fontSize: 32, fontWeight: 900, margin: '0 0 6px',
             }}
           >
             Iniciar sesión
@@ -177,8 +168,7 @@ function OptionCard({ icon, title, subtitle, color, borderColor, href }: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{
-            margin: '0 0 4px', fontSize: 20, fontWeight: 800,
-            fontFamily: "inherit", color,
+            margin: '0 0 4px', fontSize: 20, fontWeight: 800, color,
             lineHeight: 1.2, letterSpacing: '-0.01em',
           }}>
             {title}

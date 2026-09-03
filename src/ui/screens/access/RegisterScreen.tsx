@@ -29,7 +29,6 @@ export function RegisterScreen() {
     border: `2px solid ${hasError ? '#E94930' : '#E4EAF4'}`,
     background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
     boxSizing: 'border-box', transition: 'border-color 0.2s',
-    fontFamily: "inherit",
   });
 
   return (
@@ -48,8 +47,8 @@ export function RegisterScreen() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img src="/images/logo.svg" alt="EduPlay" style={{ width: 72, height: 'auto', display: 'block', margin: '0 auto' }} draggable={false} />
-          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '10px 0 4px', fontFamily: "inherit" }}>Crear cuenta</h1>
+          <img src="/images/logo.png" alt="EduPlay" style={{ width: 110, height: 'auto', display: 'block', margin: '0 auto' }} draggable={false} />
+          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '10px 0 4px' }}>Crear cuenta</h1>
           <p style={{ color: '#6B7A94', fontSize: 13, margin: 0 }}>Completa tus datos para comenzar</p>
         </div>
 
@@ -126,7 +125,6 @@ export function RegisterScreen() {
               background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
               color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer',
               marginTop: 4, boxShadow: '0 4px 16px rgba(48, 188, 230, 0.35)',
-              fontFamily: "inherit",
             }}
           >
             Crear cuenta
@@ -148,7 +146,6 @@ export function RegisterScreen() {
             border: '2px solid #E4EAF4', background: '#fff',
             color: '#344054', fontSize: 15, fontWeight: 800, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            fontFamily: "inherit",
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ width: 20, height: 20 }}>

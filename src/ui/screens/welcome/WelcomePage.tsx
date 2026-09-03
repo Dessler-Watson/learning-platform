@@ -25,20 +25,12 @@ export function WelcomePage() {
             style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}
           >
             <img
-              src="/images/logo.svg"
+              src="/images/logo.png"
               alt="EduPlay"
-              style={{ width: 'clamp(100px, 22vw, 160px)', height: 'auto' }}
+              style={{ width: 'clamp(130px, 28vw, 220px)', height: 'auto' }}
               draggable={false}
             />
           </motion.div>
-          <h1 style={{
-            fontSize: 'clamp(32px, 8vw, 48px)', fontWeight: 900, margin: 0,
-            fontFamily: "inherit",
-            letterSpacing: '-0.01em',
-          }}>
-            <span style={{ color: '#1E2A3A' }}>Edu</span>
-            <span style={{ color: '#30BCE6' }}>Play</span>
-          </h1>
           <p style={{
             color: '#fff', fontSize: 16, margin: '8px 0 0', fontWeight: 700,
             textShadow: '0 2px 12px rgba(0,0,0,0.3)',
@@ -85,7 +77,6 @@ function WelcomeBtn({ title, subtitle, color, onClick }: { title: string; subtit
         color: '#fff', border: 'none', borderRadius: 20,
         cursor: 'pointer', textAlign: 'center',
         boxShadow: `0 6px 24px ${color}55`,
-        fontFamily: "inherit",
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 700 }}>{title}</div>

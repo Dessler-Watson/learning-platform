@@ -21,6 +21,12 @@ export function GuestNameScreen() {
 
   const start = () => {
     const finalName = name.trim() || NAMES[Math.floor(Math.random() * NAMES.length)];
+    localStorage.setItem('eduplay_user', JSON.stringify({
+      id_usuario: 0,
+      nombre: finalName,
+      avatar_id: 1,
+      modo: 'invitado',
+    }));
     window.location.href = '/inicio';
   };
 
@@ -81,35 +87,17 @@ export function GuestNameScreen() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
             style={{
-              position: 'relative', width: 110, height: 110, margin: '0 auto 12px',
-              borderRadius: '50%', padding: 4, background: '#FDDB33',
+              width: 190, height: 190, margin: '0 auto 20px',
+              borderRadius: '50%', overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <div style={{ width: '100%', height: '100%', borderRadius: '50%', padding: 3, background: '#fff', boxSizing: 'border-box' }}>
-              <div style={{
-                width: '100%', height: '100%', borderRadius: '50%',
-                border: '2.5px solid #30BCE6', background: '#E9F7DB',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 56, boxSizing: 'border-box',
-              }}>
-                🐢
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              background: '#30BCE6', color: '#fff',
-              padding: '6px 16px', borderRadius: 999,
-              fontSize: 12, fontWeight: 900, letterSpacing: 0.4,
-              marginBottom: 16,
-            }}
-          >
-            ¡TU COMPAÑERO!
+            <img
+              src="/images/logo.png"
+              alt="EduPlay"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              draggable={false}
+            />
           </motion.div>
 
           <motion.h1
@@ -117,8 +105,7 @@ export function GuestNameScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             style={{
-              color: '#1E2A3A', fontSize: 30, fontWeight: 900,
-              fontFamily: "inherit", margin: '0 0 6px',
+              color: '#1E2A3A', fontSize: 30, fontWeight: 900, margin: '0 0 6px',
             }}
           >
             ¿Cómo te llamas?
@@ -155,8 +142,7 @@ export function GuestNameScreen() {
               style={{
                 width: '100%', padding: '15px 48px 15px 48px', borderRadius: 18,
                 border: '2px solid #E4EAF4', background: '#fff',
-                color: '#1E2A3A', fontSize: 16, outline: 'none', boxSizing: 'border-box',
-                fontFamily: "inherit", fontWeight: 700,
+                color: '#1E2A3A', fontSize: 16, outline: 'none', boxSizing: 'border-box', fontWeight: 700,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
               }}
               onFocus={e => { e.target.style.borderColor = '#30BCE6'; e.target.style.boxShadow = '0 0 0 4px rgba(48,188,230,0.12)'; }}
@@ -181,7 +167,6 @@ export function GuestNameScreen() {
               border: '2px dashed #FDDB33', background: '#FFF8D6',
               color: '#D4A600', fontSize: 15, fontWeight: 800,
               cursor: 'pointer', marginBottom: 14,
-              fontFamily: "inherit",
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             }}
           >
@@ -198,7 +183,6 @@ export function GuestNameScreen() {
               width: '100%', padding: '16px', borderRadius: 18, border: 'none',
               background: '#8CD54D', color: '#fff',
               fontSize: 17, fontWeight: 800, cursor: 'pointer',
-              fontFamily: "inherit",
               boxShadow: '0 4px 16px rgba(140,213,77,0.35)',
               opacity: name.trim() ? 1 : 0.6,
               transition: 'opacity 0.2s',

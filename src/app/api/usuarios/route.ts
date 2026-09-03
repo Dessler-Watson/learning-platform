@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readData } from '@/lib/data';
 
-interface Usuario { id_usuario: number; avatar_id: number; nombre: string; correo: string; rol: string; estado: string; fecha_registro: string; }
+interface Usuario { id_usuario: number; avatar_id: number; nombre: string; apellido?: string; correo: string; rol: string; estado: string; fecha_registro: string; }
 interface Avatar { id_avatar: number; nombre: string; }
 
 export async function GET(req: NextRequest) {
@@ -14,7 +14,9 @@ export async function GET(req: NextRequest) {
 
   let result = usuarios.map(u => ({
     id_usuario: u.id_usuario,
+    avatar_id: u.avatar_id,
     nombre: u.nombre,
+    apellido: u.apellido || '',
     correo: u.correo,
     rol: u.rol,
     estado: u.estado,

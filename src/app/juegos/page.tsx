@@ -52,7 +52,7 @@ export default function JuegosPage() {
           >
             🎮
           </motion.span>
-          <h1 style={{ color: '#344054', fontSize: 28, fontWeight: 900, margin: '0 0 6px', fontFamily: "inherit" }}>
+          <h1 style={{ color: '#344054', fontSize: 28, fontWeight: 900, margin: '0 0 6px' }}>
             Elige tu aventura
           </h1>
           <p style={{ color: '#6B7A94', fontSize: 15, margin: 0 }}>

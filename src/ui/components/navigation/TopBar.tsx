@@ -7,7 +7,7 @@ export function TopBar() {
       background: 'rgba(255,248,231,0.8)', backdropFilter: 'blur(12px)',
       borderBottom: '1px solid rgba(0,0,0,0.04)',
     }}>
-      <span style={{ color: '#344054', fontSize: 18, fontWeight: 800, fontFamily: "inherit" }}>EduPlay</span>
+      <span style={{ color: '#344054', fontSize: 18, fontWeight: 800 }}>EduPlay</span>
       <span style={{ color: '#6B7A94', fontSize: 13, fontWeight: 600 }}>Plataforma Educativa</span>
     </header>
   );

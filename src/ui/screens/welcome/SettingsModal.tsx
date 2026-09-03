@@ -34,7 +34,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
               boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
             }}
           >
-            <h2 style={{ color: '#344054', fontSize: 20, fontWeight: 800, margin: '0 0 20px', textAlign: 'center', fontFamily: "inherit" }}>
+            <h2 style={{ color: '#344054', fontSize: 20, fontWeight: 800, margin: '0 0 20px', textAlign: 'center' }}>
               ⚙️ Ajustes
             </h2>
 
@@ -60,7 +60,6 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
                 width: '100%', padding: '14px', borderRadius: 18,
                 border: 'none', background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
                 color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer',
-                fontFamily: "inherit",
               }}
             >
               Cerrar

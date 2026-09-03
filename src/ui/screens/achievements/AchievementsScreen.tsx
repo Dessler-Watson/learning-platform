@@ -33,7 +33,7 @@ export function AchievementsScreen() {
             onClick={() => { window.location.href = '/inicio'; }}
             style={{ width: 40, height: 40, borderRadius: 14, border: 'none', background: 'rgba(253,219,51,0.15)', color: '#344054', fontSize: 18, cursor: 'pointer' }}>&larr;</motion.button>
           <div>
-            <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: "inherit" }}>Logros</h1>
+            <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0 }}>Logros</h1>
             <p style={{ color: '#6B7A94', fontSize: 12, fontWeight: 700, margin: '2px 0 0' }}>Desbloquea nuevas medallas mientras aprendes</p>
           </div>
         </motion.div>
@@ -47,7 +47,7 @@ export function AchievementsScreen() {
         }}>
           <div style={{ fontSize: 40 }}>🏅</div>
           <div style={{ flex: 1 }}>
-            <div style={{ color: '#344054', fontSize: 20, fontWeight: 800, fontFamily: "inherit" }}>{done} de {total}</div>
+            <div style={{ color: '#344054', fontSize: 20, fontWeight: 800 }}>{done} de {total}</div>
             <div style={{ color: '#6B7A94', fontSize: 12, fontWeight: 700 }}>logros desbloqueados</div>
             <div style={{ marginTop: 8, height: 8, background: 'rgba(0,0,0,0.08)', borderRadius: 4 }}>
               <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.3 }}

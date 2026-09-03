@@ -75,9 +75,6 @@
 .bubble3 { animation: float3 13s ease-in-out infinite; }
 .bubble4 { animation: float4 18s ease-in-out infinite; }
 .bubble5 { animation: float5 22s ease-in-out infinite; }
-.bubble6 { animation: float6 15s ease-in-out infinite; }
-.bubble7 { animation: float7 19s ease-in-out infinite; }
-.bubble8 { animation: float8 17s ease-in-out infinite; }
 
 /* Reducir movimiento si el usuario lo prefiere */
 @media (prefers-reduced-motion: reduce) {

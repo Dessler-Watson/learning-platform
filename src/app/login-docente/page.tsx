@@ -22,7 +22,6 @@ export default function LoginDocentePage() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: 20,
-      fontFamily: "inherit",
     }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -58,7 +57,7 @@ export default function LoginDocentePage() {
           >
             <span style={{ fontSize: 28 }}>👨‍🏫</span>
           </motion.div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#344054', margin: '0 0 8px', fontFamily: "inherit" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#344054', margin: '0 0 8px' }}>
             Panel Docente
           </h1>
           <p style={{ color: '#6B7A94', fontSize: 14, margin: 0 }}>
@@ -86,7 +85,6 @@ export default function LoginDocentePage() {
                 outline: 'none',
                 boxSizing: 'border-box',
                 transition: 'border-color 0.2s',
-                fontFamily: "inherit",
               }}
               placeholder="docente@ejemplo.com"
               onFocus={(e) => { e.target.style.borderColor = '#F087A9'; }}
@@ -113,7 +111,6 @@ export default function LoginDocentePage() {
                 outline: 'none',
                 boxSizing: 'border-box',
                 transition: 'border-color 0.2s',
-                fontFamily: "inherit",
               }}
               placeholder="••••••••"
               onFocus={(e) => { e.target.style.borderColor = '#F087A9'; }}
@@ -136,7 +133,6 @@ export default function LoginDocentePage() {
               fontWeight: 800,
               cursor: 'pointer',
               boxShadow: '0 4px 16px rgba(240, 135, 169, 0.35)',
-              fontFamily: "inherit",
               marginTop: 4,
             }}
           >
