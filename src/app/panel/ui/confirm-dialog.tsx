@@ -63,7 +63,7 @@ export function ConfirmDialog({
                   'rounded-xl px-4 py-2 text-sm font-bold text-white transition-all active:scale-[0.98]',
                   variant === 'destructive'
                     ? 'bg-rose-500 hover:bg-rose-600'
-                    : 'bg-cyan-500 hover:bg-cyan-600'
+                    : 'bg-[#407516] hover:bg-[#35610F]'
                 )}
               >
                 {confirmLabel}

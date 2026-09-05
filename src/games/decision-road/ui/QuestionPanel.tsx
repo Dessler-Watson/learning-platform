@@ -29,7 +29,7 @@ export function QuestionPanel() {
           {/* Etiqueta PREGUNTA */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 640, marginBottom: 10 }}>
             <span style={{
-              background: 'linear-gradient(135deg, #F087A9, #D96B91)',
+              background: 'linear-gradient(135deg, #EB5D70, #EB5D70)',
               color: '#fff', padding: '6px 18px', borderRadius: 999,
               fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
               boxShadow: '0 4px 12px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
@@ -47,7 +47,7 @@ export function QuestionPanel() {
             boxShadow: '0 12px 40px rgba(30,42,58,0.18), 0 2px 8px rgba(0,0,0,0.06)',
           }}>
             <p style={{
-              color: '#1E2A3A', fontSize: 18, fontWeight: 700, textAlign: 'center',
+              color: '#2A1E0E', fontSize: 18, fontWeight: 700, textAlign: 'center',
               margin: 0, lineHeight: 1.35,
             }}>
               {question.statement}

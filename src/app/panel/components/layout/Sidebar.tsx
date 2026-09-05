@@ -74,24 +74,7 @@ export function Sidebar() {
     <div className="relative flex h-full flex-col overflow-hidden">
       <div className="relative z-10 flex h-full flex-col">
       <div className="flex h-16 items-center gap-3 border-b border-gray-100/60 px-5">
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-md">
-          <img src="/images/logo.svg" alt="EDUPLAY" className="h-full w-full object-contain" />
-        </div>
-        <AnimatePresence mode="wait">
-          {showLabels && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.15 }}
-              className="overflow-hidden"
-            >
-              <p className="text-base font-bold tracking-tight text-foreground">
-                <span className="text-cyan-500">Edu</span><span className="text-pink-500">Play</span>
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <img src="/images/logo.png" alt="Logo" className="h-9 w-auto object-contain" draggable={false} />
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">

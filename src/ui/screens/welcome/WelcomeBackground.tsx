@@ -1,7 +1,7 @@
 'use client';
 
-import { BubbleBackground } from '@/ui/components/primitives/BubbleBackground';
+import { DoodleBackground } from '@/ui/components/primitives/DoodleBackground';
 
 export function WelcomeBackground() {
-  return <BubbleBackground />;
+  return <DoodleBackground />;
 }

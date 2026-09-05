@@ -11,7 +11,7 @@ interface ProgressBarProps {
   animate?: boolean;
 }
 
-export function ProgressBar({ value, max = 100, color = '#30BCE6', showLabel, size = 'md', animate = true }: ProgressBarProps) {
+export function ProgressBar({ value, max = 100, color = '#00A0B5', showLabel, size = 'md', animate = true }: ProgressBarProps) {
   const pct = Math.min(Math.max((value / max) * 100, 0), 100);
   const h = size === 'sm' ? 6 : 10;
 
@@ -35,5 +35,5 @@ export function ProgressBar({ value, max = 100, color = '#30BCE6', showLabel, si
 }
 
 export function XPBar({ value, max = 100 }: { value: number; max?: number }) {
-  return <ProgressBar value={value} max={max} color="#30BCE6" size="sm" />;
+  return <ProgressBar value={value} max={max} color="#00A0B5" size="sm" />;
 }

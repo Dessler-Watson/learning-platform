@@ -149,7 +149,7 @@ export default function CrearSalaPage() {
                   <button
                     key={t}
                     onClick={() => { audioManager.play('select'); setTiempoPorPregunta(t); }}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${tiempoPorPregunta === t ? 'bg-cyan-500 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${tiempoPorPregunta === t ? 'bg-[#407516] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                   >
                     {t}
                   </button>

@@ -1,14 +1,84 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, Home, X } from 'lucide-react';
+
 export function GameMenuButton() {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   return (
     <>
-      <motion.button whileHover={{ scale: 1.08, backgroundColor: 'rgba(255,255,255,0.25)' }} whileTap={{ scale: 0.94 }} onClick={() => setOpen(true)} style={{ position: 'fixed', top: 14, right: 14, zIndex: 100, width: 44, height: 44, borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>☰</motion.button>
-      <AnimatePresence>{open && (<><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setOpen(false); setConfirm(false); }} style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'rgba(0,0,0,0.4)' }} /><motion.div initial={{ x: 280 }} animate={{ x: 0 }} exit={{ x: 280 }} transition={{ type: 'spring', stiffness: 300, damping: 28 }} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 100, width: 260, background: 'rgba(15,15,25,0.96)', backdropFilter: 'blur(20px)', borderLeft: '1px solid rgba(255,255,255,0.06)', padding: '60px 20px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}><button onClick={() => setConfirm(true)} style={{ width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>🏠 Volver al menú</button></motion.div></>)}</AnimatePresence>
-      <AnimatePresence>{confirm && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><motion.div initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ background: 'rgba(22,22,34,0.98)', borderRadius: 22, padding: '28px 24px 20px', maxWidth: 340, width: '88%', textAlign: 'center', border: '1px solid rgba(255,255,255,0.06)' }}><p style={{ color: '#fff', fontSize: 16, fontWeight: 700, margin: '0 0 20px' }}>¿Deseas salir de la partida?</p><div style={{ display: 'flex', gap: 10 }}><button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#ccc', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button><button onClick={() => { window.location.href = '/juegos'; }} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #FF4B4B, #CC3333)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Salir</button></div></motion.div></motion.div>)}</AnimatePresence>
+      <motion.button
+        whileHover={{ scale: 1.08, backgroundColor: 'rgba(255,255,255,0.25)' }}
+        whileTap={{ scale: 0.94 }}
+        onClick={() => setOpen(true)}
+        className="fixed right-3.5 top-3.5 z-[100] flex h-11 w-11 items-center justify-center rounded-xl border-none bg-white/10 text-white backdrop-blur-md"
+        style={{ fontSize: 20 }}
+      >
+        <Menu size={22} />
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setOpen(false); setConfirm(false); }}
+              className="fixed inset-0 z-[99] bg-black/40"
+            />
+            <motion.div
+              initial={{ x: 280 }}
+              animate={{ x: 0 }}
+              exit={{ x: 280 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="fixed bottom-0 right-0 top-0 z-[100] flex w-64 flex-col gap-3 border-l border-white/5 bg-surface-900/95 p-5 pt-16 backdrop-blur-xl"
+            >
+              <button
+                onClick={() => setConfirm(true)}
+                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+              >
+                <Home size={18} /> Volver al menu
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-[88%] max-w-sm rounded-[22px] border border-white/5 bg-surface-900/95 p-6 text-center"
+            >
+              <p className="mb-5 text-base font-bold text-white">Deseas salir de la partida?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirm(false)}
+                  className="flex-1 rounded-xl border border-white/10 bg-transparent py-3 text-sm font-semibold text-surface-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { window.location.href = '/inicio'; }}
+                  className="flex-1 rounded-xl bg-edu-pink py-3 text-sm font-bold text-white"
+                >
+                  Salir
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

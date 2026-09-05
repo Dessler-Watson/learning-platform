@@ -33,7 +33,7 @@ const RANGOS = [
   { nombre: 'Bronce', min: 0, max: 999, color: '#B87333', barColor: 'linear-gradient(90deg, #B87333, #CD7F32)', next: 'Plata' },
   { nombre: 'Plata', min: 1000, max: 2499, color: '#94A3B8', barColor: 'linear-gradient(90deg, #94A3B8, #CBD5E1)', next: 'Oro' },
   { nombre: 'Oro', min: 2500, max: 4999, color: '#FDDB33', barColor: 'linear-gradient(90deg, #FDDB33, #FDF293)', next: 'Diamante' },
-  { nombre: 'Diamante', min: 5000, max: Infinity, color: '#30BCE6', barColor: 'linear-gradient(90deg, #30BCE6, #5CCDF0)', next: null },
+  { nombre: 'Diamante', min: 5000, max: Infinity, color: '#30BCE6', barColor: 'linear-gradient(90deg, #30BCE6, #4DC8D8)', next: null },
 ];
 
 function getRango(puntos: number) {
@@ -81,8 +81,8 @@ export async function GET(req: NextRequest) {
       fecha_registro: usuario.fecha_registro,
       avatar: {
         id_avatar: avatar?.id_avatar || usuario.avatar_id,
-        nombre: avatar?.nombre || 'Aventurero',
-        imagen: avatar?.imagen || 'aventurero.png',
+        nombre: avatar?.nombre || 'Sacuanjoche',
+        imagen: avatar?.imagen || 'avatar1.png',
       },
     },
     puntos,
@@ -105,6 +105,7 @@ export async function PATCH(req: NextRequest) {
     const usuarioId = Number(body.usuario_id);
     const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : undefined;
     const apellido = typeof body.apellido === 'string' ? body.apellido.trim() : undefined;
+    const avatarId = body.avatar_id !== undefined ? Number(body.avatar_id) : NaN;
 
     if (!usuarioId) {
       return NextResponse.json({ error: 'usuario_id requerido' }, { status: 400 });
@@ -119,7 +120,18 @@ export async function PATCH(req: NextRequest) {
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
 
+    const avatares = readData<Avatar>('avatares');
+    if (!Number.isNaN(avatarId)) {
+      const existe = avatares.some(a => a.id_avatar === avatarId);
+      if (!existe) {
+        return NextResponse.json({ error: 'Avatar no encontrado' }, { status: 400 });
+      }
+      usuario.avatar_id = avatarId;
+    }
+
     writeData('usuarios', usuarios);
+
+    const avatar = avatares.find(a => a.id_avatar === usuario.avatar_id);
 
     return NextResponse.json({
       success: true,
@@ -128,6 +140,11 @@ export async function PATCH(req: NextRequest) {
         nombre: usuario.nombre,
         apellido: usuario.apellido || '',
         correo: usuario.correo,
+        avatar: {
+          id_avatar: avatar?.id_avatar || usuario.avatar_id,
+          nombre: avatar?.nombre || 'Sacuanjoche',
+          imagen: avatar?.imagen || 'avatar1.png',
+        },
       },
     });
   } catch {

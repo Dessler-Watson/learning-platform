@@ -1,10 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Mail, Lock, ArrowLeft } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 
@@ -51,106 +52,107 @@ export function LoginScreen() {
   };
 
   return (
-    <main style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <main className="relative flex min-h-screen items-center justify-center px-5 py-8">
       <Background />
+
       <motion.div
         initial={{ y: 20, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, type: 'spring', stiffness: 250, damping: 20 }}
-        style={{
-          position: 'relative', zIndex: 1,
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
-          borderRadius: 28, padding: '32px 24px 28px', maxWidth: 380, width: '90%',
-          border: '1px solid #E4EAF4',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-        }}
+        className="relative z-10 w-full max-w-sm rounded-[28px] border-2 border-white/70 bg-edu-cream/95 p-7 shadow-game-lg backdrop-blur-xl"
       >
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/images/logo.png" alt="EduPlay" style={{ width: 110, height: 'auto', display: 'block', margin: '0 auto' }} draggable={false} />
-          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '8px 0 4px' }}>Bienvenido de vuelta</h1>
-          <p style={{ color: '#6B7A94', fontSize: 13, margin: 0 }}>Inicia sesion para continuar</p>
+        <motion.button
+          whileHover={{ scale: 1.05, x: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => { window.location.href = '/estudiante'; }}
+          className="mb-4 flex items-center gap-2 text-sm font-black text-surface-500 transition-colors hover:text-surface-700"
+        >
+          <ArrowLeft size={18} /> Volver
+        </motion.button>
+
+        <div className="mb-6 text-center">
+          <img src="/images/logo.png" alt="Logo" className="mx-auto mb-3 h-auto w-32" draggable={false} />
+          <h1 className="text-2xl font-black text-surface-800">Bienvenido de vuelta</h1>
+          <p className="mt-1 text-sm font-bold text-surface-500">Inicia sesion para continuar</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <input
-              {...register('email')}
-              type="email"
-              placeholder="Correo electronico"
-              style={{
-                width: '100%', padding: '14px 16px', borderRadius: 16,
-                border: `2px solid ${errors.email ? '#E94930' : '#E4EAF4'}`,
-                background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
-                boxSizing: 'border-box', transition: 'border-color 0.2s',
-              }}
-              onFocus={e => { if (!errors.email) e.target.style.borderColor = '#30BCE6'; }}
-              onBlur={e => { if (!errors.email) e.target.style.borderColor = '#E4EAF4'; }}
-            />
-            {errors.email && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.email.message}</p>}
-          </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <InputRow
+            icon={<Mail size={18} />}
+            type="email"
+            placeholder="Correo electronico"
+            error={errors.email?.message}
+            register={register('email')}
+          />
 
-          <div>
-            <input
-              {...register('password')}
-              type="password"
-              placeholder="Contrasena"
-              style={{
-                width: '100%', padding: '14px 16px', borderRadius: 16,
-                border: `2px solid ${errors.password ? '#E94930' : '#E4EAF4'}`,
-                background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
-                boxSizing: 'border-box', transition: 'border-color 0.2s',
-              }}
-              onFocus={e => { if (!errors.password) e.target.style.borderColor = '#30BCE6'; }}
-              onBlur={e => { if (!errors.password) e.target.style.borderColor = '#E4EAF4'; }}
-            />
-            {errors.password && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.password.message}</p>}
-          </div>
+          <InputRow
+            icon={<Lock size={18} />}
+            type="password"
+            placeholder="Contrasena"
+            error={errors.password?.message}
+            register={register('password')}
+          />
 
           {loginError && (
-            <p style={{ color: '#E94930', fontSize: 13, textAlign: 'center', fontWeight: 700, margin: 0 }}>
-              {loginError}
-            </p>
+            <p className="text-center text-sm font-black text-edu-pink">{loginError}</p>
           )}
 
-            <motion.button
-              whileHover={{ scale: loading ? 1 : 1.02 }}
-              whileTap={{ scale: loading ? 1 : 0.97 }}
-              type="submit"
-              disabled={loading}
-              onClick={() => audioManager.play('submit')}
-            style={{
-              width: '100%', padding: '16px', borderRadius: 18, border: 'none',
-              background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
-              color: '#fff', fontSize: 16, fontWeight: 800, cursor: loading ? 'default' : 'pointer',
-              marginTop: 4, boxShadow: '0 4px 16px rgba(48, 188, 230, 0.35)',
-              opacity: loading ? 0.7 : 1,
-            }}
+          <motion.button
+            whileHover={{ scale: loading ? 1 : 1.02 }}
+            whileTap={{ scale: loading ? 1 : 0.97, y: 2 }}
+            type="submit"
+            disabled={loading}
+            onClick={() => audioManager.play('submit')}
+            className="btn-game mt-1 w-full rounded-xl bg-[#407516] py-4 text-base text-white disabled:opacity-70"
+            style={{ boxShadow: '0 6px 0 rgba(64, 117, 22, 0.4), 0 8px 24px rgba(64,117,22,0.3)' }}
           >
             {loading ? 'Iniciando...' : 'Iniciar sesion'}
           </motion.button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => { audioManager.play('click'); }} style={{ background: 'none', border: 'none', color: '#A0ADC4', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+        <div className="mt-5 flex flex-col gap-2 text-center">
+          <button onClick={() => { audioManager.play('click'); }} className="text-xs font-black text-surface-400 transition-colors hover:text-surface-600">
             Olvidaste tu contrasena?
           </button>
-          <button onClick={() => { audioManager.play('navigate'); window.location.href = '/registro'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
+          <button
+            onClick={() => { audioManager.play('navigate'); window.location.href = '/registro'; }}
+            className="text-sm font-black text-[#407516] transition-colors hover:text-edu-blue-dark"
+          >
             Crear cuenta
           </button>
         </div>
-
-        <motion.button
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => { audioManager.play('back'); window.location.href = '/estudiante'; }}
-          style={{
-            display: 'block', margin: '16px auto 0', background: 'none', border: 'none',
-            color: '#6B7A94', fontSize: 13, cursor: 'pointer', fontWeight: 700,
-          }}
-        >
-          &larr; Volver
-        </motion.button>
       </motion.div>
     </main>
+  );
+}
+
+function InputRow({
+  icon,
+  type,
+  placeholder,
+  error,
+  register,
+}: {
+  icon: React.ReactNode;
+  type: string;
+  placeholder: string;
+  error?: string;
+  register: UseFormRegisterReturn;
+}) {
+  return (
+    <div>
+      <div className="relative">
+        <div className="pointer-events-none absolute left-4 top-0 flex h-full items-center text-edu-orange">
+          {icon}
+        </div>
+        <input
+          {...register}
+          type={type}
+          placeholder={placeholder}
+          className={`input-game pl-11 ${error ? 'border-edu-pink' : ''}`}
+        />
+      </div>
+      {error && <p className="ml-1 mt-1 text-xs font-black text-edu-pink">{error}</p>}
+    </div>
   );
 }

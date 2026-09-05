@@ -58,7 +58,7 @@ export default function LoginPage() {
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: '#FFF8E7', isolation: 'isolate' }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: '#FFF7F2', isolation: 'isolate' }}>
       <AnimatedBackground variant="login" />
       <div className="relative z-10 w-full max-w-sm">
         <motion.div
@@ -74,13 +74,8 @@ export default function LoginPage() {
             className="text-center mb-6"
           >
             <div className="flex justify-center mb-3">
-              <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full shadow-lg">
-                <img src="/images/logo.svg" alt="EDUPLAY" className="h-full w-full object-contain" />
-              </div>
+              <img src="/images/logo.png" alt="Logo" className="h-auto w-28 object-contain drop-shadow-md" draggable={false} />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              <span className="text-cyan-500">Edu</span><span className="text-pink-500">Play</span>
-            </h1>
           </motion.div>
 
           <motion.div
@@ -225,11 +220,11 @@ export default function LoginPage() {
                         >
                           <div className={cn(
                             'flex h-8 w-8 items-center justify-center rounded-xl',
-                            account.role === 'admin' ? 'bg-amber-50' : 'bg-cyan-50'
+                            account.role === 'admin' ? 'bg-amber-50' : 'bg-[#407516]/10'
                           )}>
                             {account.role === 'admin'
                               ? <Shield className="h-4 w-4 text-amber-500" />
-                              : <Mail className="h-4 w-4 text-cyan-500" />
+                              : <Mail className="h-4 w-4 text-[#407516]" />
                             }
                           </div>
                           <div className="text-left">
@@ -250,14 +245,14 @@ export default function LoginPage() {
                     ¿No tienes cuenta?{' '}
                     <button
                       onClick={() => { audioManager.play('navigate'); router.push('/panel/register'); }}
-                      className="font-bold text-cyan-500 hover:underline"
+                      className="font-bold text-[#407516] hover:underline"
                     >
                       Crear cuenta
                     </button>
                   </p>
                   <button
                     onClick={() => { audioManager.play('navigate'); router.push('/'); }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300 text-cyan-500 transition-all duration-200 hover:bg-cyan-50 hover:border-cyan-400 hover:text-cyan-600 active:scale-95"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#407516]/40 text-[#407516] transition-all duration-200 hover:bg-[#407516]/10 hover:border-[#407516]/60 hover:text-[#407516] active:scale-95"
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </button>

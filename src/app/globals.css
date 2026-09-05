@@ -6,7 +6,7 @@
 
 html, body, #__next {
   width: 100%;
-  height: 100%;
+  min-height: 100vh;
   overflow-x: hidden;
   font-family: var(--font-nunito), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -14,11 +14,11 @@ html, body, #__next {
 }
 
 body {
-  background: #FFF8E7;
-  color: #344054;
+  background: #FFF7F2;
+  color: #4A3E32;
 }
 
-/* Tipografía global: Baloo 2 para títulos y elementos destacados */
+/* Tipografia global: Baloo 2 para titulos y elementos destacados */
 h1, h2, h3, h4, h5, h6,
 button,
 .font-baloo {
@@ -33,12 +33,12 @@ p, span, label, input, textarea, select,
 
 @layer base {
   ::selection {
-    background: #30BCE640;
-    color: #1E2A3A;
+    background: #00A0B540;
+    color: #2A1E0E;
   }
 
   :focus-visible {
-    outline: 3px solid #30BCE680;
+    outline: 3px solid #00A0B580;
     outline-offset: 2px;
     border-radius: 8px;
   }
@@ -50,10 +50,64 @@ p, span, label, input, textarea, select,
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #CDD6E4;
+    background: #E0D6C6;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #A0ADC4;
+    background: #B0A090;
+  }
+}
+
+@layer components {
+  /* Boton estilo videojuego: bloque solido con sombra inferior y press */
+  .btn-game {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-2xl border-none font-extrabold transition-transform;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.12);
+  }
+  .btn-game:active,
+  .btn-game[data-active='true'] {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.15), 0 3px 8px rgba(0,0,0,0.12);
+  }
+  .btn-game:disabled {
+    opacity: 0.65;
+    cursor: default;
+    transform: none;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  /* Tarjeta estilo bloque pastel */
+  .card-game {
+    @apply rounded-3xl bg-white;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.06), 0 6px 20px rgba(0,0,0,0.06);
+  }
+  .card-game-hover {
+    @apply transition-transform;
+  }
+  .card-game-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 0 rgba(0,0,0,0.06), 0 10px 28px rgba(0,0,0,0.1);
+  }
+
+  /* Input estilo formulario de juego */
+  .input-game {
+    @apply w-full rounded-2xl border-2 bg-surface-50 px-4 py-3.5 text-[15px] font-bold text-surface-800 outline-none transition-all;
+    border-color: #F0E6D6;
+  }
+  .input-game:focus {
+    border-color: #00A0B5;
+    box-shadow: 0 0 0 4px rgba(0,160,181,0.12);
+  }
+  .input-game::placeholder {
+    color: #B0A090;
+  }
+}
+
+@layer utilities {
+  .text-shadow-soft {
+    text-shadow: 0 2px 0 rgba(255,255,255,0.8);
+  }
+  .text-shadow-game {
+    text-shadow: 0 3px 0 rgba(0,0,0,0.12);
   }
 }

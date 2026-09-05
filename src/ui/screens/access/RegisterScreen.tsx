@@ -1,16 +1,51 @@
 ﻿'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { User, Mail, Lock, Calendar, ArrowLeft } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { AvatarPicker } from '@/ui/components/AvatarPicker';
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+function aniosDisponibles(): number[] {
+  const actual = new Date().getFullYear();
+  return Array.from({ length: 19 }, (_, i) => actual - i);
+}
+
+function fechaValida(dia: string, mes: string, anio: string): Date | null {
+  const d = Number(dia);
+  const m = Number(mes);
+  const a = Number(anio);
+  if (!dia || !mes || !anio || !d || !m || !a) return null;
+  const fecha = new Date(a, m - 1, d);
+  if (fecha.getFullYear() !== a || fecha.getMonth() !== m - 1 || fecha.getDate() !== d) return null;
+  return fecha;
+}
+
+function calcularEdad(fecha: Date | null): number | null {
+  if (!fecha) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - fecha.getFullYear();
+  const mes = hoy.getMonth() - fecha.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) edad--;
+  return edad;
+}
 
 const schema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   apellido: z.string().min(1, 'El apellido es obligatorio'),
-  edad: z.string().min(1, 'La edad es obligatoria').regex(/^\d+$/, 'Edad no valida'),
+  fecha_dia: z.string().min(1, 'Selecciona el dia'),
+  fecha_mes: z.string().min(1, 'Selecciona el mes'),
+  fecha_anio: z.string().min(1, 'Selecciona el año'),
+  sexo: z.enum(['masculino', 'femenino'], 'Selecciona tu sexo'),
   email: z.string().min(1, 'El correo es obligatorio').email('Correo no valido'),
   password: z.string().min(1, 'La contrasena es obligatoria').min(4, 'Minimo 4 caracteres'),
 });
@@ -18,166 +53,286 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function RegisterScreen() {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
-
-  const onSubmit = (data: FormData) => {
-    audioManager.play('submit');
-    console.log('Registro intentado:', { ...data, edad: Number(data.edad) });
-    window.location.href = '/inicio';
-  };
-
-  const inputStyle = (hasError: boolean): React.CSSProperties => ({
-    width: '100%', padding: '14px 16px', borderRadius: 16,
-    border: `2px solid ${hasError ? '#E94930' : '#E4EAF4'}`,
-    background: '#F8FAFE', color: '#344054', fontSize: 15, outline: 'none',
-    boxSizing: 'border-box', transition: 'border-color 0.2s',
+  const {
+    register, handleSubmit, control, watch,
+    formState: { errors },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    mode: 'onBlur',
+    defaultValues: {
+      nombre: '', apellido: '', fecha_dia: '', fecha_mes: '', fecha_anio: '',
+      sexo: undefined, email: '', password: '',
+    },
   });
 
+  const [avatarId, setAvatarId] = useState(1);
+  const [registering, setRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  const watchedFecha = watch(['fecha_dia', 'fecha_mes', 'fecha_anio']);
+  const fecha = fechaValida(watchedFecha[0], watchedFecha[1], watchedFecha[2]);
+  const edad = calcularEdad(fecha);
+  const edadInvalida = edad !== null && edad < 3;
+
+  const onSubmit = async (data: FormData) => {
+    if (edadInvalida) return;
+    setRegisterError(null);
+    setRegistering(true);
+    try {
+      const fechaNac = fechaValida(data.fecha_dia, data.fecha_mes, data.fecha_anio)!;
+      const anio = fechaNac.getFullYear();
+      const mes = String(fechaNac.getMonth() + 1).padStart(2, '0');
+      const dia = String(fechaNac.getDate()).padStart(2, '0');
+      const res = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: data.nombre,
+          apellido: data.apellido,
+          correo: data.email,
+          avatar_id: avatarId,
+          fecha_nacimiento: `${anio}-${mes}-${dia}`,
+          sexo: data.sexo,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setRegisterError(result.error || 'No se pudo crear la cuenta');
+        setRegistering(false);
+        return;
+      }
+      localStorage.setItem('eduplay_user', JSON.stringify({
+        id_usuario: result.usuario.id_usuario,
+        nombre: result.usuario.nombre,
+        avatar_id: result.usuario.avatar.id_avatar,
+        correo: result.usuario.correo,
+        modo: 'registrado',
+      }));
+      window.location.href = '/inicio';
+    } catch {
+      setRegisterError('Error de conexion. Intenta de nuevo.');
+      setRegistering(false);
+    }
+  };
+
   return (
-    <main style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 18px' }}>
+    <main className="relative flex min-h-screen items-center justify-center px-5 py-8">
       <Background />
+
       <motion.div
         initial={{ y: 20, opacity: 0, scale: 0.95 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, type: 'spring', stiffness: 250, damping: 20 }}
-        style={{
-          position: 'relative', zIndex: 1,
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
-          borderRadius: 28, padding: '32px 24px 28px', maxWidth: 420, width: '100%',
-          border: '1px solid #E4EAF4',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-        }}
+        className="relative z-10 w-full max-w-md rounded-[28px] border-2 border-white/70 bg-[#FFD8D8] p-7 shadow-game-lg backdrop-blur-xl"
       >
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <img src="/images/logo.png" alt="EduPlay" style={{ width: 110, height: 'auto', display: 'block', margin: '0 auto' }} draggable={false} />
-          <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: '10px 0 4px' }}>Crear cuenta</h1>
-          <p style={{ color: '#6B7A94', fontSize: 13, margin: 0 }}>Completa tus datos para comenzar</p>
+        <motion.button
+          whileHover={{ scale: 1.05, x: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => { window.location.href = '/estudiante'; }}
+          className="mb-4 flex items-center gap-2 text-sm font-black text-surface-500 transition-colors hover:text-surface-700"
+        >
+          <ArrowLeft size={18} /> Volver
+        </motion.button>
+
+        <div className="mb-5 text-center">
+          <motion.div
+            key={avatarId}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="mx-auto mb-2 h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-game-lg"
+            style={{ background: '#fff7ef' }}
+          >
+            <img
+              src={`/images/avatares/avatar${avatarId}.png`}
+              alt="Tu avatar"
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          </motion.div>
+          <h1 className="text-2xl font-black text-surface-800">Crear cuenta</h1>
+          <p className="mt-1 text-sm font-bold text-surface-500">Completa tus datos para comenzar</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <InputRow icon={<User size={16} />} type="text" placeholder="Nombre" error={errors.nombre?.message} register={register('nombre')} />
+            <InputRow icon={<User size={16} />} type="text" placeholder="Apellido" error={errors.apellido?.message} register={register('apellido')} />
+          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <input
-                {...register('nombre')}
-                type="text"
-                placeholder="Nombre"
-                style={inputStyle(!!errors.nombre)}
-                onFocus={e => { if (!errors.nombre) e.target.style.borderColor = '#30BCE6'; }}
-                onBlur={e => { if (!errors.nombre) e.target.style.borderColor = '#E4EAF4'; }}
+          <div>
+            <p className="mb-1.5 ml-1 flex items-center gap-2 text-xs font-black text-surface-600">
+              <Calendar size={14} className="text-edu-orange" /> Fecha de nacimiento
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <SelectBox
+                placeholder="Dia"
+                options={Array.from({ length: 31 }, (_, i) => String(i + 1))}
+                error={!!errors.fecha_dia}
+                register={register('fecha_dia')}
               />
-              {errors.nombre && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.nombre.message}</p>}
-            </div>
-
-            <div>
-              <input
-                {...register('apellido')}
-                type="text"
-                placeholder="Apellido"
-                style={inputStyle(!!errors.apellido)}
-                onFocus={e => { if (!errors.apellido) e.target.style.borderColor = '#30BCE6'; }}
-                onBlur={e => { if (!errors.apellido) e.target.style.borderColor = '#E4EAF4'; }}
+              <SelectBox
+                placeholder="Mes"
+                options={MESES.map((m, i) => ({ value: String(i + 1), label: m }))}
+                error={!!errors.fecha_mes}
+                register={register('fecha_mes')}
               />
-              {errors.apellido && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.apellido.message}</p>}
+              <SelectBox
+                placeholder="Año"
+                options={aniosDisponibles().map((a) => ({ value: String(a), label: String(a) }))}
+                error={!!errors.fecha_anio}
+                register={register('fecha_anio')}
+              />
             </div>
+            {edad !== null && (
+              <p
+                className={`mt-1.5 ml-1 inline-block rounded-full px-3 py-1 text-xs font-black ${
+                  edadInvalida ? 'bg-edu-pink-light/40 text-edu-pink' : 'bg-[#407516]/15 text-[#407516]'
+                }`}
+              >
+                Tu edad: {edad} {edad === 1 ? 'año' : 'años'}
+              </p>
+            )}
+            {edadInvalida && (
+              <p className="ml-1 mt-1 text-xs font-black text-edu-pink">
+                La aplicacion es para estudiantes de 3 años en adelante
+              </p>
+            )}
+            {errors.fecha_dia?.message && (
+              <p className="ml-1 mt-1 text-xs font-black text-edu-pink">{errors.fecha_dia?.message}</p>
+            )}
           </div>
 
           <div>
-            <input
-              {...register('edad')}
-              type="number"
-              placeholder="Edad"
-              style={inputStyle(!!errors.edad)}
-              onFocus={e => { if (!errors.edad) e.target.style.borderColor = '#30BCE6'; }}
-              onBlur={e => { if (!errors.edad) e.target.style.borderColor = '#E4EAF4'; }}
-            />
-            {errors.edad && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.edad.message}</p>}
+            <p className="mb-1.5 ml-1 text-xs font-black text-surface-600">Sexo</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Controller
+                control={control}
+                name="sexo"
+                render={({ field }) => (
+                  <>
+                    {[['masculino', 'Masculino'], ['femenino', 'Femenino']].map(([valor, etiqueta]) => {
+                      const activo = field.value === valor;
+                      return (
+                        <button
+                          key={valor}
+                          type="button"
+                          onClick={() => field.onChange(valor)}
+                          className={`rounded-xl border-2 py-3 text-sm font-black transition-all ${
+                            activo
+                              ? 'border-[#407516] bg-[#407516] text-white shadow-card'
+                              : 'border-surface-200 bg-white text-surface-500 hover:border-[#407516]/40'
+                          }`}
+                        >
+                          <span className="mr-1.5 text-base">{valor === 'masculino' ? '\u2642' : '\u2640'}</span>
+                          {etiqueta}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              />
+            </div>
+            {errors.sexo?.message && (
+              <p className="ml-1 mt-1 text-xs font-black text-edu-pink">{errors.sexo?.message}</p>
+            )}
           </div>
 
-          <div>
-            <input
-              {...register('email')}
-              type="email"
-              placeholder="Correo electronico"
-              style={inputStyle(!!errors.email)}
-              onFocus={e => { if (!errors.email) e.target.style.borderColor = '#30BCE6'; }}
-              onBlur={e => { if (!errors.email) e.target.style.borderColor = '#E4EAF4'; }}
-            />
-            {errors.email && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.email.message}</p>}
+          <InputRow icon={<Mail size={18} />} type="email" placeholder="Correo electronico" error={errors.email?.message} register={register('email')} />
+          <InputRow icon={<Lock size={18} />} type="password" placeholder="Contrasena" error={errors.password?.message} register={register('password')} />
+
+          <div className="mt-1">
+            <p className="mb-2 text-center text-xs font-black text-surface-500">Elige tu avatar</p>
+            <AvatarPicker selected={avatarId} onSelect={setAvatarId} />
           </div>
 
-          <div>
-            <input
-              {...register('password')}
-              type="password"
-              placeholder="Contrasena"
-              style={inputStyle(!!errors.password)}
-              onFocus={e => { if (!errors.password) e.target.style.borderColor = '#30BCE6'; }}
-              onBlur={e => { if (!errors.password) e.target.style.borderColor = '#E4EAF4'; }}
-            />
-            {errors.password && <p style={{ color: '#E94930', fontSize: 11, margin: '4px 0 0 4px', fontWeight: 700 }}>{errors.password.message}</p>}
-          </div>
+          {registerError && (
+            <p className="text-center text-sm font-black text-edu-pink">{registerError}</p>
+          )}
 
           <motion.button
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.97, y: 2 }}
             type="submit"
-            style={{
-              width: '100%', padding: '16px', borderRadius: 18, border: 'none',
-              background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
-              color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer',
-              marginTop: 4, boxShadow: '0 4px 16px rgba(48, 188, 230, 0.35)',
-            }}
+            disabled={registering || edadInvalida}
+            className="btn-game mt-1 w-full rounded-xl bg-[#407516] py-4 text-base text-white disabled:opacity-70"
+            style={{ boxShadow: edadInvalida ? undefined : '0 6px 0 rgba(64, 117, 22, 0.4), 0 8px 24px rgba(64,117,22,0.3)' }}
           >
-            Crear cuenta
+            {registering ? 'Creando cuenta...' : 'Crear cuenta'}
           </motion.button>
         </form>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
-          <div style={{ flex: 1, height: 1, background: '#E4EAF4' }} />
-          <span style={{ color: '#A0ADC4', fontSize: 12, fontWeight: 700 }}>o</span>
-          <div style={{ flex: 1, height: 1, background: '#E4EAF4' }} />
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => { audioManager.play('click'); }}
-          style={{
-            width: '100%', padding: '14px', borderRadius: 18,
-            border: '2px solid #E4EAF4', background: '#fff',
-            color: '#344054', fontSize: 15, fontWeight: 800, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ width: 20, height: 20 }}>
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-          </svg>
-          Iniciar con Google
-        </motion.button>
-
-        <p style={{ textAlign: 'center', color: '#6B7A94', fontSize: 13, margin: '16px 0 0' }}>
+        <p className="mt-5 text-center text-sm font-bold text-surface-500">
           Ya tienes cuenta?{' '}
-          <button onClick={() => { audioManager.play('navigate'); window.location.href = '/ingresar'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
+          <button onClick={() => { audioManager.play('navigate'); window.location.href = '/ingresar'; }} className="font-black text-[#407516] transition-colors hover:text-edu-blue-dark">
             Inicia sesion
           </button>
         </p>
-
-        <motion.button
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => { audioManager.play('back'); window.location.href = '/ingresar'; }}
-          style={{
-            display: 'block', margin: '16px auto 0', background: 'none', border: 'none',
-            color: '#6B7A94', fontSize: 13, cursor: 'pointer', fontWeight: 700,
-          }}
-        >
-          &larr; Volver
-        </motion.button>
       </motion.div>
     </main>
+  );
+}
+
+function InputRow({
+  icon,
+  type,
+  placeholder,
+  error,
+  register,
+}: {
+  icon: React.ReactNode;
+  type: string;
+  placeholder: string;
+  error?: string;
+  register: UseFormRegisterReturn;
+}) {
+  return (
+    <div>
+      <div className="relative">
+        <div className="pointer-events-none absolute left-4 top-0 flex h-full items-center text-edu-orange">
+          {icon}
+        </div>
+        <input
+          {...register}
+          type={type}
+          placeholder={placeholder}
+          className={`input-game pl-11 text-sm ${error ? 'border-edu-pink' : ''}`}
+        />
+      </div>
+      {error && <p className="ml-1 mt-1 text-xs font-black text-edu-pink">{error}</p>}
+    </div>
+  );
+}
+
+function SelectBox({
+  placeholder,
+  options,
+  error,
+  register,
+}: {
+  placeholder: string;
+  options: Array<string | { value: string; label: string }>;
+  error: boolean;
+  register: UseFormRegisterReturn;
+}) {
+  return (
+    <select
+      {...register}
+      defaultValue=""
+      className={`input-game w-full px-3 py-3 text-sm ${error ? 'border-edu-pink' : ''}`}
+    >
+      <option value="" disabled>
+        {placeholder}
+      </option>
+      {options.map((opt) => {
+        const value = typeof opt === 'string' ? opt : opt.value;
+        const label = typeof opt === 'string' ? opt : opt.label;
+        return (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        );
+      })}
+    </select>
   );
 }

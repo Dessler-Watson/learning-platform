@@ -24,23 +24,23 @@ const variantStyles: Record<Variant, string> = {
 };
 
 const variantBg: Record<Variant, CSSProperties> = {
-  primary: { background: 'linear-gradient(135deg, #F087A9, #D96B91)' },
-  secondary: { background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)' },
-  reward: { background: 'linear-gradient(135deg, #FDDB33, #E5C52E)' },
-  achievement: { background: 'linear-gradient(135deg, #FDF293, #FDDB33)' },
-  success: { background: 'linear-gradient(135deg, #4CAF50, #388E3C)' },
-  danger: { background: 'linear-gradient(135deg, #E94930, #C93A24)' },
-  ghost: { background: 'rgba(48, 188, 230, 0.08)' },
-  outline: { background: 'transparent', border: '2px solid #E4EAF4' },
+  primary: { background: 'linear-gradient(135deg, #EB5D70, #EB5D70)' },
+  secondary: { background: 'linear-gradient(135deg, #00A0B5, #008A9D)' },
+  reward: { background: 'linear-gradient(135deg, #FFEF5A, #E5D94A)' },
+  achievement: { background: 'linear-gradient(135deg, #FFF5A8, #FFEF5A)' },
+  success: { background: 'linear-gradient(135deg, #98C54E, #6B9832)' },
+  danger: { background: 'linear-gradient(135deg, #EB5D70, #C94A5A)' },
+  ghost: { background: 'rgba(0, 160, 181, 0.08)' },
+  outline: { background: 'transparent', border: '2px solid #F0E6D6' },
 };
 
 const variantShadow: Record<Variant, string> = {
-  primary: '0 4px 16px rgba(240, 135, 169, 0.35)',
-  secondary: '0 4px 16px rgba(48, 188, 230, 0.35)',
-  reward: '0 4px 16px rgba(253, 219, 51, 0.4)',
-  achievement: '0 4px 16px rgba(253, 242, 147, 0.5)',
-  success: '0 4px 16px rgba(76, 175, 80, 0.35)',
-  danger: '0 4px 16px rgba(233, 73, 48, 0.35)',
+  primary: '0 4px 16px rgba(244, 120, 176, 0.35)',
+  secondary: '0 4px 16px rgba(0, 160, 181, 0.35)',
+  reward: '0 4px 16px rgba(255, 239, 90, 0.4)',
+  achievement: '0 4px 16px rgba(255, 245, 168, 0.5)',
+  success: '0 4px 16px rgba(152, 197, 78, 0.35)',
+  danger: '0 4px 16px rgba(235, 93, 112, 0.35)',
   ghost: 'none',
   outline: 'none',
 };

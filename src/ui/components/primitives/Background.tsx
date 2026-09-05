@@ -1,5 +1,5 @@
-import { BubbleBackground } from './BubbleBackground';
+import { DoodleBackground } from './DoodleBackground';
 
 export function Background() {
-  return <BubbleBackground />;
+  return <DoodleBackground />;
 }

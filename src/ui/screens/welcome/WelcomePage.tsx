@@ -1,41 +1,34 @@
-﻿'use client';
+'use client';
 
 import { motion } from 'framer-motion';
 import { WelcomeBackground } from './WelcomeBackground';
 import { audioManager } from '@/shared/lib/audio';
+import { Sparkles, Gamepad2 } from 'lucide-react';
 
 export function WelcomePage() {
   return (
-    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <main className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden px-6">
       <WelcomeBackground />
 
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 1,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 28, padding: 40,
-      }}>
+      <div className="relative z-10 flex max-w-md flex-col items-center gap-6 text-center">
         <motion.div
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          style={{ textAlign: 'center' }}
         >
           <motion.div
             animate={{ y: [0, -10, 0] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-            style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}
+            className="mb-2 flex justify-center"
           >
             <img
               src="/images/logo.png"
-              alt="EduPlay"
-              style={{ width: 'clamp(130px, 28vw, 220px)', height: 'auto' }}
+              alt="Logo"
+              className="h-auto w-52 drop-shadow-lg"
               draggable={false}
             />
           </motion.div>
-          <p style={{
-            color: '#fff', fontSize: 16, margin: '8px 0 0', fontWeight: 700,
-            textShadow: '0 2px 12px rgba(0,0,0,0.3)',
-          }}>
+          <p className="mt-1 text-base font-bold text-surface-500">
             Aprende, explora y conquista
           </p>
         </motion.div>
@@ -44,44 +37,48 @@ export function WelcomePage() {
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+          className="flex w-full flex-col items-center gap-4"
         >
-          <WelcomeBtn
-            title="Iniciar sesion"
-            color="#F087A9"
-            onClick={() => { audioManager.play('navigate'); window.location.href = '/ingresar'; }}
-          />
+<motion.button
+            onClick={() => { audioManager.play('navigate'); window.location.href = '/estudiante'; }}
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.96, y: 2 }}
+            className="btn-game flex w-full max-w-[260px] items-center justify-center gap-2 rounded-2xl bg-edu-orange py-4 text-lg text-white"
+            style={{ boxShadow: '0 6px 0 rgba(255, 160, 0, 0.45), 0 10px 28px rgba(255,160,0,0.35)' }}
+          >
+            <Gamepad2 size={22} />
+            Jugar ahora
+          </motion.button>
+
+          <motion.button
+            onClick={() => { audioManager.play('navigate'); window.location.href = '/login-docente'; }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97, y: 2 }}
+            className="rounded-xl border-2 border-surface-200 bg-white/70 px-6 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white hover:text-surface-700"
+          >
+            Soy docente
+          </motion.button>
         </motion.div>
 
-        <div style={{ display: 'flex', gap: 6, marginTop: 20 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F087A9' }} />
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#30BCE6' }} />
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FDDB33' }} />
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FDF293' }} />
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#E94930' }} />
+        <div className="mt-4 flex gap-2">
+          <Dot color="#EB5D70" />
+          <Dot color="#00A0B5" />
+          <Dot color="#FFEF5A" />
+          <Dot color="#FFA000" />
+          <Dot color="#98C54E" />
         </div>
       </div>
     </main>
   );
 }
 
-function WelcomeBtn({ title, subtitle, color, onClick }: { title: string; subtitle?: string; color: string; onClick: () => void }) {
+function Dot({ color }: { color: string }) {
   return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.06, y: -4 }}
-      whileTap={{ scale: 0.94 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-      style={{
-        width: 260, padding: '16px 24px',
-        background: `linear-gradient(135deg, ${color}, ${color}dd)`,
-        color: '#fff', border: 'none', borderRadius: 20,
-        cursor: 'pointer', textAlign: 'center',
-        boxShadow: `0 6px 24px ${color}55`,
-      }}
-    >
-      <div style={{ fontSize: 18, fontWeight: 700 }}>{title}</div>
-      {subtitle && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2, fontWeight: 600 }}>{subtitle}</div>}
-    </motion.button>
+    <motion.div
+      animate={{ y: [0, -4, 0] }}
+      transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+      className="h-2.5 w-2.5 rounded-full"
+      style={{ background: color }}
+    />
   );
 }

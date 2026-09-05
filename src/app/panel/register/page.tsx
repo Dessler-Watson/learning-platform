@@ -65,7 +65,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: '#FFF8E7', isolation: 'isolate' }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: '#FFF7F2', isolation: 'isolate' }}>
       <AnimatedBackground variant="login" />
       <div className="relative z-10 w-full max-w-sm">
         <motion.div
@@ -81,13 +81,8 @@ export default function RegisterPage() {
             className="text-center mb-6"
           >
             <div className="flex justify-center mb-3">
-              <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full shadow-lg">
-                <img src="/images/logo.svg" alt="EDUPLAY" className="h-full w-full object-contain" />
-              </div>
+              <img src="/images/logo.png" alt="Logo" className="h-auto w-28 object-contain drop-shadow-md" draggable={false} />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              <span className="text-cyan-500">Edu</span><span className="text-pink-500">Play</span>
-            </h1>
           </motion.div>
 
           <motion.div
@@ -239,7 +234,7 @@ export default function RegisterPage() {
                     ¿Ya tienes una cuenta?{' '}
                     <button
                       onClick={() => { audioManager.play('navigate'); router.push('/panel/login'); }}
-                      className="font-bold text-cyan-500 hover:underline"
+                      className="font-bold text-[#407516] hover:underline"
                     >
                       Iniciar sesión
                     </button>

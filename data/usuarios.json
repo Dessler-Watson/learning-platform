@@ -1,9 +1,118 @@
 [
-  { "id_usuario": 1, "avatar_id": 1, "nombre": "Prof. Ana", "apellido": "García", "correo": "ana@ejemplo.com", "rol": "docente", "estado": "activo", "fecha_registro": "2026-01-15T10:00:00Z" },
-  { "id_usuario": 2, "avatar_id": 2, "nombre": "Carlos", "apellido": "López", "correo": "carlos@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-02-01T10:00:00Z" },
-  { "id_usuario": 3, "avatar_id": 3, "nombre": "María", "apellido": "Pérez", "correo": "maria@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-02-10T10:00:00Z" },
-  { "id_usuario": 4, "avatar_id": 4, "nombre": "José", "apellido": "Martínez", "correo": "jose@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-03-01T10:00:00Z" },
-  { "id_usuario": 5, "avatar_id": 1, "nombre": "Laura", "apellido": "Rodríguez", "correo": "laura@ejemplo.com", "rol": "estudiante", "estado": "activo", "fecha_registro": "2026-03-15T10:00:00Z" },
-  { "id_usuario": 6, "avatar_id": 2, "nombre": "Pedro", "apellido": "Sánchez", "correo": "pedro@ejemplo.com", "rol": "estudiante", "estado": "inactivo", "fecha_registro": "2026-04-01T10:00:00Z" },
-  { "id_usuario": 7, "avatar_id": 3, "nombre": "Prof. Luis", "apellido": "Torres", "correo": "luis@ejemplo.com", "rol": "docente", "estado": "activo", "fecha_registro": "2026-04-10T10:00:00Z" }
+  {
+    "id_usuario": 1,
+    "avatar_id": 1,
+    "nombre": "Prof. Ana",
+    "apellido": "García",
+    "correo": "ana@ejemplo.com",
+    "rol": "docente",
+    "estado": "activo",
+    "fecha_registro": "2026-01-15T10:00:00Z"
+  },
+  {
+    "id_usuario": 2,
+    "avatar_id": 2,
+    "nombre": "Carlos",
+    "apellido": "López",
+    "correo": "carlos@ejemplo.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-02-01T10:00:00Z"
+  },
+  {
+    "id_usuario": 3,
+    "avatar_id": 3,
+    "nombre": "María",
+    "apellido": "Pérez",
+    "correo": "maria@ejemplo.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-02-10T10:00:00Z"
+  },
+  {
+    "id_usuario": 4,
+    "avatar_id": 4,
+    "nombre": "José",
+    "apellido": "Martínez",
+    "correo": "jose@ejemplo.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-03-01T10:00:00Z"
+  },
+  {
+    "id_usuario": 5,
+    "avatar_id": 1,
+    "nombre": "Laura",
+    "apellido": "Rodríguez",
+    "correo": "laura@ejemplo.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-03-15T10:00:00Z"
+  },
+  {
+    "id_usuario": 6,
+    "avatar_id": 2,
+    "nombre": "Pedro",
+    "apellido": "Sánchez",
+    "correo": "pedro@ejemplo.com",
+    "rol": "estudiante",
+    "estado": "inactivo",
+    "fecha_registro": "2026-04-01T10:00:00Z"
+  },
+  {
+    "id_usuario": 7,
+    "avatar_id": 3,
+    "nombre": "Prof. Luis",
+    "apellido": "Torres",
+    "correo": "luis@ejemplo.com",
+    "rol": "docente",
+    "estado": "activo",
+    "fecha_registro": "2026-04-10T10:00:00Z"
+  },
+  {
+    "id_usuario": 8,
+    "avatar_id": 4,
+    "nombre": "9iki9k",
+    "apellido": "wdqwd",
+    "correo": "abraham.lupita29@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-05T09:44:30.914Z"
+  },
+  {
+    "id_usuario": 9,
+    "avatar_id": 6,
+    "nombre": "svsdvs",
+    "apellido": "dfsdcs",
+    "correo": "abraham.lupita2@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-05T10:07:08.458Z",
+    "fecha_nacimiento": "2023-02-02",
+    "sexo": "masculino"
+  },
+  {
+    "id_usuario": 10,
+    "avatar_id": 7,
+    "nombre": "edgardo enmanuel abrbrhama",
+    "apellido": "pavon gaitan",
+    "correo": "abraham.lupita@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-05T11:11:06.732Z",
+    "fecha_nacimiento": "2021-03-02",
+    "sexo": "masculino"
+  },
+  {
+    "id_usuario": 11,
+    "avatar_id": 6,
+    "nombre": "edgardo enmanuel abrbrhama",
+    "apellido": "pavon gaitan",
+    "correo": "abraham.lupa@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-05T11:17:54.958Z",
+    "fecha_nacimiento": "2021-03-02",
+    "sexo": "femenino"
+  }
 ]

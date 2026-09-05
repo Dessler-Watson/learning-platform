@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Sparkles, Flame, GitBranch } from 'lucide-react';
+import { Settings, Bell, Sparkles, Gamepad2, Trophy } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
 import { audioManager } from '@/shared/lib/audio';
@@ -41,15 +41,6 @@ interface Perfil {
   };
 }
 
-const AVATAR_EMOJIS: Record<number, string> = {
-  1: '🧭',
-  2: '🔭',
-  3: '📚',
-  4: '⚔️',
-  5: '🪄',
-  6: '🥷',
-};
-
 const RANGO_IMAGEN: Record<string, string> = {
   Bronce: '/images/rangos/bronce.png',
   Plata: '/images/rangos/plata.png',
@@ -69,14 +60,13 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-
 const DEFAULT_PERFIL: Perfil = {
   usuario: {
     id_usuario: 0,
     nombre: 'Jugador',
     apellido: '',
     fecha_registro: new Date().toISOString(),
-    avatar: { id_avatar: 1, nombre: 'Aventurero', imagen: 'aventurero.png' },
+    avatar: { id_avatar: 1, nombre: 'Sacuanjoche', imagen: 'avatar1.png' },
   },
   puntos: 0,
   rango: {
@@ -94,12 +84,12 @@ const DEFAULT_PERFIL: Perfil = {
 export function DashboardScreen() {
   const [perfil, setPerfil] = useState<Perfil>(DEFAULT_PERFIL);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarFocused, setAvatarFocused] = useState(false);
   const [salaCode, setSalaCode] = useState('');
   const [salaLoading, setSalaLoading] = useState(false);
   const [salaError, setSalaError] = useState<string | null>(null);
-  const [showGameSelect, setShowGameSelect] = useState(false);
 
   useEffect(() => {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
@@ -115,13 +105,18 @@ export function DashboardScreen() {
     }, 800);
 
     if (stored.modo === 'invitado') {
+      setIsGuest(true);
       setPerfil({
         ...DEFAULT_PERFIL,
         usuario: {
           ...DEFAULT_PERFIL.usuario,
           id_usuario: stored.id_usuario,
           nombre: stored.nombre,
-          avatar: { ...DEFAULT_PERFIL.usuario.avatar, id_avatar: stored.avatar_id },
+          avatar: {
+            ...DEFAULT_PERFIL.usuario.avatar,
+            id_avatar: stored.avatar_id,
+            imagen: `avatar${stored.avatar_id}.png`,
+          },
         },
       });
       setLoading(false);
@@ -139,360 +134,222 @@ export function DashboardScreen() {
     return () => clearTimeout(t1);
   }, []);
 
-  const unirseASala = async (e: React.FormEvent) => {
+  const unirseASala = (e: React.FormEvent) => {
     e.preventDefault();
     setSalaError(null);
-    if (!salaCode.trim()) {
-      setSalaError('Ingresa un código de sala');
+    const codigo = salaCode.trim();
+    if (!codigo) {
+      setSalaError('Ingresa un codigo de sala');
       audioManager.play('error');
       return;
     }
-    setSalaLoading(true);
-    setTimeout(() => {
-      setSalaLoading(false);
-      setShowGameSelect(true);
-    }, 600);
+    window.location.href = `/sala-espera?codigo=${encodeURIComponent(codigo)}`;
   };
 
-  const avatarEmoji = AVATAR_EMOJIS[perfil.usuario.avatar.id_avatar] || '🧑‍🎓';
+  const avatarImagen = `/images/avatares/${perfil.usuario.avatar.imagen}`;
   const rangoImagen = RANGO_IMAGEN[perfil.rango.nombre] || '/images/rangos/bronce.png';
-
   const rankColor = perfil.rango.color;
 
   if (loading) {
     return (
-      <main style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <main className="relative flex min-h-screen items-center justify-center px-4">
         <Background />
-        <div style={{ position: 'relative', zIndex: 1, color: '#6B7A94', fontSize: 16, fontWeight: 700 }}>Cargando...</div>
+        <div className="relative z-10 text-surface-500 font-extrabold">Cargando...</div>
       </main>
     );
   }
 
   return (
-    <main style={{ minHeight: '100vh', position: 'relative', padding: '24px 18px 40px' }}>
+    <main className="relative min-h-screen px-5 pb-10 pt-6">
       <Background />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        style={{
-          position: 'relative', zIndex: 1,
-          maxWidth: 480, margin: '0 auto',
-        }}
+        className="relative z-10 mx-auto max-w-md"
       >
         {/* Encabezado */}
-        <header style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 28,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => { audioManager.play('click'); setProfileOpen(true); }}
-              onFocus={() => setAvatarFocused(true)}
-              onBlur={() => setAvatarFocused(false)}
-              aria-label="Abrir mi perfil"
-              title="Mi perfil"
-              style={{
-                width: 56, height: 56, borderRadius: 18,
-                background: 'linear-gradient(135deg, #F087A9, #30BCE6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 28, boxShadow: avatarFocused ? '0 0 0 3px #30BCE6, 0 4px 16px rgba(48,188,230,0.25)' : '0 4px 16px rgba(48,188,230,0.25)',
-                border: 'none', cursor: 'pointer', padding: 0,
-                outline: 'none', transition: 'box-shadow 0.2s',
-              }}
+        <header className="mb-6 flex items-center justify-between">
+          <button
+            onClick={() => { audioManager.play('click'); setProfileOpen(true); }}
+            onFocus={() => setAvatarFocused(true)}
+            onBlur={() => setAvatarFocused(false)}
+            aria-label="Abrir mi perfil"
+            title="Mi perfil"
+            className="group flex items-center gap-3 rounded-full p-2 pr-4 shadow-card transition-all hover:shadow-card-hover"
+            style={{
+              background: '#EB5D70',
+              border: 'none',
+              boxShadow: avatarFocused ? `0 0 0 3px ${rankColor}40, 0 6px 20px rgba(0,0,0,0.08)` : undefined,
+            }}
+          >
+            <div
+              className="h-12 w-12 overflow-hidden rounded-xl"
+              style={{ background: '#fff7ef' }}
             >
-              {avatarEmoji}
-            </motion.button>
-            <div>
-              <div style={{
-                fontSize: 24, fontWeight: 800, color: '#1E2A3A', lineHeight: 1.1,
-              }}>
+              <img
+                src={avatarImagen}
+                alt={perfil.usuario.avatar.nombre}
+                draggable={false}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="text-left">
+              <div className="text-lg font-extrabold leading-tight text-white">
                 {perfil.usuario.nombre}
               </div>
-              <div style={{
-                fontSize: 14, fontWeight: 700, color: '#6B7A94', marginTop: 2,
-              }}>
-                ¡Bienvenido de nuevo!
-              </div>
+              <div className="text-xs font-bold text-white/85">Bienvenido de nuevo!</div>
             </div>
-          </div>
+          </button>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-              onClick={() => audioManager.play('click')}
-              style={{
-                width: 42, height: 42, borderRadius: 14, border: 'none',
-                background: 'rgba(255,255,255,0.7)', color: '#6B7A94',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                borderBottom: '2px solid #E4EAF4',
-              }}>
+          <div className="flex items-center gap-2">
+            <IconBtn onClick={() => { audioManager.play('click'); window.location.href = '/configuracion'; }} ariaLabel="Configuracion">
               <Settings size={20} />
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-              onClick={() => audioManager.play('click')}
-              style={{
-                width: 42, height: 42, borderRadius: 14, border: 'none',
-                background: 'rgba(255,255,255,0.7)', color: '#6B7A94',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                borderBottom: '2px solid #E4EAF4', position: 'relative',
-              }}>
+            </IconBtn>
+            <IconBtn onClick={() => { audioManager.play('click'); }} ariaLabel="Notificaciones" badge>
               <Bell size={20} />
-              <span style={{
-                position: 'absolute', top: 9, right: 9,
-                width: 8, height: 8, borderRadius: '50%', background: '#E94930',
-              }} />
-            </motion.button>
+            </IconBtn>
           </div>
         </header>
 
-        {/* Tarjeta de rango */}
+        {/* Tarjeta de rango principal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          whileHover={{ y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          style={{
-            background: '#fff',
-            borderRadius: 28,
-            padding: '26px 22px 24px',
-            boxShadow: `0 8px 32px ${withAlpha(rankColor, 0.12)}`,
-            border: '2px solid rgba(0,0,0,0.04)',
-            marginBottom: 22,
-            textAlign: 'center',
-          }}
+          className="card-game card-game-hover mb-5 overflow-hidden"
+          style={{ border: `2px solid ${withAlpha(rankColor, 0.18)}` }}
         >
-          <p style={{
-            color: '#6B7A94', fontSize: 12, fontWeight: 800,
-            textTransform: 'uppercase', letterSpacing: 2, margin: '0 0 10px',
-          }}>
-            Tu rango actual
-          </p>
+          {/* Franja de color superior segun rango */}
+          <div
+            className="h-3 w-full"
+            style={{ background: rankColor }}
+          />
 
-          <div style={{
-            width: 180, height: 180, margin: '0 auto 10px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <img
-              src={rangoImagen}
-              alt={perfil.rango.nombre}
-              draggable={false}
-              style={{
-                width: '100%', height: '100%', objectFit: 'contain',
-                filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.12))',
-              }}
-            />
+          <div className="px-5 pb-5 pt-4 text-center">
+            <span
+              className="mb-3 inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em]"
+              style={{ background: withAlpha(rankColor, 0.12), color: rankColor }}
+            >
+              Tu rango actual
+            </span>
+
+            <div className="mx-auto mb-2 flex h-40 w-40 items-center justify-center">
+              <img
+                src={rangoImagen}
+                alt={perfil.rango.nombre}
+                draggable={false}
+                className="h-full w-full object-contain drop-shadow-lg"
+              />
+            </div>
+
+            <h2 className="mb-1 text-2xl font-black text-surface-800">
+              {perfil.rango.nombre}
+            </h2>
+
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5"
+              style={{ background: withAlpha(rankColor, 0.1) }}
+            >
+              <img src="/images/puntos.png" alt="Puntos" draggable={false} className="h-5 w-5 object-contain" />
+              <span className="text-lg font-black text-surface-800">
+                {perfil.puntos.toLocaleString('es-ES')}
+              </span>
+              <span className="text-xs font-bold text-surface-500">puntos</span>
+            </div>
+
+            {/* Barra de progreso */}
+            <div
+              className="mb-2 h-4 overflow-hidden rounded-full border"
+              style={{ background: '#FFF3E0', borderColor: 'rgba(0,0,0,0.05)' }}
+            >
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${perfil.rango.progreso}%` }}
+                transition={{ duration: 1, delay: 0.4 }}
+                className="h-full rounded-full"
+                style={{ background: `linear-gradient(90deg, ${rankColor}, ${withAlpha(rankColor, 0.7)})` }}
+              />
+            </div>
+
+            <p className="text-xs font-bold text-surface-500">
+              {perfil.rango.esMaximo
+                ? 'Has alcanzado el rango maximo!'
+                : `Proximo rango: ${perfil.rango.siguiente} — faltan ${perfil.rango.puntosParaSiguiente} puntos`}
+            </p>
           </div>
-
-          <div style={{
-            fontSize: 20, fontWeight: 800, color: '#1E2A3A', margin: '10px 0 20px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}>
-            <img src="/images/puntos.png" alt="Puntos" draggable={false}
-              style={{ width: 24, height: 24, objectFit: 'contain' }} />
-            <span>{perfil.puntos.toLocaleString('es-ES')}</span>
-            <span style={{ color: '#6B7A94', fontWeight: 700, fontSize: 15 }}>puntos</span>
-          </div>
-
-          {/* Barra de progreso */}
-          <div style={{
-            height: 16, borderRadius: 999,
-            background: '#F0F4FA',
-            overflow: 'hidden',
-            marginBottom: 12,
-            border: '1px solid rgba(0,0,0,0.06)',
-          }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${perfil.rango.progreso}%` }}
-              transition={{ duration: 1, delay: 0.4 }}
-              style={{
-                height: '100%',
-                background: `linear-gradient(90deg, ${rankColor}, ${withAlpha(rankColor, 0.7)})`,
-                borderRadius: 999,
-              }}
-            />
-          </div>
-
-          <p style={{
-            color: '#6B7A94', fontSize: 13, fontWeight: 700, margin: 0,
-          }}>
-            {perfil.rango.esMaximo
-              ? '¡Has alcanzado el rango máximo!'
-              : `Próximo rango: ${perfil.rango.siguiente} — faltan ${perfil.rango.puntosParaSiguiente} puntos`}
-          </p>
         </motion.div>
 
-        {/* Card: Unirse a una sala */}
+        {/* Card: Unirse a una sala (CTA principal) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
+          className="relative overflow-hidden rounded-[28px]"
           style={{
-            background: 'linear-gradient(155deg, #F97316 0%, #EF4444 45%, #EC4899 100%)',
-            borderRadius: 28,
-            padding: '24px 22px 22px',
-            position: 'relative',
-            overflow: 'hidden',
+            background: 'linear-gradient(90deg, #F478B0 0%, #E85D70 100%)',
+            boxShadow: '0 8px 0 rgba(224, 90, 20, 0.35), 0 12px 32px rgba(244, 120, 176, 0.35)',
           }}
         >
-          <Sparkles size={16} color="rgba(255,255,255,0.4)" style={{ position: 'absolute', top: 22, right: 22 }} />
+          <Sparkles size={16} color="rgba(255,255,255,0.45)" className="absolute right-5 top-5" />
 
-          {!showGameSelect ? (
-            <>
-              <h2 style={{
-                color: '#fff', fontSize: 26, fontWeight: 900, margin: '0 0 6px',
-                lineHeight: 1.2, maxWidth: 200,
-              }}>
-                Unirse a una sala
-              </h2>
-              <p style={{
-                color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 700,
-                margin: '0 0 18px', lineHeight: 1.5, maxWidth: 260,
-              }}>
-                Ingresa el código que te dio tu docente para unirte a la sala.
-              </p>
+          <div className="p-6">
+            <div className="mb-1 flex items-center gap-2">
+              <Gamepad2 size={22} color="#fff" />
+              <h2 className="text-xl font-black text-white">Unirse a una sala</h2>
+            </div>
+            <p className="mb-5 text-sm font-bold text-white/85">
+              Ingresa el codigo que te dio tu docente para comenzar a jugar.
+            </p>
 
-              <form onSubmit={(e) => { audioManager.play('submit'); unirseASala(e); }} style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-                <input
-                  value={salaCode}
-                  onChange={(e) => setSalaCode(e.target.value.toUpperCase())}
-                  placeholder="Ingresa el código"
-                  disabled={salaLoading}
-                  style={{
-                    flex: 1, padding: '14px 16px', borderRadius: 16, border: 'none',
-                    background: 'rgba(255,255,255,0.95)', color: '#1E2A3A', fontSize: 15,
-                    outline: 'none', fontWeight: 700, letterSpacing: 1,
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-                  }}
-                  onFocus={e => { e.target.style.boxShadow = '0 0 0 3px rgba(255,255,255,0.6), 0 2px 10px rgba(0,0,0,0.08)'; }}
-                  onBlur={e => { e.target.style.boxShadow = '0 2px 10px rgba(0,0,0,0.08)'; }}
-                />
-                <motion.button
-                  whileHover={{ scale: salaLoading ? 1 : 1.04 }}
-                  whileTap={{ scale: salaLoading ? 1 : 0.96 }}
-                  type="submit"
-                  disabled={salaLoading}
-                  style={{
-                    padding: '14px 22px', borderRadius: 16, border: 'none',
-                    background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-                    color: '#fff', fontSize: 15, fontWeight: 800,
-                    cursor: salaLoading ? 'default' : 'pointer',
-                    opacity: salaLoading ? 0.7 : 1,
-                    boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {salaLoading ? 'Uniendo...' : 'Unirse'}
-                </motion.button>
-              </form>
-
-              {salaError && (
-                <p style={{
-                  color: '#FEE2E2', fontSize: 13, fontWeight: 700, margin: '10px 0 0',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                }}>
-                  {salaError}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <h2 style={{
-                color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px',
-              }}>
-                ¡Sala {salaCode}!
-              </h2>
-              <p style={{
-                color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 700,
-                margin: '0 0 18px',
-              }}>
-                Elige un juego para comenzar
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <motion.button
-                  whileHover={{ scale: 1.03, x: 4 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { audioManager.play('navigate'); window.location.href = '/lava-conocimiento'; }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '16px 18px', borderRadius: 18, border: 'none',
-                    background: 'rgba(255,255,255,0.95)',
-                    cursor: 'pointer', textAlign: 'left',
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <div style={{
-                    width: 46, height: 46, borderRadius: 14,
-                    background: 'linear-gradient(135deg, #EF4444, #F97316)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Flame size={24} color="#fff" />
-                  </div>
-                  <div>
-                    <div style={{ color: '#1E2A3A', fontSize: 16, fontWeight: 800 }}>
-                      Modo Lava
-                    </div>
-                    <div style={{ color: '#6B7A94', fontSize: 12, fontWeight: 700, marginTop: 2 }}>
-                      Responde antes de que se enfríe
-                    </div>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.03, x: 4 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { audioManager.play('navigate'); window.location.href = '/camino-decisiones'; }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '16px 18px', borderRadius: 18, border: 'none',
-                    background: 'rgba(255,255,255,0.95)',
-                    cursor: 'pointer', textAlign: 'left',
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <div style={{
-                    width: 46, height: 46, borderRadius: 14,
-                    background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <GitBranch size={24} color="#fff" />
-                  </div>
-                  <div>
-                    <div style={{ color: '#1E2A3A', fontSize: 16, fontWeight: 800 }}>
-                      Camino de Decisiones
-                    </div>
-                    <div style={{ color: '#6B7A94', fontSize: 12, fontWeight: 700, marginTop: 2 }}>
-                      Elige el camino correcto
-                    </div>
-                  </div>
-                </motion.button>
-              </div>
-
-              <button
-                onClick={() => {
-                  audioManager.play('back');
-                  setShowGameSelect(false);
-                  setSalaCode('');
-                }}
-                style={{
-                  marginTop: 14, background: 'none', border: 'none',
-                  color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer', textDecoration: 'underline',
-                }}
+            <form onSubmit={(e) => { audioManager.play('submit'); unirseASala(e); }} className="flex items-stretch gap-3">
+              <input
+                value={salaCode}
+                onChange={(e) => setSalaCode(e.target.value.toUpperCase())}
+                placeholder="Ingresa el codigo"
+                disabled={salaLoading}
+                className="input-game flex-1 rounded-xl px-4 py-3 text-sm font-black uppercase tracking-wider"
+              />
+              <motion.button
+                whileHover={{ scale: salaLoading ? 1 : 1.03 }}
+                whileTap={{ scale: salaLoading ? 1 : 0.97, y: 2 }}
+                type="submit"
+                disabled={salaLoading}
+                className="rounded-xl bg-[#407516] px-5 py-3 text-sm font-black text-white shadow-game-sm"
               >
-                Volver
-              </button>
-            </>
-          )}
+                {salaLoading ? 'Uniendo...' : 'Unirse'}
+              </motion.button>
+            </form>
+
+            {salaError && (
+              <p className="mt-3 text-xs font-bold text-white text-shadow-game">
+                {salaError}
+              </p>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Accesos rapidos */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-5 grid grid-cols-2 gap-4"
+        >
+          <QuickCard
+            icon={<Trophy size={22} />}
+            label="Logros"
+            color="#FFEF5A"
+            text="#8A6D00"
+            onClick={() => {}}
+          />
+          <QuickCard
+            icon={<Sparkles size={22} />}
+            label="Proximos retos"
+            color="#B2E0EF"
+            text="#006A7A"
+            onClick={() => {}}
+          />
         </motion.div>
       </motion.div>
 
@@ -500,7 +357,55 @@ export function DashboardScreen() {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         perfil={perfil}
+        isGuest={isGuest}
+        onAvatarChange={(id_avatar, imagen, nombre) => {
+          setPerfil(prev => ({
+            ...prev,
+            usuario: {
+              ...prev.usuario,
+              avatar: { id_avatar, imagen, nombre },
+            },
+          }));
+        }}
       />
     </main>
+  );
+}
+
+function IconBtn({ children, onClick, ariaLabel, badge }: { children: React.ReactNode; onClick: () => void; ariaLabel: string; badge?: boolean }) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.92, y: 2 }}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFEF5A] text-[#407516] shadow-card"
+      style={{ boxShadow: '0 4px 0 rgba(64, 117, 22, 0.2), 0 6px 20px rgba(255, 239, 90, 0.25)' }}
+    >
+      {children}
+      {badge && (
+        <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-edu-pink" />
+      )}
+    </motion.button>
+  );
+}
+
+function QuickCard({ icon, label, color, text, onClick }: { icon: React.ReactNode; label: string; color: string; text: string; onClick: () => void }) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.03, y: -2 }}
+      whileTap={{ scale: 0.97, y: 2 }}
+      onClick={onClick}
+      className="card-game flex items-center gap-3 p-4 text-left"
+      style={{ borderLeft: `5px solid ${color}` }}
+    >
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-xl"
+        style={{ background: color, color: text }}
+      >
+        {icon}
+      </div>
+      <span className="text-sm font-black text-surface-700">{label}</span>
+    </motion.button>
   );
 }

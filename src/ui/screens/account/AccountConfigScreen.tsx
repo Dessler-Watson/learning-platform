@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Save, Key, LogOut, ChevronDown, Check } from 'lucide-react';
+import { ArrowLeft, Save, Key, LogOut, ChevronDown, Check, Mail, User } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 
@@ -23,14 +23,6 @@ interface UserData {
   fecha_registro?: string;
   modo: 'registrado' | 'invitado';
 }
-
-const inputStyle = (hasError: boolean, disabled = false): React.CSSProperties => ({
-  width: '100%', padding: '14px 16px', borderRadius: 16,
-  border: `2px solid ${hasError ? '#E94930' : '#E4EAF4'}`,
-  background: disabled ? '#F2F4F8' : '#F8FAFE', color: '#344054', fontSize: 15,
-  outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
-  cursor: disabled ? 'not-allowed' : 'text',
-});
 
 export function AccountConfigScreen() {
   const [user, setUser] = useState<UserData | null>(null);
@@ -164,99 +156,78 @@ export function AccountConfigScreen() {
 
   if (loading) {
     return (
-      <main style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <main className="relative flex min-h-screen items-center justify-center">
         <Background />
-        <div style={{ position: 'relative', zIndex: 1, color: '#6B7A94', fontSize: 16, fontWeight: 700 }}>Cargando...</div>
+        <div className="relative z-10 text-surface-500 font-extrabold">Cargando...</div>
       </main>
     );
   }
 
   return (
-    <main style={{ minHeight: '100vh', position: 'relative', padding: '24px 18px 60px' }}>
+    <main className="relative min-h-screen px-5 pb-16 pt-6">
       <Background />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        style={{ position: 'relative', zIndex: 1, maxWidth: 460, margin: '0 auto' }}
+        className="relative z-10 mx-auto max-w-md"
       >
-        <header style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+        <header className="mb-6 flex items-center gap-3">
           <motion.button
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95, y: 2 }}
             onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
             aria-label="Volver"
-            style={{
-              width: 42, height: 42, borderRadius: 14, border: 'none',
-              background: 'rgba(240,135,169,0.12)', color: '#344054',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-surface-700 shadow-card"
           >
             <ArrowLeft size={20} />
           </motion.button>
           <div>
-            <h1 style={{ color: '#1E2A3A', fontSize: 24, fontWeight: 900, margin: 0 }}>Configuración</h1>
-            <p style={{ color: '#6B7A94', fontSize: 13, fontWeight: 700, margin: '2px 0 0' }}>Configuración de la cuenta</p>
+            <h1 className="text-2xl font-black text-surface-800">Configuracion</h1>
+            <p className="text-xs font-black text-surface-500">Configuracion de la cuenta</p>
           </div>
         </header>
 
         {user?.modo === 'invitado' && (
-          <div style={{
-            padding: '14px 16px', borderRadius: 16, marginBottom: 22,
-            background: 'rgba(253,219,51,0.15)', border: '2px solid rgba(253,219,51,0.4)',
-            color: '#8a6d1a', fontSize: 13, fontWeight: 700,
-          }}>
-            Estás jugando como invitado. Crea una cuenta para editar tu perfil.
+          <div className="mb-5 rounded-2xl border-2 border-edu-yellow/40 bg-edu-yellow-light/40 p-4 text-sm font-bold text-[#8a6d1a]">
+            Estas jugando como invitado. Crea una cuenta para editar tu perfil.
           </div>
         )}
 
-        {/* Información personal */}
+        {/* Informacion personal */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          style={{
-            background: '#fff', borderRadius: 24, padding: '22px 20px', marginBottom: 18,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.05)', border: '2px solid rgba(0,0,0,0.03)',
-          }}
+          className="card-game mb-4 p-5"
         >
-          <h2 style={{
-            color: '#F087A9', fontSize: 14, fontWeight: 900, textTransform: 'uppercase',
-            letterSpacing: 1, margin: '0 0 16px',
-          }}>
-            Información personal
+          <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-edu-pink">
+            Informacion personal
           </h2>
 
-          <form onSubmit={savePersonal} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ color: '#6B7A94', fontSize: 12, fontWeight: 800, marginBottom: 6, display: 'block' }}>Nombre</label>
-                <input
-                  value={nombre}
-                  onChange={e => setNombre(e.target.value)}
-                  disabled={user?.modo === 'invitado'}
-                  style={inputStyle(nombreError, user?.modo === 'invitado')}
-                />
-              </div>
-              <div>
-                <label style={{ color: '#6B7A94', fontSize: 12, fontWeight: 800, marginBottom: 6, display: 'block' }}>Apellido</label>
-                <input
-                  value={apellido}
-                  onChange={e => setApellido(e.target.value)}
-                  disabled={user?.modo === 'invitado'}
-                  style={inputStyle(false, user?.modo === 'invitado')}
-                />
-              </div>
+          <form onSubmit={savePersonal} className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InputField
+                label="Nombre"
+                value={nombre}
+                onChange={setNombre}
+                disabled={user?.modo === 'invitado'}
+                error={nombreError}
+                icon={<User size={16} />}
+              />
+              <InputField
+                label="Apellido"
+                value={apellido}
+                onChange={setApellido}
+                disabled={user?.modo === 'invitado'}
+                icon={<User size={16} />}
+              />
             </div>
 
             {saveMsg && (
-              <p style={{
-                color: saveMsg.ok ? '#4CAF50' : '#E94930',
-                fontSize: 13, textAlign: 'center', fontWeight: 700, margin: 0,
-              }}>
-                {saveMsg.ok && <Check size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />}
+              <p className={`text-center text-sm font-black ${saveMsg.ok ? 'text-edu-green-dark' : 'text-edu-pink'}`}>
+                {saveMsg.ok && <Check size={14} className="mr-1 inline align-middle" />}
                 {saveMsg.text}
               </p>
             )}
@@ -264,17 +235,11 @@ export function AccountConfigScreen() {
             {user?.modo !== 'invitado' && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.97, y: 2 }}
                 type="submit"
                 disabled={saving}
-                style={{
-                  width: '100%', padding: '15px', borderRadius: 18, border: 'none',
-                  background: 'linear-gradient(135deg, #F087A9, #D96B91)',
-                  color: '#fff', fontSize: 15, fontWeight: 800, cursor: saving ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  boxShadow: '0 4px 16px rgba(240,135,169,0.3)',
-                  opacity: saving ? 0.7 : 1,
-                }}
+                className="btn-game mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-edu-pink py-3.5 text-sm text-white disabled:opacity-70"
+                style={{ boxShadow: '0 5px 0 rgba(217, 101, 154, 0.4), 0 8px 22px rgba(235,93,112,0.3)' }}
               >
                 <Save size={18} />
                 {saving ? 'Guardando...' : 'Guardar cambios'}
@@ -288,23 +253,22 @@ export function AccountConfigScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          style={{
-            background: '#fff', borderRadius: 24, padding: '22px 20px', marginBottom: 18,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.05)', border: '2px solid rgba(0,0,0,0.03)',
-          }}
+          className="card-game mb-4 p-5"
         >
-          <h2 style={{
-            color: '#30BCE6', fontSize: 14, fontWeight: 900, textTransform: 'uppercase',
-            letterSpacing: 1, margin: '0 0 16px',
-          }}>
+          <h2 className="mb-3 text-sm font-black uppercase tracking-widest text-edu-blue">
             Correo
           </h2>
-          <input
-            value={user?.correo || '—'}
-            readOnly
-            style={{ ...inputStyle(false, true), color: '#6B7A94' }}
-          />
-          <p style={{ color: '#A0ADC4', fontSize: 12, fontWeight: 600, margin: '8px 0 0' }}>
+          <div className="relative">
+            <div className="pointer-events-none absolute left-4 top-0 flex h-full items-center text-edu-blue">
+              <Mail size={18} />
+            </div>
+            <input
+              value={user?.correo || '—'}
+              readOnly
+              className="input-game cursor-not-allowed bg-surface-100 pl-11 text-surface-500"
+            />
+          </div>
+          <p className="mt-2 text-xs font-bold text-surface-400">
             No es posible editar el correo en esta pantalla.
           </p>
         </motion.section>
@@ -314,21 +278,15 @@ export function AccountConfigScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          style={{
-            background: '#fff', borderRadius: 24, padding: '22px 20px', marginBottom: 18,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.05)', border: '2px solid rgba(0,0,0,0.03)',
-          }}
+          className="card-game mb-4 p-5"
         >
-          <h2 style={{
-            color: '#E94930', fontSize: 14, fontWeight: 900, textTransform: 'uppercase',
-            letterSpacing: 1, margin: '0 0 16px',
-          }}>
+          <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-edu-orange">
             Seguridad
           </h2>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.97, y: 2 }}
             onClick={() => {
               audioManager.play('toggle');
               setPasswordOpen(!passwordOpen);
@@ -336,16 +294,10 @@ export function AccountConfigScreen() {
               setPwSuccess(null);
             }}
             disabled={user?.modo === 'invitado'}
-            style={{
-              width: '100%', padding: '15px', borderRadius: 18,
-              border: '2px solid #E4EAF4', background: 'rgba(255,255,255,0.6)',
-              color: user?.modo === 'invitado' ? '#A0ADC4' : '#344054',
-              fontSize: 15, fontWeight: 700, cursor: user?.modo === 'invitado' ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}
+            className="flex w-full items-center justify-between rounded-xl border-2 border-surface-200 bg-white/60 px-4 py-3.5 text-sm font-black text-surface-700 disabled:cursor-not-allowed disabled:text-surface-400"
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Key size={18} /> Contraseña
+            <span className="flex items-center gap-2">
+              <Key size={18} /> Contrasena
             </span>
             <motion.span animate={{ rotate: passwordOpen ? 180 : 0 }}>
               <ChevronDown size={18} />
@@ -360,68 +312,34 @@ export function AccountConfigScreen() {
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 onSubmit={savePassword}
-                style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}
+                className="mt-3 flex flex-col gap-3 overflow-hidden"
               >
-                <div>
-                  <label style={{ color: '#6B7A94', fontSize: 12, fontWeight: 800, marginBottom: 6, display: 'block' }}>Contraseña actual</label>
-                  <input
-                    type="password"
-                    value={currentPw}
-                    onChange={e => setCurrentPw(e.target.value)}
-                    style={inputStyle(!!pwError)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label style={{ color: '#6B7A94', fontSize: 12, fontWeight: 800, marginBottom: 6, display: 'block' }}>Nueva contraseña</label>
-                  <input
-                    type="password"
-                    value={newPw}
-                    onChange={e => setNewPw(e.target.value)}
-                    style={inputStyle(!!pwError)}
-                    placeholder="Mínimo 4 caracteres"
-                  />
-                </div>
-                <div>
-                  <label style={{ color: '#6B7A94', fontSize: 12, fontWeight: 800, marginBottom: 6, display: 'block' }}>Confirmar nueva contraseña</label>
-                  <input
-                    type="password"
-                    value={confirmPw}
-                    onChange={e => setConfirmPw(e.target.value)}
-                    style={inputStyle(!!pwError)}
-                    placeholder="Repite la nueva contraseña"
-                  />
-                </div>
+                <InputField label="Contrasena actual" value={currentPw} onChange={setCurrentPw} type="password" placeholder="••••••••" />
+                <InputField label="Nueva contrasena" value={newPw} onChange={setNewPw} type="password" placeholder="Minimo 4 caracteres" />
+                <InputField label="Confirmar nueva contrasena" value={confirmPw} onChange={setConfirmPw} type="password" placeholder="Repite la nueva contrasena" />
 
                 {(pwError || pwSuccess) && (
-                  <p style={{
-                    color: pwError ? '#E94930' : '#4CAF50',
-                    fontSize: 13, textAlign: 'center', fontWeight: 700, margin: 0,
-                  }}>
+                  <p className={`text-center text-sm font-black ${pwError ? 'text-edu-pink' : 'text-edu-green-dark'}`}>
                     {pwError || pwSuccess}
                   </p>
                 )}
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileTap={{ scale: 0.97, y: 2 }}
                   type="submit"
                   disabled={savingPw}
-                  style={{
-                    width: '100%', padding: '15px', borderRadius: 18, border: 'none',
-                    background: 'linear-gradient(135deg, #E94930, #C73E28)',
-                    color: '#fff', fontSize: 15, fontWeight: 800, cursor: savingPw ? 'default' : 'pointer',
-                    opacity: savingPw ? 0.7 : 1,
-                  }}
+                  className="btn-game w-full rounded-xl bg-edu-orange py-3.5 text-sm text-white disabled:opacity-70"
+                  style={{ boxShadow: '0 5px 0 rgba(255, 160, 0, 0.4), 0 8px 22px rgba(255,160,0,0.3)' }}
                 >
-                  {savingPw ? 'Guardando...' : 'Guardar nueva contraseña'}
+                  {savingPw ? 'Guardando...' : 'Guardar nueva contrasena'}
                 </motion.button>
               </motion.form>
             )}
           </AnimatePresence>
         </motion.section>
 
-        {/* Cerrar sesión */}
+        {/* Cerrar sesion */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -429,20 +347,47 @@ export function AccountConfigScreen() {
         >
           <motion.button
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.97, y: 2 }}
             onClick={() => { audioManager.play('delete'); logout(); }}
-            style={{
-              width: '100%', padding: '16px', borderRadius: 18,
-              border: '2px solid rgba(233,73,48,0.3)', background: 'rgba(233,73,48,0.06)',
-              color: '#E94930', fontSize: 15, fontWeight: 800, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-edu-pink/30 bg-edu-pink/5 py-4 text-sm font-black text-edu-pink"
           >
             <LogOut size={18} />
-            Cerrar sesión
+            Cerrar sesion
           </motion.button>
         </motion.section>
       </motion.div>
     </main>
+  );
+}
+
+function InputField({ label, value, onChange, disabled, error, type = 'text', placeholder, icon }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  error?: boolean;
+  type?: string;
+  placeholder?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-black text-surface-500">{label}</label>
+      <div className="relative">
+        {icon && (
+          <div className="pointer-events-none absolute left-4 top-0 flex h-full items-center text-edu-orange">
+            {icon}
+          </div>
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+          placeholder={placeholder}
+          className={`input-game text-sm ${error ? 'border-edu-pink' : ''} ${icon ? 'pl-11' : ''} ${disabled ? 'cursor-not-allowed bg-surface-100 text-surface-400' : ''}`}
+        />
+      </div>
+    </div>
   );
 }

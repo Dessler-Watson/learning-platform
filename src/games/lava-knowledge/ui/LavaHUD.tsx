@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useLavaStore } from '@/stores/lava.store';
 import { LAVA_CONFIG as C } from '@/games/lava-knowledge/config';
 
-const PLAYER_COLORS = ['#E94930', '#F087A9', '#FDDB33', '#4CAF50'];
+const PLAYER_COLORS = ['#E94930', '#EB5D70', '#FDDB33', '#4CAF50'];
 
 export function LavaHUD() {
   const phase = useLavaStore((s) => s.phase);
@@ -41,7 +41,7 @@ export function LavaHUD() {
             {/* Cabecera: PREGUNTA + barra de progreso */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <span style={{
-                background: 'linear-gradient(135deg, #E94930, #F087A9)',
+                background: 'linear-gradient(135deg, #E94930, #EB5D70)',
                 color: '#fff', padding: '6px 16px', borderRadius: 999,
                 fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
                 boxShadow: '0 4px 12px rgba(233,73,48,0.3)', fontFamily: 'var(--font-baloo)',
@@ -56,7 +56,7 @@ export function LavaHUD() {
                 <motion.div
                   animate={{ width: `${(current / total) * 100}%` }}
                   transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                  style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #F087A9, #FDDB33)' }}
+                  style={{ height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #EB5D70, #FDDB33)' }}
                 />
               </div>
               <div style={{
@@ -69,7 +69,7 @@ export function LavaHUD() {
                   initial={{ scale: 1.4, color: '#E94930' }}
                   animate={{ scale: 1 }}
                   style={{
-                    color: timerPct > 30 ? '#344054' : timerPct > 15 ? '#B7791F' : '#E94930',
+                    color: timerPct > 30 ? '#4A3E32' : timerPct > 15 ? '#B7791F' : '#E94930',
                     fontSize: 16, fontWeight: 800, minWidth: 22, textAlign: 'center',
                   }}
                 >
@@ -87,7 +87,7 @@ export function LavaHUD() {
               boxShadow: '0 12px 40px rgba(30,42,58,0.18), 0 2px 8px rgba(0,0,0,0.06)',
             }}>
               <p style={{
-                color: '#1E2A3A', fontSize: 17, fontWeight: 700, textAlign: 'center',
+                color: '#2A1E0E', fontSize: 17, fontWeight: 700, textAlign: 'center',
                 margin: '0 0 18px', lineHeight: 1.35,
               }}>
                 {question.statement}
@@ -116,7 +116,7 @@ export function LavaHUD() {
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: PLAYER_COLORS[p.id], flexShrink: 0 }} />
             <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, flex: 1 }}>{p.id === 0 ? 'Tú' : `P${p.id + 1}`}</span>
             <span style={{ color: '#FDF293', fontSize: 12, fontWeight: 800 }}>{p.blocks} ▓</span>
-            {p.eliminated && <span style={{ color: '#F07060', fontSize: 11 }}>❌</span>}
+            {p.eliminated && <span style={{ color: '#F08090', fontSize: 11 }}>❌</span>}
           </div>
         ))}
       </div>
@@ -131,8 +131,8 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
   const isActualCorrect = actualCorrect === side;
   const dimmed = revealed && !isActualCorrect;
 
-  let bg = '#F8FAFE';
-  let tx = '#344054';
+  let bg = '#FFF7F2';
+  let tx = '#4A3E32';
   let border = '2px solid rgba(0,0,0,0.06)';
   let circleBg = color;
   let circleTx = '#fff';

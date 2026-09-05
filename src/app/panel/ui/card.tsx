@@ -6,7 +6,7 @@ export type CardVariant = 'default' | 'cyan' | 'emerald' | 'violet' | 'amber' | 
 
 const variantStyles: Record<CardVariant, string> = {
   default: "border-gray-100 hover:shadow-soft hover:border-gray-200",
-  cyan: "border-cyan-200 hover:shadow-glow-cyan hover:border-cyan-300",
+  cyan: "border-[#407516]/40 hover:shadow-sm hover:border-[#407516]/60",
   emerald: "border-emerald-200 hover:shadow-glow-emerald hover:border-emerald-300",
   violet: "border-violet-200 hover:shadow-glow-violet hover:border-violet-300",
   amber: "border-amber-200 hover:shadow-glow-amber hover:border-amber-300",

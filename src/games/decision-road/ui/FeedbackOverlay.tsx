@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore, PENALTY } from '@/stores/game.store';
@@ -346,7 +346,7 @@ export function FeedbackOverlay() {
               <p style={{ color: '#4A5770', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>{explanation}</p>
 
               {!maxRetriesReached && (
-                <p style={{ color: '#A0ADC4', fontSize: 11, marginBottom: 14 }}>Intento {retryCount} de {CFG.maxRetries}</p>
+                <p style={{ color: '#B0A090', fontSize: 11, marginBottom: 14 }}>Intento {retryCount} de {CFG.maxRetries}</p>
               )}
 
               <motion.button
@@ -355,7 +355,7 @@ export function FeedbackOverlay() {
                 onClick={handleRetry}
                 style={{
                   width: '100%', padding: '16px', borderRadius: 18, border: 'none',
-                  background: 'linear-gradient(135deg, #F087A9, #D96B91)',
+                  background: 'linear-gradient(135deg, #EB5D70, #EB5D70)',
                   color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer',
                   boxShadow: '0 4px 16px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
                 }}

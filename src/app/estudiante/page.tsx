@@ -1,78 +1,49 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, UserCircle, UserPlus } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 
 export default function EstudiantePage() {
   return (
-    <main style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <main className="relative flex min-h-screen items-center justify-center px-5 py-8">
       <Background />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        style={{
-          position: 'relative', zIndex: 1,
-          width: '100%', maxWidth: 420, padding: '32px 24px',
-        }}
+        className="relative z-10 w-full max-w-md"
       >
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
-          style={{ marginBottom: 24 }}
+          className="mb-5"
         >
           <Link
             href="/"
             onClick={() => audioManager.play('back')}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              textDecoration: 'none', cursor: 'pointer',
-              color: '#6B7A94', fontSize: 14, fontWeight: 800,
-              padding: '12px 20px', borderRadius: 14,
-              background: 'rgba(255,255,255,0.7)',
-              border: '2px solid #E4EAF4',
-              transition: 'all 0.2s ease',
-            }}
+            className="inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-all hover:bg-white"
           >
             <ArrowLeft size={18} />
             Volver
           </Link>
         </motion.div>
 
-        <div style={{ textAlign: 'center' }}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              background: '#FFE4ED', color: '#F087A9',
-              padding: '8px 20px', borderRadius: 999,
-              fontSize: 13, fontWeight: 900, letterSpacing: 0.5,
-              marginBottom: 20,
-            }}
-          >
-            COMIENZA TU AVENTURA
-          </motion.div>
-
+        <div className="flex flex-col items-center text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 8, marginBottom: 20,
-            }}
+            className="mb-4 flex justify-center"
           >
             <img
               src="/images/logo.png"
-              alt="EduPlay"
-              style={{ width: 155, height: 155, objectFit: 'contain' }}
+              alt="Logo"
+              className="h-auto w-44 drop-shadow-lg"
               draggable={false}
             />
           </motion.div>
@@ -81,116 +52,101 @@ export default function EstudiantePage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            style={{
-              color: '#1E2A3A', fontSize: 32, fontWeight: 900, margin: '0 0 6px',
-            }}
+            className="text-3xl font-black"
+            style={{ color: '#14704F' }}
           >
-            Iniciar sesión
+            Iniciar sesion
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.35 }}
-            style={{ color: '#6B7A94', fontSize: 15, margin: '0 0 28px', fontWeight: 700 }}
+            className="mt-1 text-sm font-bold"
+            style={{ color: '#14704F' }}
           >
             Guarda tu progreso y colecciona estrellas
           </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mx-auto mt-8 flex w-full max-w-sm flex-col gap-4"
+          >
+            <OptionCard
+              icon={<UserCircle size={26} />}
+              title="Entrar con mi Cuenta"
+              subtitle="Ingresa para seguir tu camino"
+              color="#00A0B5"
+              bg="#E8F7FE"
+              href="/ingresar"
+            />
+
+            <OptionCard
+              icon={<UserPlus size={26} />}
+              title="Jugar como Invitado"
+              subtitle="Prueba los juegos de inmediato"
+              color="#FFA000"
+              bg="#FFF0D6"
+              href="/invitado"
+            />
+          </motion.div>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%', maxWidth: 380, margin: '0 auto' }}
-        >
-          <OptionCard
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 26, height: 26 }}>
-                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
-              </svg>
-            }
-            title="Entrar con mi Cuenta"
-            subtitle="Ingresa para seguir tu camino"
-            color="#30BCE6"
-            borderColor="#C8EFFA"
-            href="/ingresar"
-          />
-
-          <OptionCard
-            icon={
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 26, height: 26 }}>
-                <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.47-5.47a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd" />
-              </svg>
-            }
-            title="Jugar como Invitado"
-            subtitle="¡Prueba los juegos de inmediato!"
-            color="#FF9F43"
-            borderColor="#FFE0BF"
-            href="/invitado"
-          />
-        </motion.div>
       </motion.div>
     </main>
   );
 }
 
-function OptionCard({ icon, title, subtitle, color, borderColor, href }: {
+function OptionCard({ icon, title, subtitle, color, bg, href }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   color: string;
-  borderColor: string;
+  bg: string;
   href: string;
 }) {
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
+    <Link href={href} className="text-decoration-none">
       <motion.div
         onClick={() => audioManager.play('navigate')}
-        whileHover={{ scale: 1.03, y: -4, boxShadow: '0 8px 24px rgba(0,0,0,0.08)' }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        style={{
-          width: '100%', padding: '20px 20px', borderRadius: 24,
-          background: '#fff', border: `3px solid ${borderColor}`,
-          display: 'flex', alignItems: 'center', gap: 16,
-          cursor: 'pointer', textAlign: 'left',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-          transition: 'all 0.2s ease',
-        }}
+        whileHover={{ scale: 1.03, y: -3 }}
+        whileTap={{ scale: 0.98, y: 2 }}
+        className="card-game flex items-center gap-4 p-4 text-left transition-all"
+        style={{ borderLeft: `5px solid ${color}` }}
       >
-        <div style={{
-          width: 56, height: 56, borderRadius: 16,
-          background: `linear-gradient(135deg, ${color} 0%, ${color}CC 100%)`,
-          color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-          boxShadow: `0 4px 12px ${color}40`,
-        }}>
+        <div
+          className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-white"
+          style={{ background: `linear-gradient(135deg, ${color}, ${color}CC)` }}
+        >
           {icon}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{
-            margin: '0 0 4px', fontSize: 20, fontWeight: 800, color,
-            lineHeight: 1.2, letterSpacing: '-0.01em',
-          }}>
+        <div className="min-w-0 flex-1">
+          <h3 className="mb-0.5 text-lg font-black leading-tight" style={{ color }}>
             {title}
           </h3>
-          <p style={{ margin: 0, fontSize: 14, color: '#6B7A94', fontWeight: 600 }}>
+          <p className="m-0 text-sm font-bold text-surface-500">
             {subtitle}
           </p>
         </div>
-        <motion.svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          style={{ width: 24, height: 24, color, flexShrink: 0 }}
-          whileHover={{ x: 4 }}
-          transition={{ duration: 0.2 }}
-        >
-          <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-        </motion.svg>
+        <ChevronIcon color={color} />
       </motion.div>
     </Link>
+  );
+}
+
+function ChevronIcon({ color }: { color: string }) {
+  return (
+    <motion.svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-6 w-6 flex-shrink-0"
+      style={{ color }}
+      whileHover={{ x: 4 }}
+      transition={{ duration: 0.2 }}
+    >
+      <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+    </motion.svg>
   );
 }

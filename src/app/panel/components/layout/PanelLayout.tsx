@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './Sidebar';
@@ -17,6 +17,11 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = usePanelStore((s) => s.isAuthenticated);
   const docente = usePanelStore((s) => s.docente);
   const sidebarOpen = usePanelStore((s) => s.sidebarOpen);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const publicPaths = ['/panel/login', '/panel/register'];
   const isPublicPage = publicPaths.some((p) => pathname === p);
@@ -36,6 +41,12 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, isAdminRoute, isAdmin, router]);
 
   useEffect(() => {
+    if (hydrated && isAuthenticated && isPublicPage) {
+      router.replace('/panel');
+    }
+  }, [hydrated, isAuthenticated, isPublicPage, router]);
+
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     const t1 = setTimeout(() => {
@@ -46,15 +57,18 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t1);
   }, [isAuthenticated]);
 
-  if (!isAuthenticated && !isPublicPage) {
+  if (!hydrated) {
+    if (isPublicPage) {
+      return <>{children}</>;
+    }
     return null;
   }
 
-  if (!isAuthenticated && isPublicPage) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 
-  if (isAuthenticated && isPublicPage) {
+  if (!isAuthenticated) {
     return null;
   }
 

@@ -34,7 +34,7 @@ interface BadgeProps {
   size?: 'sm' | 'md';
 }
 
-export function Badge({ children, color = '#30BCE6', size = 'md' }: BadgeProps) {
+export function Badge({ children, color = '#00A0B5', size = 'md' }: BadgeProps) {
   const cls = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm';
   return (
     <span
@@ -54,7 +54,7 @@ interface AvatarProps {
 }
 
 const dims = { sm: 32, md: 48, lg: 64 };
-const leagueColors = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FDDB33', diamond: '#30BCE6' };
+const leagueColors = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FDDB33', diamond: '#00A0B5' };
 
 export function Avatar({ src, name, size = 'md', league }: AvatarProps) {
   const d = dims[size];
