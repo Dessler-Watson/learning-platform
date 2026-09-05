@@ -1,4 +1,4 @@
-# EduPlay
+ EduPlay
 
 ## 1. Descripcion general
 
