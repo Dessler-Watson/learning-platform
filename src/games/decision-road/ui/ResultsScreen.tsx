@@ -11,10 +11,10 @@ import type { GameResult } from '@/games/decision-road/types';
 /* ------------------------------------------------------------------ */
 
 const MOCK_CLASSMATES = [
-  { id: 1, nombre: 'Sofia M.', avatar: '/images/avatares/avatar2.png', puntos: 3450, rango: 'Oro' },
-  { id: 2, nombre: 'Carlos R.', avatar: '/images/avatares/avatar4.png', puntos: 3120, rango: 'Plata' },
-  { id: 4, nombre: 'Ana L.', avatar: '/images/avatares/avatar6.png', puntos: 2650, rango: 'Plata' },
-  { id: 5, nombre: 'Diego P.', avatar: '/images/avatares/avatar8.png', puntos: 2400, rango: 'Bronce' },
+  { id: 1, nombre: 'Sofia M.', avatar: '/images/avatares/leon.png', puntos: 3450, rango: 'Oro' },
+  { id: 2, nombre: 'Carlos R.', avatar: '/images/avatares/mariposa.png', puntos: 3120, rango: 'Plata' },
+  { id: 4, nombre: 'Ana L.', avatar: '/images/avatares/guardabarranco.png', puntos: 2650, rango: 'Plata' },
+  { id: 5, nombre: 'Diego P.', avatar: '/images/avatares/madrono.png', puntos: 2400, rango: 'Bronce' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -202,7 +202,7 @@ function FullResultsScreen({
   const yoNombre = perfil?.usuario.nombre || 'Tu';
   const yoAvatar = perfil?.usuario.avatar.imagen
     ? avatarUrl(perfil.usuario.avatar.imagen)
-    : '/images/avatares/avatar1.png';
+    : '/images/avatares/gueguense.png';
   const yoPuntosTotal = (perfil?.puntos || 0) + result.score;
 
   const ranking = [

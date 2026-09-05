@@ -81,8 +81,8 @@ export async function GET(req: NextRequest) {
       fecha_registro: usuario.fecha_registro,
       avatar: {
         id_avatar: avatar?.id_avatar || usuario.avatar_id,
-        nombre: avatar?.nombre || 'Sacuanjoche',
-        imagen: avatar?.imagen || 'avatar1.png',
+        nombre: avatar?.nombre || 'Güegüense',
+        imagen: avatar?.imagen || 'gueguense.png',
       },
     },
     puntos,
@@ -142,8 +142,8 @@ export async function PATCH(req: NextRequest) {
         correo: usuario.correo,
         avatar: {
           id_avatar: avatar?.id_avatar || usuario.avatar_id,
-          nombre: avatar?.nombre || 'Sacuanjoche',
-          imagen: avatar?.imagen || 'avatar1.png',
+          nombre: avatar?.nombre || 'Güegüense',
+imagen: avatar?.imagen || 'gueguense.png',
         },
       },
     });

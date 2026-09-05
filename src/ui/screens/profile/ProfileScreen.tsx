@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 import { ArrowLeft, Pencil, Camera, Star, Trophy, Clock, Gamepad2, Flame, BookOpen } from 'lucide-react';
+import { avatarUrl } from '@/lib/avatares';
 
 const DATA = {
   name: 'Arthur',
@@ -59,7 +60,7 @@ export function ProfileScreen() {
             style={{ background: '#fff7ef' }}
           >
             <img
-              src={`/images/avatares/avatar${avatarId}.png`}
+              src={avatarUrl(avatarId)}
               alt="Tu avatar"
               className="h-full w-full object-cover"
               draggable={false}

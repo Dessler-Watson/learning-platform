@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
           correo: nuevo.correo,
           avatar: {
             id_avatar: avatar?.id_avatar || nuevo.avatar_id,
-            nombre: avatar?.nombre || 'Sacuanjoche',
-            imagen: avatar?.imagen || 'avatar1.png',
+            nombre: avatar?.nombre || 'Güegüense',
+            imagen: avatar?.imagen || 'gueguense.png',
           },
         },
       },

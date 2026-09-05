@@ -6,6 +6,7 @@ import { Settings, Bell, Sparkles, Gamepad2, Trophy } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
 import { audioManager } from '@/shared/lib/audio';
+import { avatarImagen as avatarFile } from '@/lib/avatares';
 
 interface StoredUser {
   id_usuario: number;
@@ -66,7 +67,7 @@ const DEFAULT_PERFIL: Perfil = {
     nombre: 'Jugador',
     apellido: '',
     fecha_registro: new Date().toISOString(),
-    avatar: { id_avatar: 1, nombre: 'Sacuanjoche', imagen: 'avatar1.png' },
+    avatar: { id_avatar: 1, nombre: 'Güegüense', imagen: 'gueguense.png' },
   },
   puntos: 0,
   rango: {
@@ -115,7 +116,7 @@ export function DashboardScreen() {
           avatar: {
             ...DEFAULT_PERFIL.usuario.avatar,
             id_avatar: stored.avatar_id,
-            imagen: `avatar${stored.avatar_id}.png`,
+            imagen: avatarFile(stored.avatar_id),
           },
         },
       });

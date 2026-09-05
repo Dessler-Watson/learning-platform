@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { getMockRoom, MOCK_PLAYER_NAMES, type RoomData } from '@/lib/rooms';
+import { avatarUrl } from '@/lib/avatares';
 
 interface Player {
   id: string;
@@ -15,10 +16,6 @@ interface Player {
 }
 
 type Phase = 'filling' | 'full' | 'countdown' | 'go';
-
-function avatarUrl(id: number): string {
-  return `/images/avatares/avatar${((id - 1) % 9) + 1}.png`;
-}
 
 function loadCurrentUser(): { nombre: string; avatar: string } | null {
   if (typeof window === 'undefined') return null;

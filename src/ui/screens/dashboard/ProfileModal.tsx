@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pencil, Check, Settings, Calendar } from 'lucide-react';
 import { audioManager } from '@/shared/lib/audio';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
+import { avatarImagen as avatarFile } from '@/lib/avatares';
 
 interface ProfileModalProps {
   open: boolean;
@@ -123,7 +124,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
         const avatar = await lookupAvatar(selectedAvatarId);
         const nextAvatar = {
           id_avatar: selectedAvatarId,
-          imagen: avatar?.imagen || `avatar${selectedAvatarId}.png`,
+          imagen: avatar?.imagen || avatarFile(selectedAvatarId),
           nombre: avatar?.nombre || 'Avatar',
         };
         const raw = localStorage.getItem('eduplay_user');

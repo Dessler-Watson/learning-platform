@@ -34,15 +34,15 @@ export function AvatarPicker({ selected, onSelect, compact }: AvatarPickerProps)
       .catch(() => {
         if (active) {
           setAvatares([
-            { id_avatar: 1, nombre: 'Sacuanjoche', imagen: 'avatar1.png' },
-            { id_avatar: 2, nombre: 'Madroño', imagen: 'avatar2.png' },
-            { id_avatar: 3, nombre: 'Ideay', imagen: 'avatar3.png' },
-            { id_avatar: 4, nombre: 'Güegüense', imagen: 'avatar4.png' },
-            { id_avatar: 5, nombre: 'León', imagen: 'avatar5.png' },
-            { id_avatar: 6, nombre: 'Máscara', imagen: 'avatar6.png' },
-            { id_avatar: 7, nombre: 'Mariposa', imagen: 'avatar7.png' },
-            { id_avatar: 8, nombre: 'Nacatamal', imagen: 'avatar8.png' },
-            { id_avatar: 9, nombre: 'Guardabarranco', imagen: 'avatar9.png' },
+            { id_avatar: 1, nombre: 'Güegüense', imagen: 'gueguense.png' },
+            { id_avatar: 2, nombre: 'León', imagen: 'leon.png' },
+            { id_avatar: 3, nombre: 'Máscara', imagen: 'mascara.png' },
+            { id_avatar: 4, nombre: 'Mariposa', imagen: 'mariposa.png' },
+            { id_avatar: 5, nombre: 'Nacatamal', imagen: 'nacatamal.png' },
+            { id_avatar: 6, nombre: 'Guardabarranco', imagen: 'guardabarranco.png' },
+            { id_avatar: 7, nombre: 'Sacuanjoche', imagen: 'sacuanjoche.png' },
+            { id_avatar: 8, nombre: 'Madroño', imagen: 'madrono.png' },
+            { id_avatar: 9, nombre: 'Ideay', imagen: 'ideay.png' },
           ]);
         }
       });

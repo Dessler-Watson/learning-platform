@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Dices, Pencil, Rocket, Sparkles } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { avatarUrl } from '@/lib/avatares';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
 
 const NAMES = [
@@ -88,7 +89,7 @@ export function GuestNameScreen() {
                 style={{ background: '#fff7ef' }}
               >
                 <img
-                  src={`/images/avatares/avatar${avatarId}.png`}
+                  src={avatarUrl(avatarId)}
                   alt="Tu avatar"
                   className="h-full w-full object-cover"
                   draggable={false}

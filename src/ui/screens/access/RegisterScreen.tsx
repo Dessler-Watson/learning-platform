@@ -6,6 +6,7 @@ import { Controller, useForm, type UseFormRegisterReturn } from 'react-hook-form
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { User, Mail, Lock, Calendar, ArrowLeft } from 'lucide-react';
+import { avatarUrl } from '@/lib/avatares';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
@@ -144,7 +145,7 @@ export function RegisterScreen() {
             style={{ background: '#fff7ef' }}
           >
             <img
-              src={`/images/avatares/avatar${avatarId}.png`}
+              src={avatarUrl(avatarId)}
               alt="Tu avatar"
               className="h-full w-full object-cover"
               draggable={false}
