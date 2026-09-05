@@ -1,4 +1,4 @@
- EduPlay
+# EduPlay
 
 ## 1. Descripcion general
 
@@ -26,30 +26,273 @@ De esta manera, EduPlay combina educacion, videojuegos, gamificacion e inteligen
 
 ## 3. Estructura del proyecto
 
-A continuacion se detalla la organizacion de carpetas y la funcion de cada una:
-
 ```
 EduPlay/
-├── src/                          # Codigo fuente de la aplicacion
-│   ├── app/                      # Next.js App Router (Rutas y Pages)
-│   │   ├── api/                  # Endpoints del servidor (API Routes)
-│   │   ├── camino-decisiones/    # Juego 3D: Camino de las Decisiones
-│   │   ├── lava-conocimiento/    # Juego 3D: Lava del Conocimiento
-│   │   ├── panel/                # Panel del Docente (CRUD, Monitoreo, Admin)
-│   │   └── ...                   # Rutas del estudiante (login, registro, perfil)
-│   │
-│   ├── games/                    # Logica especifica de los juegos (mundo, UI, config)
-│   ├── engine/                   # Motor 3D y utilidades de Three.js
-│   ├── shared/                   # Codigo compartido (avatares, configs, refs)
-│   ├── stores/                   # Estado global (Zustand stores)
-│   ├── lib/                      # Utilidades y conexion a datos JSON
-│   ├── ui/                       # Componentes visuales y pantallas reutilizables
-│   └── education/                # Banco de preguntas estatico
-│
-├── data/                         # Base de datos local (archivos JSON)
-├── public/                       # Imagenes, avatares y recursos estaticos
-├── package.json                  # Configuracion del proyecto y dependencias
-└── README.md                     # Documentacion del proyecto
+|
+|--- Configuracion y raiz
+|    .gitignore
+|    next.config.js
+|    package.json
+|    postcss.config.js
+|    tailwind.config.ts
+|    tsconfig.json
+|    README.md
+|
+|--- src/
+|    |
+|    |--- app/                         # Next.js App Router (paginas y API)
+|    |    |
+|    |    |--- api/                    # Endpoints REST del servidor
+|    |    |    |--- ai/generate/       # Proxy a Google Gemini IA
+|    |    |    |--- avatares/          # Lista de avatares
+|    |    |    |--- cuestionarios/     # CRUD cuestionarios
+|    |    |    |--- cursos/            # CRUD cursos e inscripciones
+|    |    |    |--- dashboard/         # KPIs y metricas
+|    |    |    |--- estadisticas/      # Estadisticas agregadas
+|    |    |    |--- estudiante/perfil/ # Perfil del estudiante
+|    |    |    |--- juegos/            # Lista de juegos
+|    |    |    |--- preguntas/         # CRUD preguntas
+|    |    |    |--- salas/             # CRUD salas
+|    |    |    |--- salas/unirse/      # Unirse a sala por codigo
+|    |    |    |--- usuarios/          # CRUD usuarios
+|    |    |
+|    |    |--- camino-decisiones/      # Ruta del juego 3D "Camino de Decisiones"
+|    |    |--- configuracion/          # Configuracion de cuenta estudiante
+|    |    |--- estudiante/             # Sub-menu de acceso estudiante
+|    |    |--- ingresar/               # Login del estudiante
+|    |    |--- inicio/                 # Dashboard del estudiante
+|    |    |--- invitado/               # Acceso rapido sin cuenta
+|    |    |--- lava-conocimiento/      # Ruta del juego 3D "Lava del Conocimiento"
+|    |    |--- login-docente/          # Login docente (ruta alternativa)
+|    |    |--- logros/                 # Logros y medallas
+|    |    |--- panel/                  # PANEL DOCENTE COMPLETO
+|    |    |    |--- admin/docentes/    # Administracion de docentes
+|    |    |    |--- components/        # Componentes propios del panel
+|    |    |    |    |--- layout/       # PanelLayout, Sidebar, Topbar
+|    |    |    |    |--- shared/       # AIGenerateModal, AnimatedBackground,
+|    |    |    |                       # BackButton, EmptyState, GameCard,
+|    |    |    |                       # PageHeader, SearchBar, SoundToggle,
+|    |    |    |                       # StatsCard, StatusBadge
+|    |    |    |--- cursos/            # CRUD de cursos (lista y preguntas)
+|    |    |    |--- cursos/[id]/preguntas/ # Preguntas por curso
+|    |    |    |--- data/              # Datos en memoria del panel
+|    |    |    |    |--- actividad.ts
+|    |    |    |    |--- cursos.ts
+|    |    |    |    |--- docentes.ts
+|    |    |    |    |--- estudiantes.ts
+|    |    |    |    |--- juegos.ts
+|    |    |    |    |--- preguntas.ts
+|    |    |    |    |--- respuestas.ts
+|    |    |    |    |--- resultados.ts
+|    |    |    |    |--- salas.ts
+|    |    |    |--- hooks/             # useClickLock, useMediaQuery
+|    |    |    |--- juegos/[id]/cursos/# Cursos filtrados por juego
+|    |    |    |--- lib/               # aiGenerator.ts (cliente IA), audio.ts
+|    |    |    |--- login/             # Login del docente
+|    |    |    |--- perfil/            # Perfil del docente
+|    |    |    |--- register/          # Registro del docente
+|    |    |    |--- salas/             # Gestion de salas
+|    |    |    |    |--- crear/        # Formulario crear sala
+|    |    |    |    |--- [id]/lobby/   # Lobby de espera
+|    |    |    |    |--- [id]/monitoreo/ # Monitoreo en vivo
+|    |    |    |    |--- [id]/resultados/ # Resumen resultados
+|    |    |    |--- services/          # Servicios CRUD (en memoria)
+|    |    |    |--- store/             # usePanelStore (Zustand)
+|    |    |    |--- types/             # Tipos TypeScript del panel
+|    |    |    |--- ui/                # Componentes UI (Radix)
+|    |    |    |    |--- avatar.tsx
+|    |    |    |    |--- button.tsx
+|    |    |    |    |--- card.tsx
+|    |    |    |    |--- confirm-dialog.tsx
+|    |    |    |    |--- dialog.tsx
+|    |    |    |    |--- game-icons.tsx
+|    |    |    |    |--- input.tsx
+|    |    |    |    |--- label.tsx
+|    |    |    |    |--- select.tsx
+|    |    |    |    |--- textarea.tsx
+|    |    |    |    |--- toast.tsx
+|    |    |    |--- utils/             # Funcion cn() (clsx + tailwind-merge)
+|    |    |    |--- layout.tsx         # Layout del panel
+|    |    |    |--- page.tsx           # Dashboard del docente
+|    |    |    |--- panel.css          # Estilos propios del panel
+|    |    |
+|    |    |--- perfil/                 # Perfil del estudiante
+|    |    |--- registro/               # Registro del estudiante
+|    |    |--- sala-espera/            # Sala de espera antes del juego
+|    |    |--- globals.css             # Estilos globales
+|    |    |--- layout.tsx              # Layout raiz
+|    |    |--- page.tsx                # Pantalla principal (selector de rol)
+|    |
+|    |--- education/                   # Banco de preguntas estatico
+|    |    |--- question-bank/
+|    |         |--- dignidad-mujer.ts  # 21 preguntas tematicas
+|    |
+|    |--- games/                       # Logica y escenas de los juegos
+|    |    |
+|    |    |--- decision-road/          # Juego: Camino de las Decisiones
+|    |    |    |--- logic/
+|    |    |    |    |--- GameFlow.tsx  # Carga preguntas y controla fases
+|    |    |    |--- ui/
+|    |    |    |    |--- DecisionHUD.tsx       # HUD (progreso + puntos)
+|    |    |    |    |--- FeedbackOverlay.tsx   # Correcto/Incorrecto
+|    |    |    |    |--- QuestionPanel.tsx     # Panel de preguntas
+|    |    |    |    |--- ResultsScreen.tsx     # Pantalla de resultados
+|    |    |    |--- world/
+|    |    |    |    |--- CharacterDissolve.tsx # Efecto de disolucion
+|    |    |    |    |--- DecisionWorld.tsx     # Escena 3D principal
+|    |    |    |    |--- DoorSystem.tsx        # Puertas de preguntas
+|    |    |    |    |--- FinishLine.tsx        # Linea de meta
+|    |    |    |    |--- Path.tsx              # Camino y paredes
+|    |    |    |--- config.ts                  # Configuracion del juego
+|    |    |    |--- types.ts                   # Tipos TypeScript
+|    |    |
+|    |    |--- lava-knowledge/         # Juego: Lava del Conocimiento
+|    |    |    |--- logic/
+|    |    |    |    |--- LavaGameFlow.tsx      # Carga preguntas y rondas
+|    |    |    |    |--- RoundManager.tsx      # Timer y respuestas bots
+|    |    |    |--- ui/
+|    |    |    |    |--- LavaHUD.tsx           # HUD del juego
+|    |    |    |--- world/
+|    |    |    |    |--- Arena.tsx             # Arena de juego
+|    |    |    |    |--- LavaCamera.tsx        # Camara del juego
+|    |    |    |    |--- LavaSurface.tsx       # Shader de lava
+|    |    |    |    |--- LavaWorld.tsx         # Escena 3D principal
+|    |    |    |    |--- PlayerTowers.tsx      # Torres con avatares
+|    |    |    |--- config.ts                  # Configuracion
+|    |    |    |--- types.ts                   # Tipos TypeScript
+|    |
+|    |--- engine/                      # Motor 3D compartido
+|    |    |--- camera/
+|    |    |    |--- CameraController.tsx  # Camara 3ra persona
+|    |    |--- effects/
+|    |    |    |--- PostProcessing.tsx    # Post-procesamiento (no usado)
+|    |    |--- lighting/
+|    |    |    |--- Lighting.tsx          # Iluminacion de escenas
+|    |    |--- renderer/
+|    |    |    |--- GameCanvas.tsx        # Entry point Camino de Decisiones
+|    |    |    |--- LavaCanvas.tsx        # Entry point Lava del Conocimiento
+|    |
+|    |--- shared/                      # Codigo compartido entre juegos
+|    |    |--- characters/
+|    |    |    |--- CharacterController.tsx  # Control del personaje 3D
+|    |    |    |--- RobloxAvatar.tsx         # Modelo Roblox
+|    |    |--- config/
+|    |    |    |--- game.config.ts           # Config de camara y personaje
+|    |    |--- hooks/
+|    |    |    |--- useKeyboard.ts           # Hook de teclado
+|    |    |--- lib/
+|    |    |    |--- audio.ts                 # audioManager (sonidos)
+|    |    |--- refs/
+|    |    |    |--- characterRef.ts          # Referencia al personaje
+|    |    |--- types/
+|    |    |    |--- game.ts                  # Tipos compartidos
+|    |    |--- utils/
+|    |    |    |--- helpers.ts               # clamp, utilidades
+|    |    |--- world/
+|    |    |    |--- effects/
+|    |    |    |    |--- ParticleField.tsx   # Campo de particulas
+|    |    |    |--- environment/
+|    |    |         |--- Clouds.tsx          # Nubes
+|    |    |         |--- Sky.tsx             # Cielo
+|    |
+|    |--- stores/                      # Estado global (Zustand)
+|    |    |--- game.store.ts            # Estado de Camino de Decisiones
+|    |    |--- lava.store.ts            # Estado de Lava del Conocimiento
+|    |
+|    |--- lib/                         # Utilidades generales
+|    |    |--- avatares.ts              # Mapeo id --> nombre/imagen
+|    |    |--- data.ts                  # Lectura/escritura de JSON
+|    |    |--- rooms.ts                 # Logica de salas (mock)
+|    |
+|    |--- ui/                          # Componentes de interfaz
+|    |    |--- components/
+|    |    |    |--- navigation/
+|    |    |    |    |--- GameMenuButton.tsx
+|    |    |    |    |--- TopBar.tsx
+|    |    |    |--- primitives/
+|    |    |    |    |--- Background.tsx
+|    |    |    |    |--- DoodleBackground.tsx
+|    |    |    |    |--- DoodleBackground.module.css
+|    |    |    |    |--- GameCard.tsx
+|    |    |    |--- AvatarPicker.tsx
+|    |    |    |--- Button.tsx
+|    |    |    |--- Card.tsx
+|    |    |    |--- index.ts            # Barrel (no usado)
+|    |    |    |--- Modal.tsx
+|    |    |    |--- ProgressBar.tsx
+|    |    |    |--- Skeleton.tsx
+|    |    |    |--- Toast.tsx
+|    |    |
+|    |    |--- screens/
+|    |    |    |--- access/
+|    |    |    |    |--- GuestNameScreen.tsx   # Nombre + avatar (invitado)
+|    |    |    |    |--- LoginScreen.tsx       # Login estudiante
+|    |    |    |    |--- RegisterScreen.tsx    # Registro estudiante
+|    |    |    |--- account/
+|    |    |    |    |--- AccountConfigScreen.tsx # Configuracion cuenta
+|    |    |    |--- achievements/
+|    |    |    |    |--- AchievementsScreen.tsx  # Logros y medallas
+|    |    |    |--- dashboard/
+|    |    |    |    |--- DashboardScreen.tsx     # Dashboard estudiante
+|    |    |    |    |--- ProfileModal.tsx        # Modal de perfil
+|    |    |    |--- profile/
+|    |    |    |    |--- ProfileScreen.tsx       # Perfil estudiante
+|    |    |    |--- waiting/
+|    |    |    |    |--- WaitingRoomScreen.tsx   # Sala de espera
+|    |    |    |--- welcome/
+|    |    |    |    |--- SettingsModal.tsx       # Modal ajustes (no usado)
+|    |    |    |    |--- WelcomeBackground.tsx   # Fondo bienvenida (no usado)
+|    |    |    |    |--- WelcomePage.tsx         # Pantalla bienvenida (no usada)
+|    |    |    |    |--- WoodenButton.tsx        # Boton madera (no usado)
+|    |    |    |    |--- WoodenButton.module.css
+|    |    |
+|    |    |--- tokens/
+|    |    |    |--- animations.ts
+|    |    |    |--- colors.ts
+|    |    |    |--- index.ts
+|    |    |    |--- spacing.ts
+|    |    |    |--- typography.ts
+|
+|--- data/                           # Base de datos en archivos JSON
+|    |--- avatares.json               # Catalogo de avatares
+|    |--- categorias.json              # Categorias de preguntas
+|    |--- cuestionarios.json           # Cuestionarios
+|    |--- cursos.json                  # Cursos creados
+|    |--- curso_estudiante.json        # Inscripciones a cursos
+|    |--- estadisticas.json            # Estadisticas agregadas
+|    |--- juegos.json                  # Catalogo de juegos
+|    |--- juego_cuestionario.json      # Relacion juego-cuestionario
+|    |--- ligas.json                   # Configuracion de ligas/rangos
+|    |--- partidas.json                # Registro de partidas
+|    |--- preguntas.json               # Banco de preguntas
+|    |--- progreso.json                # Progreso por estudiante
+|    |--- resultados.json              # Resultados de partidas
+|    |--- salas.json                   # Salas activas
+|    |--- usuarios.json                # Usuarios registrados
+|
+|--- public/                          # Recursos estaticos
+|    |--- images/
+|         |--- avatares/
+|         |    |--- guardabarranco.png
+|         |    |--- gueguense.png
+|         |    |--- ideay.png
+|         |    |--- leon.png
+|         |    |--- madrono.png
+|         |    |--- mariposa.png
+|         |    |--- mascara.png
+|         |    |--- nacatamal.png
+|         |    |--- sacuanjoche.png
+|         |--- rangos/
+|         |    |--- bronce.png
+|         |    |--- diamante.png
+|         |    |--- oro.png
+|         |    |--- plata.png
+|         |--- welcome/
+|         |    |--- welcome-bg.jpg
+|         |    |--- welcome-bg.webp
+|         |    |--- wooden-button.png
+|         |--- logo.png
+|         |--- puntos.png
 ```
 
 ## 4. Instalacion basica
