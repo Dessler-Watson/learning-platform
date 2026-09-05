@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Dices, Pencil, Rocket } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 const NAMES = [
   'SuperLeon', 'PandaMagico', 'RayoAzul', 'AstroKid', 'ZorroValiente',
@@ -51,6 +52,7 @@ export function GuestNameScreen() {
         >
           <Link
             href="/estudiante"
+            onClick={() => audioManager.play('back')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               textDecoration: 'none', cursor: 'pointer',
@@ -161,7 +163,7 @@ export function GuestNameScreen() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={randomName}
+            onClick={() => { audioManager.play('create'); randomName(); }}
             style={{
               width: '100%', padding: '14px', borderRadius: 18,
               border: '2px dashed #FDDB33', background: '#FFF8D6',
@@ -177,7 +179,7 @@ export function GuestNameScreen() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={start}
+            onClick={() => { audioManager.play('start'); start(); }}
             disabled={!name.trim()}
             style={{
               width: '100%', padding: '16px', borderRadius: 18, border: 'none',

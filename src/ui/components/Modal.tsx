@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { ReactNode } from 'react';
+import { audioManager } from '@/shared/lib/audio';
 
 interface ModalProps {
   open: boolean;
@@ -19,7 +20,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => { audioManager.play('modalClose'); onClose(); }}
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           />
           <motion.div
@@ -55,10 +56,10 @@ export function Dialog({ open, title, message, confirmText = 'Aceptar', cancelTe
     <Modal open={open} onClose={onCancel} title={title}>
       <p className="text-neutral-600 mb-6">{message}</p>
       <div className="flex gap-3">
-        <button onClick={onCancel} className="flex-1 py-3 px-4 rounded-xl border-2 border-neutral-200 font-bold text-neutral-600 hover:bg-neutral-50 transition-colors">
+        <button onClick={() => { audioManager.play('modalClose'); onCancel(); }} className="flex-1 py-3 px-4 rounded-xl border-2 border-neutral-200 font-bold text-neutral-600 hover:bg-neutral-50 transition-colors">
           {cancelText}
         </button>
-        <button onClick={onConfirm} className="flex-1 py-3 px-4 rounded-xl bg-primary-500 text-white font-bold hover:bg-primary-600 transition-colors">
+        <button onClick={() => { audioManager.play('confirm'); onConfirm(); }} className="flex-1 py-3 px-4 rounded-xl bg-primary-500 text-white font-bold hover:bg-primary-600 transition-colors">
           {confirmText}
         </button>
       </div>

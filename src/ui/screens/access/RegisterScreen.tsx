@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 const schema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio'),
@@ -20,6 +21,7 @@ export function RegisterScreen() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = (data: FormData) => {
+    audioManager.play('submit');
     console.log('Registro intentado:', { ...data, edad: Number(data.edad) });
     window.location.href = '/inicio';
   };
@@ -140,7 +142,7 @@ export function RegisterScreen() {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => {}}
+          onClick={() => { audioManager.play('click'); }}
           style={{
             width: '100%', padding: '14px', borderRadius: 18,
             border: '2px solid #E4EAF4', background: '#fff',
@@ -159,7 +161,7 @@ export function RegisterScreen() {
 
         <p style={{ textAlign: 'center', color: '#6B7A94', fontSize: 13, margin: '16px 0 0' }}>
           Ya tienes cuenta?{' '}
-          <button onClick={() => { window.location.href = '/ingresar'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
+          <button onClick={() => { audioManager.play('navigate'); window.location.href = '/ingresar'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
             Inicia sesion
           </button>
         </p>
@@ -167,7 +169,7 @@ export function RegisterScreen() {
         <motion.button
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
           whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => { window.location.href = '/ingresar'; }}
+          onClick={() => { audioManager.play('back'); window.location.href = '/ingresar'; }}
           style={{
             display: 'block', margin: '16px auto 0', background: 'none', border: 'none',
             color: '#6B7A94', fontSize: 13, cursor: 'pointer', fontWeight: 700,

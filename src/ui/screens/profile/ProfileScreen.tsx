@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 const DATA = {
   name: 'Arthur',
@@ -25,7 +26,7 @@ export function ProfileScreen() {
 
         <motion.div variants={it} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
           <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-            onClick={() => { window.location.href = '/inicio'; }}
+            onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
             style={{ width: 40, height: 40, borderRadius: 14, border: 'none', background: 'rgba(240,135,169,0.12)', color: '#344054', fontSize: 18, cursor: 'pointer' }}>&larr;</motion.button>
           <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0 }}>Mi Perfil</h1>
         </motion.div>
@@ -58,6 +59,7 @@ export function ProfileScreen() {
 
         <motion.div variants={it} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onClick={() => audioManager.play('click')}
             style={{
               width: '100%', padding: '15px', borderRadius: 18, border: 'none',
               background: 'linear-gradient(135deg, #F087A9, #D96B91)',
@@ -65,6 +67,7 @@ export function ProfileScreen() {
               boxShadow: '0 4px 16px rgba(240,135,169,0.3)',
             }}>✏️ Editar perfil</motion.button>
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onClick={() => audioManager.play('click')}
             style={{
               width: '100%', padding: '15px', borderRadius: 18,
               border: '2px solid #E4EAF4', background: 'rgba(255,255,255,0.6)',

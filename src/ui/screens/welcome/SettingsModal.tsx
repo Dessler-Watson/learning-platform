@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { audioManager } from '@/shared/lib/audio';
 
 const CONTROLS = [
   { icon: '🌐', label: 'Idioma', value: 'Espanol' },
@@ -18,7 +19,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => { audioManager.play('modalClose'); onClose(); }}
             style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
           />
           <motion.div
@@ -55,7 +56,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
             </div>
 
             <button
-              onClick={onClose}
+              onClick={() => { audioManager.play('modalClose'); onClose(); }}
               style={{
                 width: '100%', padding: '14px', borderRadius: 18,
                 border: 'none', background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',

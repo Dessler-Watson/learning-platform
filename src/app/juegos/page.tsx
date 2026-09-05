@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { TopBar } from '@/ui/components/navigation/TopBar';
 import { Background } from '@/ui/components/primitives/Background';
 import { GameCard, GameGrid } from '@/ui/components/primitives/GameCard';
+import { audioManager } from '@/shared/lib/audio';
 
 const GAMES = [
   {
@@ -72,7 +73,7 @@ export default function JuegosPage() {
           variants={fadeUp}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => { window.location.href = '/inicio'; }}
+          onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
           style={{
             background: 'none', border: 'none',
             color: '#6B7A94', fontSize: 14,

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 const schema = z.object({
   email: z.string().min(1, 'El correo es obligatorio').email('Correo no valido'),
@@ -29,6 +30,7 @@ export function LoginScreen() {
 
       if (!usuario) {
         setLoginError('Correo no encontrado');
+        audioManager.play('error');
         setLoading(false);
         return;
       }
@@ -110,11 +112,12 @@ export function LoginScreen() {
             </p>
           )}
 
-          <motion.button
-            whileHover={{ scale: loading ? 1 : 1.02 }}
-            whileTap={{ scale: loading ? 1 : 0.97 }}
-            type="submit"
-            disabled={loading}
+            <motion.button
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.97 }}
+              type="submit"
+              disabled={loading}
+              onClick={() => audioManager.play('submit')}
             style={{
               width: '100%', padding: '16px', borderRadius: 18, border: 'none',
               background: 'linear-gradient(135deg, #30BCE6, #1A9FCC)',
@@ -128,10 +131,10 @@ export function LoginScreen() {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => {}} style={{ background: 'none', border: 'none', color: '#A0ADC4', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+          <button onClick={() => { audioManager.play('click'); }} style={{ background: 'none', border: 'none', color: '#A0ADC4', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
             Olvidaste tu contrasena?
           </button>
-          <button onClick={() => { window.location.href = '/registro'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
+          <button onClick={() => { audioManager.play('navigate'); window.location.href = '/registro'; }} style={{ background: 'none', border: 'none', color: '#30BCE6', fontSize: 13, cursor: 'pointer', fontWeight: 800 }}>
             Crear cuenta
           </button>
         </div>
@@ -139,7 +142,7 @@ export function LoginScreen() {
         <motion.button
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
           whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          onClick={() => { window.location.href = '/estudiante'; }}
+          onClick={() => { audioManager.play('back'); window.location.href = '/estudiante'; }}
           style={{
             display: 'block', margin: '16px auto 0', background: 'none', border: 'none',
             color: '#6B7A94', fontSize: 13, cursor: 'pointer', fontWeight: 700,

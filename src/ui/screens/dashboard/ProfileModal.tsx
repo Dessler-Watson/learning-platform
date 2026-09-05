@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pencil } from 'lucide-react';
+import { audioManager } from '@/shared/lib/audio';
 
 interface ProfileModalProps {
   open: boolean;
@@ -67,6 +68,7 @@ export function ProfileModal({ open, onClose, perfil }: ProfileModalProps) {
 
   useEffect(() => {
     if (!open) return;
+    audioManager.play('modalOpen');
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -81,7 +83,7 @@ export function ProfileModal({ open, onClose, perfil }: ProfileModalProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={() => { audioManager.play('modalClose'); onClose(); }}
           style={{
             position: 'fixed', inset: 0, zIndex: 60,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -105,7 +107,7 @@ export function ProfileModal({ open, onClose, perfil }: ProfileModalProps) {
             }}
           >
             <button
-              onClick={onClose}
+              onClick={() => { audioManager.play('modalClose'); onClose(); }}
               aria-label="Cerrar perfil"
               style={{
                 position: 'absolute', top: 18, right: 18,
@@ -186,6 +188,7 @@ export function ProfileModal({ open, onClose, perfil }: ProfileModalProps) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => {
+                audioManager.play('navigate');
                 window.location.href = '/configuracion';
               }}
               style={{

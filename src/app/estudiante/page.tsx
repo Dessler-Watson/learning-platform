@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 export default function EstudiantePage() {
   return (
@@ -27,6 +28,7 @@ export default function EstudiantePage() {
         >
           <Link
             href="/"
+            onClick={() => audioManager.play('back')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               textDecoration: 'none', cursor: 'pointer',
@@ -144,6 +146,7 @@ function OptionCard({ icon, title, subtitle, color, borderColor, href }: {
   return (
     <Link href={href} style={{ textDecoration: 'none' }}>
       <motion.div
+        onClick={() => audioManager.play('navigate')}
         whileHover={{ scale: 1.03, y: -4, boxShadow: '0 8px 24px rgba(0,0,0,0.08)' }}
         whileTap={{ scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}

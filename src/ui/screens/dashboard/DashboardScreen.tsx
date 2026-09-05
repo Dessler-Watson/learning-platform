@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Settings, Bell, Sparkles, Flame, GitBranch } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
+import { audioManager } from '@/shared/lib/audio';
 
 interface StoredUser {
   id_usuario: number;
@@ -109,6 +110,10 @@ export function DashboardScreen() {
 
     const stored: StoredUser = JSON.parse(raw);
 
+    const t1 = setTimeout(() => {
+      audioManager.playWelcome();
+    }, 800);
+
     if (stored.modo === 'invitado') {
       setPerfil({
         ...DEFAULT_PERFIL,
@@ -120,7 +125,7 @@ export function DashboardScreen() {
         },
       });
       setLoading(false);
-      return;
+      return () => clearTimeout(t1);
     }
 
     fetch(`/api/estudiante/perfil?usuario_id=${stored.id_usuario}`)
@@ -130,6 +135,8 @@ export function DashboardScreen() {
       })
       .catch(() => setPerfil(DEFAULT_PERFIL))
       .finally(() => setLoading(false));
+
+    return () => clearTimeout(t1);
   }, []);
 
   const unirseASala = async (e: React.FormEvent) => {
@@ -137,6 +144,7 @@ export function DashboardScreen() {
     setSalaError(null);
     if (!salaCode.trim()) {
       setSalaError('Ingresa un código de sala');
+      audioManager.play('error');
       return;
     }
     setSalaLoading(true);
@@ -182,7 +190,7 @@ export function DashboardScreen() {
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              onClick={() => setProfileOpen(true)}
+              onClick={() => { audioManager.play('click'); setProfileOpen(true); }}
               onFocus={() => setAvatarFocused(true)}
               onBlur={() => setAvatarFocused(false)}
               aria-label="Abrir mi perfil"
@@ -214,7 +222,7 @@ export function DashboardScreen() {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-              onClick={() => {}}
+              onClick={() => audioManager.play('click')}
               style={{
                 width: 42, height: 42, borderRadius: 14, border: 'none',
                 background: 'rgba(255,255,255,0.7)', color: '#6B7A94',
@@ -225,7 +233,7 @@ export function DashboardScreen() {
               <Settings size={20} />
             </motion.button>
             <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-              onClick={() => {}}
+              onClick={() => audioManager.play('click')}
               style={{
                 width: 42, height: 42, borderRadius: 14, border: 'none',
                 background: 'rgba(255,255,255,0.7)', color: '#6B7A94',
@@ -350,7 +358,7 @@ export function DashboardScreen() {
                 Ingresa el código que te dio tu docente para unirte a la sala.
               </p>
 
-              <form onSubmit={unirseASala} style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+              <form onSubmit={(e) => { audioManager.play('submit'); unirseASala(e); }} style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
                 <input
                   value={salaCode}
                   onChange={(e) => setSalaCode(e.target.value.toUpperCase())}
@@ -411,7 +419,7 @@ export function DashboardScreen() {
                 <motion.button
                   whileHover={{ scale: 1.03, x: 4 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => window.location.href = '/lava-conocimiento'}
+                  onClick={() => { audioManager.play('navigate'); window.location.href = '/lava-conocimiento'; }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 14,
                     padding: '16px 18px', borderRadius: 18, border: 'none',
@@ -441,7 +449,7 @@ export function DashboardScreen() {
                 <motion.button
                   whileHover={{ scale: 1.03, x: 4 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => window.location.href = '/camino-decisiones'}
+                  onClick={() => { audioManager.play('navigate'); window.location.href = '/camino-decisiones'; }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 14,
                     padding: '16px 18px', borderRadius: 18, border: 'none',
@@ -471,6 +479,7 @@ export function DashboardScreen() {
 
               <button
                 onClick={() => {
+                  audioManager.play('back');
                   setShowGameSelect(false);
                   setSalaCode('');
                 }}

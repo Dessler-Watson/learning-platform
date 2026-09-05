@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 export default function Home() {
   const router = useRouter();
@@ -92,7 +93,7 @@ export default function Home() {
             subtitle="¡Entra a jugar y aprender!"
             color="#30BCE6"
             borderColor="#C8EFFA"
-            onClick={() => router.push('/estudiante')}
+            onClick={() => { audioManager.play('navigate'); router.push('/estudiante'); }}
           />
 
           <RoleCard
@@ -105,7 +106,7 @@ export default function Home() {
             subtitle="Gestiona tus clases y alumnos"
             color="#F087A9"
             borderColor="#FFE4ED"
-            onClick={() => router.push('/panel/login')}
+            onClick={() => { audioManager.play('navigate'); router.push('/panel/login'); }}
           />
         </motion.div>
       </motion.div>

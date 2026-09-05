@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { WelcomeBackground } from './WelcomeBackground';
+import { audioManager } from '@/shared/lib/audio';
 
 export function WelcomePage() {
   return (
@@ -48,7 +49,7 @@ export function WelcomePage() {
           <WelcomeBtn
             title="Iniciar sesion"
             color="#F087A9"
-            onClick={() => { window.location.href = '/ingresar'; }}
+            onClick={() => { audioManager.play('navigate'); window.location.href = '/ingresar'; }}
           />
         </motion.div>
 

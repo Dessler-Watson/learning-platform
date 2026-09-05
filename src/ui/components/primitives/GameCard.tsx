@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { audioManager } from '@/shared/lib/audio';
 
 interface GameCardProps {
   title: string;
@@ -56,7 +57,7 @@ export function GameCard({ title, description, color, colorSecondary, route, ava
         <motion.button
           whileHover={available ? { scale: 1.04 } : {}}
           whileTap={available ? { scale: 0.95 } : {}}
-          onClick={(e) => { e.stopPropagation(); if (available) window.location.href = route; }}
+          onClick={(e) => { e.stopPropagation(); if (available) { audioManager.play('navigate'); window.location.href = route; } }}
           disabled={!available}
           style={{
             width: '100%', padding: '13px', borderRadius: 16, border: 'none',

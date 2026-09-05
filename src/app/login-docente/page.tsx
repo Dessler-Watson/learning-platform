@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { audioManager } from '@/shared/lib/audio';
 
 export default function LoginDocentePage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function LoginDocentePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    audioManager.play('submit');
     router.push('/panel');
   };
 
@@ -144,7 +146,7 @@ export default function LoginDocentePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          onClick={() => router.push('/')}
+          onClick={() => { audioManager.play('back'); router.push('/'); }}
           style={{
             width: '100%',
             marginTop: 16,

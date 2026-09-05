@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Save, Key, LogOut, ChevronDown, Check } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 interface StoredUser {
   id_usuario: number;
@@ -96,10 +97,12 @@ export function AccountConfigScreen() {
     if (!nombre.trim() || !apellido.trim()) {
       setNombreError(!nombre.trim());
       setSaveMsg({ ok: false, text: 'El nombre y el apellido son obligatorios' });
+      audioManager.play('error');
       return;
     }
     setNombreError(false);
     setSaving(true);
+    audioManager.play('submit');
     try {
       const res = await fetch('/api/estudiante/perfil', {
         method: 'PATCH',
@@ -113,7 +116,9 @@ export function AccountConfigScreen() {
       const data = await res.json();
       if (!res.ok) {
         setSaveMsg({ ok: false, text: data.error || 'No se pudieron guardar los cambios' });
+        audioManager.play('error');
       } else {
+        audioManager.play('success');
         if (user) setUser({ ...user, nombre: data.usuario.nombre, apellido: data.usuario.apellido });
         const raw = localStorage.getItem('eduplay_user');
         if (raw) {
@@ -137,13 +142,15 @@ export function AccountConfigScreen() {
     e.preventDefault();
     setPwError(null);
     setPwSuccess(null);
-    if (!currentPw) { setPwError('Ingresa tu contraseña actual'); return; }
-    if (newPw.length < 4) { setPwError('La nueva contraseña debe tener al menos 4 caracteres'); return; }
-    if (newPw !== confirmPw) { setPwError('Las contraseñas no coinciden'); return; }
+    if (!currentPw) { setPwError('Ingresa tu contraseña actual'); audioManager.play('error'); return; }
+    if (newPw.length < 4) { setPwError('La nueva contraseña debe tener al menos 4 caracteres'); audioManager.play('error'); return; }
+    if (newPw !== confirmPw) { setPwError('Las contraseñas no coinciden'); audioManager.play('error'); return; }
     setSavingPw(true);
+    audioManager.play('submit');
     setTimeout(() => {
       setSavingPw(false);
       setPwSuccess('Contraseña actualizada correctamente');
+      audioManager.play('success');
       setCurrentPw('');
       setNewPw('');
       setConfirmPw('');
@@ -178,7 +185,7 @@ export function AccountConfigScreen() {
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            onClick={() => { window.location.href = '/inicio'; }}
+            onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
             aria-label="Volver"
             style={{
               width: 42, height: 42, borderRadius: 14, border: 'none',
@@ -323,6 +330,7 @@ export function AccountConfigScreen() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => {
+              audioManager.play('toggle');
               setPasswordOpen(!passwordOpen);
               setPwError(null);
               setPwSuccess(null);
@@ -422,7 +430,7 @@ export function AccountConfigScreen() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={logout}
+            onClick={() => { audioManager.play('delete'); logout(); }}
             style={{
               width: '100%', padding: '16px', borderRadius: 18,
               border: '2px solid rgba(233,73,48,0.3)', background: 'rgba(233,73,48,0.06)',

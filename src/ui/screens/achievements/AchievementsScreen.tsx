@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Background } from '@/ui/components/primitives/Background';
+import { audioManager } from '@/shared/lib/audio';
 
 const ACHIEVEMENTS = [
   { icon: '🏅', name: 'Primer Juego', desc: 'Completa tu primer juego.', current: 1, max: 1, done: true },
@@ -30,7 +31,7 @@ export function AchievementsScreen() {
 
         <motion.div variants={it} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
           <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-            onClick={() => { window.location.href = '/inicio'; }}
+            onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
             style={{ width: 40, height: 40, borderRadius: 14, border: 'none', background: 'rgba(253,219,51,0.15)', color: '#344054', fontSize: 18, cursor: 'pointer' }}>&larr;</motion.button>
           <div>
             <h1 style={{ color: '#344054', fontSize: 22, fontWeight: 800, margin: 0 }}>Logros</h1>
