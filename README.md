@@ -12,33 +12,52 @@ De esta manera, EduPlay combina educacion, videojuegos, gamificacion e inteligen
 
 ## 2. Tecnologias utilizadas
 
-| Tecnologia | Version | Uso en EduPlay |
-|---|---|---|
-| Next.js | 14.2 | Framework principal (App Router, API Routes, SSR/SSG) |
-| React | 18.3 | Motor de componentes UI y renderizado |
-| TypeScript | 5.4 | Tipado estatico en todo el proyecto |
-| Tailwind CSS | 3.4 | Estilos utilitarios para toda la interfaz |
-| Three.js | 0.160 | Motor de renderizado 3D para los juegos |
-| @react-three/fiber | 8.15 | Puente React -- Three.js para construir escenas 3D con componentes |
-| @react-three/drei | 9.88 | Utilidades 3D (texto 3D, Html embebido, contact shadows) |
-| @react-three/rapier | 1.3 | Motor de fisica en los juegos 3D (gravedad, colisiones, cuerpos rigidos) |
-| Framer Motion | 11.0 | Animaciones de transicion, hover, modales y feedback visual |
-| Zustand | 4.5 | Gestion de estado global (juegos y panel docente) |
-| React Hook Form | 7.82 | Formularios de login, registro y perfil con control eficiente |
-| Zod | 4.4 | Validacion de schemas para formularios y respuestas de IA |
-| @hookform/resolvers | 5.4 | Integracion Zod + React Hook Form |
-| Lucide React | 1.35 | Biblioteca de iconos en toda la interfaz |
-| clsx + tailwind-merge | 2.1 / 3.6 | Composicion condicional de clases Tailwind |
-| class-variance-authority | 0.7 | Variantes tipadas de componentes UI del panel |
-| @radix-ui (dialog, alert-dialog, avatar, label, select, slot) | v1-v2 | Componentes accesibles del panel docente |
-| Google Gemini API | gemini-3.5-flash | Generacion de preguntas educativas con IA |
+- Next.js: Framework principal para la estructura y API.
+- React: Motor de la interfaz de usuario.
+- TypeScript: Tipado estatico para mayor seguridad en el codigo.
+- Tailwind CSS: Estilos para la interfaz visual.
+- Three.js y React Three Fiber: Renderizado de los mundos 3D en los juegos.
+- React Three Rapier: Motor de fisica dentro de los entornos 3D.
+- Framer Motion: Animaciones en la interfaz de usuario.
+- Zustand: Gestion del estado global de la aplicacion.
+- React Hook Form + Zod: Validacion y manejo de formularios.
+- Lucide React: Libreria de iconos.
+- Google Gemini API: Inteligencia artificial para generar preguntas y contenido.
 
-## 3. Instalacion basica
+## 3. Estructura del proyecto
+
+A continuacion se detalla la organizacion de carpetas y la funcion de cada una:
+
+```
+EduPlay/
+├── src/                          # Codigo fuente de la aplicacion
+│   ├── app/                      # Next.js App Router (Rutas y Pages)
+│   │   ├── api/                  # Endpoints del servidor (API Routes)
+│   │   ├── camino-decisiones/    # Juego 3D: Camino de las Decisiones
+│   │   ├── lava-conocimiento/    # Juego 3D: Lava del Conocimiento
+│   │   ├── panel/                # Panel del Docente (CRUD, Monitoreo, Admin)
+│   │   └── ...                   # Rutas del estudiante (login, registro, perfil)
+│   │
+│   ├── games/                    # Logica especifica de los juegos (mundo, UI, config)
+│   ├── engine/                   # Motor 3D y utilidades de Three.js
+│   ├── shared/                   # Codigo compartido (avatares, configs, refs)
+│   ├── stores/                   # Estado global (Zustand stores)
+│   ├── lib/                      # Utilidades y conexion a datos JSON
+│   ├── ui/                       # Componentes visuales y pantallas reutilizables
+│   └── education/                # Banco de preguntas estatico
+│
+├── data/                         # Base de datos local (archivos JSON)
+├── public/                       # Imagenes, avatares y recursos estaticos
+├── package.json                  # Configuracion del proyecto y dependencias
+└── README.md                     # Documentacion del proyecto
+```
+
+## 4. Instalacion basica
 
 ### Requisitos
 
-- Node.js 18.17 o superior
-- npm (incluido con Node.js) o pnpm
+- Node.js 18.17 o superior.
+- npm o pnpm.
 
 ### Pasos
 
@@ -60,22 +79,16 @@ npm install
 Crear un archivo `.env` en la raiz del proyecto con la siguiente variable:
 
 ```
-GEMINI_API_KEY=tu_api_key_aqui
+GEMINI_API_KEY=tu_clave_aqui
 ```
 
-La clave de Google Gemini es necesaria unicamente para la funcion de generacion de preguntas con IA desde el panel docente. Sin ella, la aplicacion funciona normalmente pero el boton de "Generar con IA" devolvera un error. La clave se obtiene en Google AI Studio (https://aistudio.google.com/).
+Nota: La clave es necesaria unicamente para la generacion de preguntas con IA desde el panel docente.
 
-4. No requiere base de datos:
+4. No requiere instalacion de base de datos:
 
-EduPlay utiliza archivos JSON locales (`data/*.json`) como base de datos en disco. No se necesita instalar PostgreSQL, MySQL, ni ejecutar migraciones de Prisma. Los datos se leen y escriben directamente en los archivos de la carpeta `data/`.
+EduPlay utiliza archivos JSON en la carpeta `data/` como almacenamiento local. No se requiere configurar servidores SQL ni ejecutar migraciones.
 
-5. (Opcional) Verificar la instalacion:
-
-```bash
-npm run build
-```
-
-## 4. Ejecucion del sistema
+## 5. Ejecucion del sistema
 
 ### Modo desarrollo
 
@@ -83,32 +96,28 @@ npm run build
 npm run dev
 ```
 
-La aplicacion se inicia en http://localhost:3000
+Acceder desde el navegador en `http://localhost:3000`.
 
-### Acceso desde el navegador
+### Rutas principales
 
-| Ruta | Funcion |
-|---|---|
-| http://localhost:3000 | Pantalla principal (selector de rol: Estudiante / Profesor) |
-| http://localhost:3000/estudiante | Menu de acceso del estudiante |
-| http://localhost:3000/ingresar | Inicio de sesion del estudiante |
-| http://localhost:3000/registro | Registro de nuevo estudiante |
-| http://localhost:3000/invitado | Acceso rapido sin cuenta |
-| http://localhost:3000/inicio | Panel/dashboard del estudiante |
-| http://localhost:3000/camino-decisiones | Juego: Camino de las Decisiones |
-| http://localhost:3000/lava-conocimiento | Juego: Lava del Conocimiento |
-| http://localhost:3000/panel | Panel docente |
-| http://localhost:3000/panel/login | Inicio de sesion del docente |
-| http://localhost:3000/panel/register | Registro del docente |
+- Raiz: Pantalla de inicio y seleccion de rol.
+- /estudiante: Menu de acceso del estudiante.
+- /ingresar: Inicio de sesion.
+- /registro: Registro de nuevo usuario.
+- /panel: Panel de control del docente.
+- /camino-decisiones: Juego interactivo 3D.
+- /lava-conocimiento: Juego interactivo 3D.
 
 ### Produccion
+
+Para compilar y ejecutar en produccion:
 
 ```bash
 npm run build
 npm run start
 ```
 
-## 5. Seguridad y Buenas Practicas
+## 6. Seguridad y Buenas Practicas
 
 EduPlay aplica diferentes medidas y buenas practicas para proteger la informacion de los usuarios y mantener un funcionamiento seguro de la plataforma.
 
