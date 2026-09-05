@@ -39,10 +39,10 @@ const colorMap: Record<string, { iconBg: string; iconText: string; border: strin
     glow: 'hover:shadow-glow-amber hover:border-amber-300',
   },
   'text-cyan-600': {
-    iconBg: 'bg-cyan-50 border border-cyan-100',
-    iconText: 'text-cyan-500',
-    border: 'border-cyan-200',
-    glow: 'hover:shadow-glow-cyan hover:border-cyan-300',
+    iconBg: 'bg-[#00A0B5]/10 border border-[#00A0B5]/20',
+    iconText: 'text-[#00A0B5]',
+    border: 'border-[#00A0B5]/20',
+    glow: 'hover:shadow-glow-cyan hover:border-[#00A0B5]/40',
   },
   'text-orange-600': {
     iconBg: 'bg-orange-50 border border-orange-100',
@@ -60,10 +60,10 @@ const colorMap: Record<string, { iconBg: string; iconText: string; border: strin
 
 export function StatsCard({ label, value, icon: Icon, hint, color = 'text-primary' }: StatsCardProps) {
   const colors = colorMap[color] ?? {
-    iconBg: 'bg-cyan-50 border border-cyan-100',
-    iconText: 'text-cyan-500',
-    border: 'border-cyan-100',
-    glow: 'hover:shadow-cyan-500/10',
+    iconBg: 'bg-[#00A0B5]/10 border border-[#00A0B5]/20',
+    iconText: 'text-[#00A0B5]',
+    border: 'border-[#00A0B5]/20',
+    glow: 'hover:shadow-glow-cyan',
   };
 
   const [displayValue, setDisplayValue] = useState(0);

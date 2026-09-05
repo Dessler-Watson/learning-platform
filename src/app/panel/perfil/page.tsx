@@ -58,11 +58,11 @@ export default function PerfilPage() {
           <div className="rounded-3xl border border-pink-200 bg-gradient-to-br from-white via-pink-50/20 to-white p-6 shadow-sm card-shimmer card-corner-decoration relative overflow-hidden">
             {/* Decorative elements */}
             <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-pink-300 opacity-[0.04] pointer-events-none" />
-            <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-cyan-300 opacity-[0.03] pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-[#00A0B5] opacity-[0.03] pointer-events-none" />
             <motion.div variants={c} initial="hidden" animate="show" className="space-y-6">
               <motion.div variants={it} className="flex flex-col items-center text-center">
                 <div className="relative">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-500 text-3xl font-bold text-white shadow-lg shadow-cyan-500/25 ring-4 ring-white">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-3xl font-bold text-white shadow-lg shadow-[#00A0B5]/25 ring-4 ring-white">
                     {getInitials(docente?.nombre ?? '')}
                   </div>
                   <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-3 border-white bg-emerald-400 shadow-sm" />
@@ -73,8 +73,8 @@ export default function PerfilPage() {
 
               <div className="space-y-3">
                 <motion.div variants={it} className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3 transition-colors hover:bg-gray-100">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 border border-cyan-100">
-                    <GraduationCap className="h-5 w-5 text-cyan-500" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A0B5]/10 border border-[#00A0B5]/20">
+                    <GraduationCap className="h-5 w-5 text-[#00A0B5]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-gray-400 font-medium">Nombre completo</p>

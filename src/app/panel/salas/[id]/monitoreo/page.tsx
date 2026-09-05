@@ -18,7 +18,7 @@ import { AnimatedBackground } from '../../../components/shared/AnimatedBackgroun
 
 const ESTADO_COLOR: Record<string, string> = {
   esperando: 'bg-amber-50 text-amber-600 border border-amber-200',
-  jugando: 'bg-cyan-50 text-cyan-600 border border-cyan-200',
+  jugando: 'bg-[#00A0B5]/10 text-[#00A0B5] border border-[#00A0B5]/20',
   finalizado: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
   eliminado: 'bg-rose-50 text-rose-600 border border-rose-200',
 };
@@ -78,7 +78,7 @@ export default function MonitoreoPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -115,7 +115,7 @@ export default function MonitoreoPage() {
               <div className="flex items-center gap-3">
                 <StatusBadge
                   label={sala.estado === 'en_curso' ? 'En curso' : sala.estado === 'finalizada' ? 'Finalizada' : 'Esperando'}
-                  className={sala.estado === 'en_curso' ? (esLava ? 'bg-orange-50 text-orange-600 border border-orange-200' : 'bg-cyan-50 text-cyan-600 border border-cyan-200') : sala.estado === 'finalizada' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}
+                  className={sala.estado === 'en_curso' ? (esLava ? 'bg-[#FFA000]/10 text-[#FFA000] border border-[#FFA000]/20' : 'bg-[#00A0B5]/10 text-[#00A0B5] border border-[#00A0B5]/20') : sala.estado === 'finalizada' ? 'bg-[#98C54E]/10 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}
                 />
                 <span className="text-sm text-gray-400">{sala.participantes.length} participantes</span>
                 {esLava && <span className="text-sm text-gray-400 flex items-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Modo Lava</span>}
@@ -151,13 +151,13 @@ export default function MonitoreoPage() {
                         {i + 1}
                       </span>
                       <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                        eliminadoLava ? 'bg-red-100 text-red-500' : esLava ? 'bg-orange-100 text-orange-600' : 'bg-cyan-100 text-cyan-600'
+                         eliminadoLava ? 'bg-red-100 text-red-500' : esLava ? 'bg-orange-100 text-orange-600' : 'bg-[#00A0B5]/10 text-[#00A0B5]'
                       }`}>
                         {eliminadoLava ? <Skull className="h-3.5 w-3.5" /> : p.nombre.charAt(0)}
                       </div>
                       <span className="flex-1 text-sm font-medium text-foreground truncate">{p.nombre}</span>
                       {eliminadoLava && <span className="text-xs text-red-400 font-medium">Eliminado</span>}
-                      <span className={`text-sm font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-cyan-500'}`}>
+                       <span className={`text-sm font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
                         {p.puntosNetos}
                       </span>
                     </div>
@@ -177,7 +177,7 @@ export default function MonitoreoPage() {
                 placeholder="Buscar alumno por nombre..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-gray-300 shadow-sm transition-all focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-100"
+                       className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-gray-300 shadow-sm transition-all focus:border-[#00A0B5]/40 focus:outline-none focus:ring-2 focus:ring-[#00A0B5]/10"
               />
               {search && (
                 <button
@@ -205,7 +205,7 @@ export default function MonitoreoPage() {
                 className={`rounded-3xl border p-4 transition-all ${
                   eliminadoLava
                     ? 'border-red-200 bg-red-50/50 shadow-sm'
-                    : esLava ? 'border-orange-200 bg-white shadow-sm' : 'border-cyan-200 bg-white shadow-sm'
+                     : esLava ? 'border-orange-200 bg-white shadow-sm' : 'border-[#00A0B5]/20 bg-white shadow-sm'
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -213,7 +213,7 @@ export default function MonitoreoPage() {
                     <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ${
                       eliminadoLava
                         ? 'bg-gradient-to-br from-red-400 to-red-500'
-                        : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
+                         : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-[#00A0B5] to-[#98C54E]'
                     }`}>
                       {eliminadoLava ? <Skull className="h-5 w-5" /> : p.nombre.charAt(0)}
                     </div>
@@ -223,7 +223,7 @@ export default function MonitoreoPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-cyan-500'}`}>{p.puntosNetos}</p>
+                     <p className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</p>
                     <p className="text-xs text-gray-400">puntos</p>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export default function MonitoreoPage() {
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                     <motion.div
-                      className={`h-full rounded-full ${eliminadoLava ? 'bg-gradient-to-r from-red-300 to-red-400' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-cyan-400 to-cyan-500'}`}
+                       className={`h-full rounded-full ${eliminadoLava ? 'bg-gradient-to-r from-red-300 to-red-400' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E]'}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${progressPct(p.progreso)}%` }}
                       transition={{ duration: 0.5 }}

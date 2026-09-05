@@ -109,6 +109,7 @@ export default function AdminDocentesPage() {
   const [showEliminarDialog, setShowEliminarDialog] = useState(false);
   const [showCambiarContrasena, setShowCambiarContrasena] = useState(false);
   const [showAgregarAdmin, setShowAgregarAdmin] = useState(false);
+  const [showAgregarDocente, setShowAgregarDocente] = useState(false);
 
   const [editForm, setEditForm] = useState({ nombre: '', correo: '', institucion: '' });
   const [editErrors, setEditErrors] = useState<{ nombre?: string; correo?: string; institucion?: string }>({});
@@ -121,6 +122,10 @@ export default function AdminDocentesPage() {
   const [adminForm, setAdminForm] = useState({ nombre: '', correo: '', contrasena: '', confirmarContrasena: '', institucion: '' });
   const [adminErrors, setAdminErrors] = useState<{ nombre?: string; correo?: string; contrasena?: string; confirmarContrasena?: string; institucion?: string }>({});
   const [showAdminPassword, setShowAdminPassword] = useState(false);
+
+  const [docenteForm, setDocenteForm] = useState({ nombre: '', correo: '', contrasena: '', confirmarContrasena: '', institucion: '' });
+  const [docenteErrors, setDocenteErrors] = useState<{ nombre?: string; correo?: string; contrasena?: string; confirmarContrasena?: string; institucion?: string }>({});
+  const [showDocentePassword, setShowDocentePassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -291,6 +296,45 @@ export default function AdminDocentesPage() {
     }, 400);
   }, [adminForm, toast, cargarDatos]);
 
+  const crearDocente = useCallback(() => {
+    const errors: typeof docenteErrors = {};
+    if (!docenteForm.nombre.trim()) errors.nombre = 'El nombre es obligatorio';
+    if (!docenteForm.correo.trim()) errors.correo = 'El correo es obligatorio';
+    else if (!/^[^\s@]+@gmail\.com$/.test(docenteForm.correo)) errors.correo = 'Correo inválido';
+    if (!docenteForm.contrasena) errors.contrasena = 'La contraseña es obligatoria';
+    else if (docenteForm.contrasena.length < 6) errors.contrasena = 'Mínimo 6 caracteres';
+    if (docenteForm.contrasena !== docenteForm.confirmarContrasena) errors.confirmarContrasena = 'Las contraseñas no coinciden';
+    if (!docenteForm.institucion.trim()) errors.institucion = 'La institución es obligatoria';
+    setDocenteErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    if (existeDocente(docenteForm.correo)) {
+      setDocenteErrors({ correo: 'Este correo ya está registrado' });
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(() => {
+      const result = usePanelStore.getState().register({
+        nombre: docenteForm.nombre,
+        correo: docenteForm.correo,
+        contrasena: docenteForm.contrasena,
+        institucion: docenteForm.institucion,
+        rol: 'docente',
+        createdByAdmin: true,
+      });
+      setLoading(false);
+      if (result.success) {
+        toast('Docente creado correctamente', 'success');
+        setShowAgregarDocente(false);
+        setDocenteForm({ nombre: '', correo: '', contrasena: '', confirmarContrasena: '', institucion: '' });
+        cargarDatos();
+      } else {
+        toast(result.error || 'Error al crear docente', 'error');
+      }
+    }, 400);
+  }, [docenteForm, toast, cargarDatos]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -298,6 +342,19 @@ export default function AdminDocentesPage() {
           <h1 className="text-2xl font-bold text-foreground">Administrar docentes</h1>
           <p className="text-sm text-gray-400 mt-1">Gestiona las cuentas de docentes y administradores</p>
         </div>
+        <Button
+          onClick={() => {
+            audioManager.play('select');
+            setDocenteForm({ nombre: '', correo: '', contrasena: '', confirmarContrasena: '', institucion: currentAdmin?.institucion || '' });
+            setDocenteErrors({});
+            setShowAgregarDocente(true);
+          }}
+          variant="outline"
+          className="gap-2"
+        >
+          <UserPlus className="h-4 w-4" />
+          Agregar docente
+        </Button>
         <Button
           onClick={() => {
             audioManager.play('select');
@@ -315,7 +372,7 @@ export default function AdminDocentesPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: 'Total', value: stats.total, border: 'border-gray-200', glow: 'hover:shadow-soft', text: 'text-gray-600' },
-          { label: 'Docentes', value: stats.docentes, border: 'border-cyan-200', glow: 'hover:shadow-glow-cyan', text: 'text-cyan-600' },
+          { label: 'Docentes', value: stats.docentes, border: 'border-[#00A0B5]/20', glow: 'hover:shadow-glow-cyan', text: 'text-[#00A0B5]' },
           { label: 'Admins', value: stats.admins, border: 'border-amber-200', glow: 'hover:shadow-glow-amber', text: 'text-amber-600' },
           { label: 'Activos', value: stats.activos, border: 'border-emerald-200', glow: 'hover:shadow-glow-emerald', text: 'text-emerald-600' },
           { label: 'En línea', value: stats.enLinea, border: 'border-violet-200', glow: 'hover:shadow-glow-violet', text: 'text-violet-600' },
@@ -371,7 +428,7 @@ export default function AdminDocentesPage() {
                     exit={{ opacity: 0, y: -8, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
                     style={{ position: 'fixed', top: filtroDropPos?.top ?? 0, left: filtroDropPos?.left ?? 0, zIndex: 9999 }}
-                    className="w-72 rounded-2xl border border-cyan-200 bg-white p-3 shadow-md"
+                    className="w-72 rounded-2xl border border-[#00A0B5]/20 bg-white p-3 shadow-md"
                   >
                     <div className="relative mb-2">
                       <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
@@ -393,7 +450,7 @@ export default function AdminDocentesPage() {
                         }}
                         className={`w-full rounded-xl px-3 py-2 text-left text-sm transition-all ${
                           filtroInstitucion === 'todas'
-                            ? 'bg-cyan-50 font-semibold text-cyan-600'
+                            ? 'bg-[#00A0B5]/10 font-semibold text-[#00A0B5]'
                             : 'hover:bg-gray-50 text-gray-600'
                         }`}
                       >
@@ -410,7 +467,7 @@ export default function AdminDocentesPage() {
                           }}
                           className={`w-full rounded-xl px-3 py-2 text-left text-sm transition-all ${
                             filtroInstitucion === inst
-                              ? 'bg-cyan-50 font-semibold text-cyan-600'
+                            ? 'bg-[#00A0B5]/10 font-semibold text-[#00A0B5]'
                               : 'hover:bg-gray-50 text-gray-600'
                           }`}
                         >
@@ -432,9 +489,9 @@ export default function AdminDocentesPage() {
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <span className="text-xs text-gray-400">Filtros activos:</span>
               {busqueda && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#00A0B5]/10 px-3 py-1 text-xs font-medium text-[#00A0B5]">
                   Nombre: &quot;{busqueda}&quot;
-                  <button onClick={() => setBusqueda('')} className="hover:text-cyan-800">
+                  <button onClick={() => setBusqueda('')} className="hover:text-[#00A0B5]/80">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -490,7 +547,7 @@ export default function AdminDocentesPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-500 text-sm font-bold text-white">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-sm font-bold text-white">
                                 {docente.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                               </div>
                               <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
@@ -513,7 +570,7 @@ export default function AdminDocentesPage() {
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                             docente.rol === 'admin'
                               ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                              : 'bg-cyan-50 text-cyan-600 border border-cyan-200'
+                               : 'bg-[#00A0B5]/10 text-[#00A0B5] border border-[#00A0B5]/20'
                           }`}>
                             {docente.rol === 'admin' ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
                             {docente.rol === 'admin' ? 'Admin' : 'Docente'}
@@ -531,7 +588,7 @@ export default function AdminDocentesPage() {
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleVer(docente)}
-                              className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-cyan-500 transition-all"
+                               className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-[#00A0B5] transition-all"
                               title="Ver detalles"
                             >
                               <Eye className="h-4 w-4" />
@@ -580,7 +637,7 @@ export default function AdminDocentesPage() {
           {selectedDocente && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-500 text-xl font-bold text-white">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-xl font-bold text-white">
                   {selectedDocente.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
@@ -589,7 +646,7 @@ export default function AdminDocentesPage() {
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                       selectedDocente.rol === 'admin'
                         ? 'bg-amber-50 text-amber-600'
-                        : 'bg-cyan-50 text-cyan-600'
+                        : 'bg-[#00A0B5]/10 text-[#00A0B5]'
                     }`}>
                       {selectedDocente.rol === 'admin' ? 'Administrador' : 'Docente'}
                     </span>
@@ -903,6 +960,123 @@ export default function AdminDocentesPage() {
               <Button variant="outline" onClick={() => setShowAgregarAdmin(false)} disabled={loading}>Cancelar</Button>
               <Button onClick={crearAdmin} disabled={loading} className="bg-amber-500 hover:bg-amber-600">
                 {loading ? 'Creando...' : 'Crear administrador'}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAgregarDocente} onOpenChange={setShowAgregarDocente}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Agregar docente</DialogTitle>
+            <DialogDescription>Crea una nueva cuenta con rol de docente</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre completo</Label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Nombre del docente"
+                  value={docenteForm.nombre}
+                  onChange={(e) => setDocenteForm({ ...docenteForm, nombre: e.target.value })}
+                  className="pl-11"
+                />
+              </div>
+              {docenteErrors.nombre && (
+                <p className="text-sm text-rose-500 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> {docenteErrors.nombre}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Correo electrónico</Label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="correo@gmail.com"
+                  value={docenteForm.correo}
+                  onChange={(e) => setDocenteForm({ ...docenteForm, correo: e.target.value })}
+                  className="pl-11"
+                />
+              </div>
+              {docenteErrors.correo && (
+                <p className="text-sm text-rose-500 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> {docenteErrors.correo}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Contraseña</Label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type={showDocentePassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={docenteForm.contrasena}
+                  onChange={(e) => setDocenteForm({ ...docenteForm, contrasena: e.target.value })}
+                  className="pl-11 pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDocentePassword(!showDocentePassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
+                >
+                  {showDocentePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {docenteErrors.contrasena && (
+                <p className="text-sm text-rose-500 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> {docenteErrors.contrasena}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Confirmar contraseña</Label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={docenteForm.confirmarContrasena}
+                  onChange={(e) => setDocenteForm({ ...docenteForm, confirmarContrasena: e.target.value })}
+                  className="pl-11"
+                />
+              </div>
+              {docenteErrors.confirmarContrasena && (
+                <p className="text-sm text-rose-500 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> {docenteErrors.confirmarContrasena}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Institución</Label>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Nombre de la institución"
+                  value={docenteForm.institucion}
+                  onChange={(e) => setDocenteForm({ ...docenteForm, institucion: e.target.value })}
+                  className="pl-11"
+                />
+              </div>
+              {docenteErrors.institucion && (
+                <p className="text-sm text-rose-500 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> {docenteErrors.institucion}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAgregarDocente(false)} disabled={loading}>Cancelar</Button>
+              <Button onClick={crearDocente} disabled={loading}>
+                {loading ? 'Creando...' : 'Crear docente'}
               </Button>
             </DialogFooter>
           </div>

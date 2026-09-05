@@ -27,7 +27,7 @@ export function GameCard({ nombre, descripcion, color, juegoId, activo, pregunta
     <motion.div
       whileHover={{ y: -3, scale: 1.02, transition: { duration: 0.2 } }}
       className={cn(
-        'group relative overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-white via-violet-50/20 to-white p-5 shadow-sm transition-all duration-300 hover:shadow-glow-violet hover:border-violet-300 cursor-default card-shimmer card-corner-decoration'
+        'group relative overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-white via-violet-50/30 to-white p-5 shadow-sm transition-all duration-300 hover:shadow-glow-violet hover:border-violet-300 cursor-default card-shimmer card-corner-decoration'
       )}
     >
       {/* Decorative elements */}

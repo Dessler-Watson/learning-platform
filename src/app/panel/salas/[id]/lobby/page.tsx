@@ -70,7 +70,7 @@ export default function LobbyPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function LobbyPage() {
               )}
             </div>
             <div className="flex items-center justify-center gap-3">
-              <span className={`text-4xl font-mono font-bold tracking-widest ${esLava ? 'text-orange-500' : 'text-cyan-500'}`}>{sala.codigo}</span>
+              <span className={`text-4xl font-mono font-bold tracking-widest ${esLava ? 'text-[#FFA000]' : 'text-[#00A0B5]'}`}>{sala.codigo}</span>
               <button onClick={handleCopyCode} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 transition-colors">
                 {copied ? <Check className="h-5 w-5 text-emerald-500" /> : <Copy className="h-5 w-5" />}
               </button>
@@ -117,10 +117,10 @@ export default function LobbyPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Users className={`h-4 w-4 ${esLava ? 'text-orange-500' : 'text-cyan-500'}`} />
+                <Users className={`h-4 w-4 ${esLava ? 'text-[#FFA000]' : 'text-[#00A0B5]'}`} />
                 <span className="text-sm font-bold text-foreground">Participantes</span>
               </div>
-              <span className={`text-sm font-bold ${esLava ? 'text-orange-500' : 'text-cyan-500'}`}>{sala.participantes.length}</span>
+              <span className={`text-sm font-bold ${esLava ? 'text-[#FFA000]' : 'text-[#00A0B5]'}`}>{sala.participantes.length}</span>
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               <AnimatePresence>
@@ -135,7 +135,7 @@ export default function LobbyPage() {
                       transition={{ duration: 0.3, delay: i * 0.05 }}
                       className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
                     >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${esLava ? 'bg-orange-100 text-orange-600' : 'bg-cyan-100 text-cyan-600'}`}>
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${esLava ? 'bg-[#FFA000]/10 text-[#FFA000]' : 'bg-[#00A0B5]/10 text-[#00A0B5]'}`}>
                         {p.nombre.charAt(0)}
                       </div>
                       <span className="text-sm font-semibold text-foreground">{p.nombre}</span>

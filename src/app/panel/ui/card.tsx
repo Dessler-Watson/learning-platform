@@ -6,14 +6,14 @@ export type CardVariant = 'default' | 'cyan' | 'emerald' | 'violet' | 'amber' | 
 
 const variantStyles: Record<CardVariant, string> = {
   default: "border-gray-100 hover:shadow-soft hover:border-gray-200",
-  cyan: "border-[#407516]/40 hover:shadow-sm hover:border-[#407516]/60",
-  emerald: "border-emerald-200 hover:shadow-glow-emerald hover:border-emerald-300",
-  violet: "border-violet-200 hover:shadow-glow-violet hover:border-violet-300",
-  amber: "border-amber-200 hover:shadow-glow-amber hover:border-amber-300",
-  rose: "border-rose-200 hover:shadow-glow-rose hover:border-rose-300",
-  pink: "border-pink-200 hover:shadow-glow-pink hover:border-pink-300",
-  blue: "border-blue-200 hover:shadow-glow-blue hover:border-blue-300",
-  orange: "border-orange-200 hover:shadow-glow-orange hover:border-orange-300",
+  cyan: "border-[#00A0B5]/30 bg-gradient-to-br from-white via-[#00A0B5]/5 to-white hover:shadow-glow-cyan hover:border-[#00A0B5]/50",
+  emerald: "border-emerald-200 bg-gradient-to-br from-white via-emerald-50/30 to-white hover:shadow-glow-emerald hover:border-emerald-300",
+  violet: "border-violet-200 bg-gradient-to-br from-white via-violet-50/30 to-white hover:shadow-glow-violet hover:border-violet-300",
+  amber: "border-amber-200 bg-gradient-to-br from-white via-amber-50/30 to-white hover:shadow-glow-amber hover:border-amber-300",
+  rose: "border-rose-200 bg-gradient-to-br from-white via-rose-50/30 to-white hover:shadow-glow-rose hover:border-rose-300",
+  pink: "border-pink-200 bg-gradient-to-br from-white via-pink-50/30 to-white hover:shadow-glow-pink hover:border-pink-300",
+  blue: "border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-white hover:shadow-glow-blue hover:border-blue-300",
+  orange: "border-orange-200 bg-gradient-to-br from-white via-orange-50/30 to-white hover:shadow-glow-orange hover:border-orange-300",
 };
 
 const Card = React.forwardRef<

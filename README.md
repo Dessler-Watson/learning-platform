@@ -10,34 +10,29 @@ Permite que los docentes creen cursos, actividades y salas de juego, donde puede
 
 De esta manera, EduPlay combina educacion, videojuegos, gamificacion e inteligencia artificial para crear una experiencia de aprendizaje mas interactiva y competitiva.
 
+### Roles
+
+- **Estudiante:** Plataforma de juegos 3D donde el estudiante se registra o entra como invitado, accede a su dashboard, selecciona juegos, se une a salas con codigos y participa en partidas educativas con graficos 3D en tiempo real.
+- **Docente:** Sub-aplicacion administrativa donde el docente puede crear cursos, gestionar preguntas (con generacion asistida por IA), crear salas de juego con codigos de acceso, monitorear partidas en vivo y revisar resultados individuales y grupales.
+- **Administrador:** Panel avanzado para gestionar cuentas de docentes, crear cuentas de docentes y administradores, y administrar instituciones.
+
 ## 2. Tecnologias utilizadas
 
 - Next.js: Framework principal para la estructura y API.
 - React: Motor de la interfaz de usuario.
 - TypeScript: Tipado estatico para mayor seguridad en el codigo.
 - Tailwind CSS: Estilos para la interfaz visual.
-- Three.js y React Three Fiber: Renderizado de los mundos 3D en los juegos.
-- React Three Rapier: Motor de fisica dentro de los entornos 3D.
+- Three.js (0.160): Biblioteca de graficos 3D para WebGL.
+- React Three Fiber (8.15): Integracion declarativa de Three.js con React.
+- React Three Rapier (1.3): Motor de fisicas para colisiones, gravedad y movimiento.
+- React Three Drei (9.88): Utilidades y helpers para R3F (camaras, luces, textos 3D).
 - Framer Motion: Animaciones en la interfaz de usuario.
 - Zustand: Gestion del estado global de la aplicacion.
 - React Hook Form + Zod: Validacion y manejo de formularios.
 - Lucide React: Libreria de iconos.
 - Google Gemini API: Inteligencia artificial para generar preguntas y contenido.
-  
 
-
-## 3. Graficos 3D / Motor de Juego
-
-•	Three.js 0.160 - Biblioteca de graficos 3D para WebGL
-
-•	React Three Fiber 8.15 - Integracion declarativa de Three.js con React
-
-•	React Three Rapier 1.3 - Motor de fisicas para colisiones, gravedad y movimiento
-
-•	React Three Drei 9.88 - Utilidades y helpers para R3F (camaras, luces, textos 3D
-
-
-## 4. Estructura del proyecto
+## 3. Estructura del proyecto
 
 ```
 EduPlay/
@@ -64,12 +59,29 @@ EduPlay/
 |    |    |--- camino-decisiones/      # Ruta del Juego 1 (3D)
 |    |    |--- lava-conocimiento/      # Ruta del Juego 2 (3D)
 |    |    |--- panel/                  # PANEL DOCENTE COMPLETO
+|    |    |    |--- admin/             # Gestion de administradores y docentes
+|    |    |    |    |--- docentes/     # CRUD de docentes y admins
 |    |    |    |--- components/        # Layout, Sidebar, Tarjetas, Modales
+|    |    |    |    |--- layout/       # Sidebar, Topbar
+|    |    |    |    |--- shared/       # GameCard, SearchBar, EmptyState, BackButton, AIGenerateModal
 |    |    |    |--- cursos/            # CRUD de cursos y actividades
+|    |    |    |    |--- [id]/         # Detalle de curso y preguntas
+|    |    |    |--- juegos/            # Cursos por modo de juego
+|    |    |    |    |--- [id]/         # Cursos filtrados por juego
 |    |    |    |--- salas/             # Crear sala, Lobby, Monitor en vivo
+|    |    |    |    |--- crear/        # Formulario de creacion
+|    |    |    |    |--- [id]/         # Lobby, monitoreo y resultados
 |    |    |    |--- login/             # Autenticacion docente
-|    |    |    |--- store/             # Estado global del panel
-|    |    |    |--- ui/                # Componentes visuales del panel
+|    |    |    |--- register/          # Registro de docente
+|    |    |    |--- perfil/            # Perfil del docente
+|    |    |    |--- configuracion/     # Configuracion general
+|    |    |    |--- services/          # Servicios de datos (cursos, salas, preguntas)
+|    |    |    |--- store/             # Estado global del panel (Zustand)
+|    |    |    |--- types/             # Definiciones de tipos TypeScript
+|    |    |    |--- utils/             # Utilidades y helpers
+|    |    |    |--- hooks/             # Hooks personalizados
+|    |    |    |--- lib/               # Libreria de audio, IA, etc.
+|    |    |    |--- ui/                # Componentes visuales (Button, Card, Dialog, etc.)
 |    |    |
 |    |    |--- estudiante/             # Menu de acceso estudiante
 |    |    |--- ingresar/               # Login estudiante
@@ -120,14 +132,14 @@ EduPlay/
 |    |--- ... (otros datos)
 |
 |--- public/                           # Recursos estaticos
-|    |--- images/
-|         |--- avatares/               # 9 Iconos culturales
-|         |--- rangos/                 # Bronce, Plata, Oro, Diamante
-|         |--- logo.png
-|         |--- puntos.png
+     |--- images/
+          |--- avatares/               # 9 Iconos culturales
+          |--- rangos/                 # Bronce, Plata, Oro, Diamante
+          |--- logo.png
+          |--- puntos.png
 ```
 
-## 5. Instalacion basica
+## 4. Instalacion basica
 
 ### Requisitos
 
@@ -151,7 +163,7 @@ npm install
 
 3. Configurar variable de entorno para IA:
 
-Crear un archivo `.env` en la raiz del proyecto con la siguiente variable:
+Crear un archivo `.env.local` en la raiz del proyecto con la siguiente variable:
 
 ```
 GEMINI_API_KEY=tu_clave_aqui
@@ -159,11 +171,11 @@ GEMINI_API_KEY=tu_clave_aqui
 
 Nota: La clave es necesaria unicamente para la generacion de preguntas con IA desde el panel docente.
 
-4.  instalacion de base de datos pendiente:
+4.  Instalacion de base de datos pendiente:
 
-EduPlay utiliza archivos JSON en la carpeta `data/` El proyecto cuenta ya con su driagrama de base de datos  ( POSTGRESQL).
+EduPlay utiliza archivos JSON en la carpeta `data/` El proyecto cuenta ya con su diagrama de base de datos ( PostgreSQL).
 
-## 6. Ejecucion del sistema
+## 5. Ejecucion del sistema
 
 ### Modo desarrollo
 
@@ -175,13 +187,21 @@ Acceder desde el navegador en `http://localhost:3000`.
 
 ### Rutas principales
 
-- Raiz: Pantalla de inicio y seleccion de rol.
-- /estudiante: Menu de acceso del estudiante.
-- /ingresar: Inicio de sesion.
-- /registro: Registro de nuevo usuario.
-- /panel: Panel de control del docente.
-- /camino-decisiones: Juego interactivo 3D.
-- /lava-conocimiento: Juego interactivo 3D.
+- `/`: Pantalla de inicio y seleccion de rol.
+- `/estudiante`: Menu de acceso del estudiante.
+- `/ingresar`: Inicio de sesion estudiante.
+- `/registro`: Registro de nuevo estudiante.
+- `/inicio`: Dashboard del estudiante.
+- `/camino-decisiones`: Juego interactivo 3D.
+- `/lava-conocimiento`: Juego interactivo 3D.
+- `/panel`: Panel de control del docente.
+- `/panel/login`: Inicio de sesion docente.
+- `/panel/register`: Registro de docente.
+- `/panel/perfil`: Perfil del docente.
+- `/panel/cursos`: Gestion de cursos.
+- `/panel/salas`: Gestion de salas.
+- `/panel/salas/crear`: Crear nueva sala.
+- `/panel/admin/docentes`: Administrar docentes y administradores.
 
 ### Produccion
 
@@ -192,15 +212,11 @@ npm run build
 npm run start
 ```
 
-## 7. Seguridad y Buenas Practicas
+## 6. Seguridad y Buenas Practicas
 
 EduPlay aplica diferentes medidas y buenas practicas para proteger la informacion de los usuarios y mantener un funcionamiento seguro de la plataforma.
 
-Estudiante: Plataforma de juegos 3D donde el estudiante se registra o entra como invitado, accede a su dashboard, selecciona juegos, se une a salas con codigos y participa en partidas educativas con graficos 3D en tiempo real.
-
-Docente: Sub-aplicacion administrativa donde el docente puede crear cursos, gestionar preguntas (con generacion asistida por IA), crear salas de juego con codigos de acceso, monitorear partidas en vivo y revisar resultados individuales y grupales.
-
-- Control de acceso por roles: la plataforma diferencia entre usuarios estudiantes y docentes, permitiendo que cada tipo de usuario acceda a las funcionalidades correspondientes.
+- Control de acceso por roles: la plataforma diferencia entre usuarios estudiantes, docentes y administradores, permitiendo que cada tipo de usuario acceda a las funcionalidades correspondientes.
 - Proteccion de credenciales: las credenciales y configuraciones sensibles no deben almacenarse directamente dentro del codigo fuente, sino mediante variables de entorno.
 - Validacion de datos: los datos introducidos por los usuarios deben ser validados antes de ser procesados, reduciendo el riesgo de informacion incorrecta o manipulada.
 - Autorizacion de operaciones: las acciones relacionadas con cursos, salas, actividades y contenido docente deben estar restringidas a los usuarios que tengan los permisos correspondientes.

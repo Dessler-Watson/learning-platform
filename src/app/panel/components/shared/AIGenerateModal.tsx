@@ -28,9 +28,10 @@ interface AIGenerateModalProps {
   onOpenChange: (open: boolean) => void;
   gameModeName: string;
   onQuestionsGenerated: (questions: GeneratedQuestion[], courseName: string) => void;
+  cursosExistentes?: { nombre: string }[];
 }
 
-export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsGenerated }: AIGenerateModalProps) {
+export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsGenerated, cursosExistentes = [] }: AIGenerateModalProps) {
   const clickLock = useClickLock();
   const [step, setStep] = useState<'config' | 'loading' | 'review'>('config');
   const [topic, setTopic] = useState('');
@@ -79,6 +80,14 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
     if (!topic.trim()) {
       audioManager.play('error');
       setError('Introduce un nombre para el curso.');
+      return;
+    }
+    const nombreExiste = cursosExistentes.some(
+      (c) => c.nombre.trim().toLowerCase() === topic.trim().toLowerCase()
+    );
+    if (nombreExiste) {
+      audioManager.play('error');
+      setError('Ya existe un curso con ese nombre. Prueba con otro.');
       return;
     }
     if (amount < 1 || amount > 50) {
@@ -188,7 +197,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                   <Label>Nombre del curso</Label>
                   <Input
                     value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
+                    onChange={(e) => { setTopic(e.target.value); setError(null); }}
                     placeholder="Ej: Introduccion a los Derechos Humanos"
                   />
                 </div>
@@ -213,8 +222,8 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                         className={cn(
                           'flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition-all duration-200',
                           amount === n
-                            ? 'border-cyan-400 bg-cyan-50 text-cyan-600 shadow-sm'
-                            : 'border-gray-200 bg-white text-gray-500 hover:border-cyan-300'
+                            ? 'border-[#00A0B5] bg-[#00A0B5]/10 text-[#00A0B5] shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-500 hover:border-[#00A0B5]/40'
                         )}
                       >
                         {n}
@@ -226,7 +235,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                       max={50}
                       value={amount}
                       onChange={(e) => setAmount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                      className="w-16 text-center"
+                      className="w-20 text-center"
                     />
                   </div>
                 </div>
@@ -257,7 +266,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                 className="flex flex-col items-center justify-center py-12 gap-6"
               >
                 <div className="relative">
-                  <div className="h-16 w-16 animate-spin rounded-full border-[3px] border-cyan-200 border-t-cyan-500" />
+                  <div className="h-16 w-16 animate-spin rounded-full border-[3px] border-[#00A0B5]/20 border-t-[#00A0B5]" />
                   <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-amber-500 animate-pulse" />
                 </div>
                 <div className="text-center space-y-2">
@@ -328,13 +337,13 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                                   className={cn(
                                     'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-200',
                                     editForm.correctAnswer === opt
-                                      ? 'border-cyan-400 bg-cyan-50 text-cyan-600'
-                                      : 'border-gray-200 text-gray-500 hover:border-cyan-300'
+                                       ? 'border-[#00A0B5] bg-[#00A0B5]/10 text-[#00A0B5]'
+                                       : 'border-gray-200 text-gray-500 hover:border-[#00A0B5]/40'
                                   )}
                                 >
                                   <div className={cn(
                                     'h-3.5 w-3.5 rounded-full border-2 transition-all',
-                                    editForm.correctAnswer === opt ? 'border-cyan-500 bg-cyan-500' : 'border-gray-300'
+                                     editForm.correctAnswer === opt ? 'border-[#00A0B5] bg-[#00A0B5]' : 'border-gray-300'
                                   )} />
                                   Opcion {opt}
                                 </button>
@@ -378,7 +387,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                             </div>
                             <div className="flex shrink-0 gap-0.5">
                               {regeneratingIndex === i ? (
-                                <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-cyan-600">
+                                <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-[#00A0B5]">
                                   <RefreshCw className="h-3 w-3 animate-spin" />
                                   Regenerando...
                                 </div>

@@ -234,7 +234,7 @@ export default function RegisterPage() {
                     ¿Ya tienes una cuenta?{' '}
                     <button
                       onClick={() => { audioManager.play('navigate'); router.push('/panel/login'); }}
-                      className="font-bold text-[#407516] hover:underline"
+                       className="font-bold text-[#00A0B5] hover:underline"
                     >
                       Iniciar sesión
                     </button>

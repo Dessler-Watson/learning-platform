@@ -70,6 +70,8 @@ export default function CursosPorJuegoPage() {
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
+  const [nombreError, setNombreError] = useState('');
+
   useEffect(() => {
     if (!teacherId) return;
     Promise.all([
@@ -91,6 +93,7 @@ export default function CursosPorJuegoPage() {
   const openCreate = () => {
     setEditingCurso(null);
     setForm(DEFAULT_FORM);
+    setNombreError('');
     setFormOpen(true);
   };
 
@@ -111,6 +114,14 @@ export default function CursosPorJuegoPage() {
       toast('El nombre del curso es requerido.', 'error');
       return;
     }
+    if (!editingCurso) {
+      const existe = await cursosService.existeCursoConNombre(teacherId, gameModeId, form.nombre.trim());
+      if (existe) {
+        setNombreError('Este nombre ya existe, prueba con otro.');
+        return;
+      }
+    }
+    setNombreError('');
     audioManager.play('submit');
     if (editingCurso) {
       await cursosService.actualizar(editingCurso.id, form);
@@ -202,7 +213,7 @@ export default function CursosPorJuegoPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -215,12 +226,7 @@ export default function CursosPorJuegoPage() {
       <motion.div variants={st} initial="hidden" animate="show" className="space-y-6">
         <motion.div variants={it}>
           <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => { audioManager.play('navigate'); router.push('/panel'); }}
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+            <BackButton onClick={() => router.push('/panel')} />
             {juego && (
               <div className="flex items-center gap-2">
                 <GameIcon juegoId={gameModeId} size={20} />
@@ -253,8 +259,8 @@ export default function CursosPorJuegoPage() {
           <motion.div variants={it}>
             <Card variant="cyan">
               <CardContent className="p-4 text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50">
-                  <Book className="h-5 w-5 text-cyan-500" />
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A0B5]/10">
+                  <Book className="h-5 w-5 text-[#00A0B5]" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{totalCursos}</p>
                 <p className="text-xs text-gray-400">Total cursos</p>
@@ -264,8 +270,8 @@ export default function CursosPorJuegoPage() {
           <motion.div variants={it}>
             <Card variant="emerald">
               <CardContent className="p-4 text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-                  <HelpCircle className="h-5 w-5 text-emerald-500" />
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[#98C54E]/10">
+                  <HelpCircle className="h-5 w-5 text-[#98C54E]" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{totalPreguntas}</p>
                 <p className="text-xs text-gray-400">Total preguntas</p>
@@ -276,11 +282,11 @@ export default function CursosPorJuegoPage() {
 
         {cursoCopiado && (
           <motion.div variants={it}>
-            <div className="flex items-center justify-between rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3">
-              <span className="text-sm font-medium text-cyan-700">
+            <div className="flex items-center justify-between rounded-2xl border border-[#00A0B5]/30 bg-[#00A0B5]/5 px-4 py-3">
+              <span className="text-sm font-medium text-[#00A0B5]">
                 1 curso copiado: {cursoCopiado.curso.nombre} ({cursoCopiado.preguntas.length} preguntas)
               </span>
-              <button onClick={() => { audioManager.play('click'); limpiarCursoCopiado(); }} className="text-xs font-semibold text-cyan-500 hover:text-cyan-700">
+              <button onClick={() => { audioManager.play('click'); limpiarCursoCopiado(); }} className="text-xs font-semibold text-[#00A0B5] hover:text-[#00A0B5]/80">
                 Limpiar
               </button>
             </div>
@@ -313,7 +319,7 @@ export default function CursosPorJuegoPage() {
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                     whileHover={{ y: -3, scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group relative rounded-3xl border border-violet-200 bg-white p-5 shadow-sm transition-all hover:shadow-glow-violet hover:border-violet-300"
+                    className="group relative rounded-3xl border border-[#EB5D70]/20 bg-gradient-to-br from-white via-[#EB5D70]/5 to-white p-5 shadow-sm transition-all hover:shadow-glow-pink hover:border-[#EB5D70]/40"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
@@ -329,7 +335,7 @@ export default function CursosPorJuegoPage() {
                         {menuOpen === curso.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(null)} />
-                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-violet-200 bg-white py-1 shadow-md">
+                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-[#EB5D70]/20 bg-white py-1 shadow-md">
                               <button onClick={() => openEdit(curso)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
                                 <Pencil className="h-3.5 w-3.5 text-gray-400" /> Editar curso
                               </button>
@@ -387,8 +393,9 @@ export default function CursosPorJuegoPage() {
               <Input
                 placeholder="Nombre del curso"
                 value={form.nombre}
-                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                onChange={(e) => { setForm({ ...form, nombre: e.target.value }); setNombreError(''); }}
               />
+              {nombreError && <p className="text-sm text-red-500">{nombreError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Descripcion</Label>
@@ -398,19 +405,21 @@ export default function CursosPorJuegoPage() {
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => setForm({ ...form, estado: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
-                  <SelectItem value="borrador">Borrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {editingCurso && (
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => setForm({ ...form, estado: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="activo">Activo</SelectItem>
+                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                    <SelectItem value="borrador">Borrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>Cancelar</Button>
@@ -459,6 +468,7 @@ export default function CursosPorJuegoPage() {
         onOpenChange={setAiModalOpen}
         gameModeName={juego?.nombre ?? 'Camino de Decisiones'}
         onQuestionsGenerated={handleAiQuestionsGenerated}
+        cursosExistentes={cursos}
       />
     </div>
   );

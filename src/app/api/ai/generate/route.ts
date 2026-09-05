@@ -51,15 +51,20 @@ export async function POST(req: NextRequest) {
           { status: errCode }
         );
       }
-      if (errCode === 429 || errMsg.toLowerCase().includes('resource_exhausted')) {
+      if (errCode === 429 || errMsg.toLowerCase().includes('resource_exhausted') || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('try again')) {
         return NextResponse.json(
           { error: 'Se alcanzo el limite de solicitudes de Gemini. Espera un momento e intentalo de nuevo.', type: 'rate_limit' },
           { status: 429 }
         );
       }
 
+      const translatedMsg = errMsg
+        .replace(/This model is currently experiencing high demand\. Spikes in demand are usually temporary\. Please try again later\./i, 'El modelo esta experimentando alta demanda. Por favor, intentalo de nuevo mas tarde.')
+        .replace(/Please try again later\./i, 'Por favor, intentalo de nuevo mas tarde.')
+        .replace(/Try again later\./i, 'Intentalo de nuevo mas tarde.');
+
       return NextResponse.json(
-        { error: `Error de Gemini: ${errMsg}`, type: 'api_error' },
+        { error: `Error de Gemini: ${translatedMsg}`, type: 'api_error' },
         { status: errCode }
       );
     }

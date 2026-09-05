@@ -40,7 +40,7 @@ export function Topbar() {
   const initials = useMemo(() => docenteNombre ? getInitials(docenteNombre) : '?', [docenteNombre]);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-cyan-100/40 bg-white/70 px-4 backdrop-blur-xl sm:px-6 md:px-8 topbar-gradient-line">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-[#00A0B5]/20 bg-white/70 px-4 backdrop-blur-xl sm:px-6 md:px-8 topbar-gradient-line">
       {isMobile && (
         <Button variant="ghost" size="icon" onClick={() => { if (!clickLock()) return; handleToggle(); }} aria-label="Abrir menú" className="shrink-0">
           <Menu className="h-5 w-5" />
@@ -55,8 +55,8 @@ export function Topbar() {
         <SoundToggle />
 
         <div className="flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-1 pl-1 pr-3 shadow-sm transition-all duration-200 hover:shadow-md">
-          <Avatar className="h-8 w-8 ring-2 ring-cyan-200">
-            <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-cyan-500 text-xs font-bold text-white">
+          <Avatar className="h-8 w-8 ring-2 ring-[#00A0B5]/30">
+            <AvatarFallback className="bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-xs font-bold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>

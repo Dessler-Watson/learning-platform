@@ -10,15 +10,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[#407516] text-white shadow-md shadow-[#407516]/30 hover:shadow-lg hover:shadow-[#407516]/40 hover:brightness-110",
+          "bg-gradient-to-r from-[#00A0B5] to-[#98C54E] text-white shadow-md shadow-[#00A0B5]/30 hover:shadow-lg hover:shadow-[#00A0B5]/40 hover:brightness-110",
         destructive:
-          "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:border-rose-300",
+          "bg-gradient-to-r from-rose-50 to-pink-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:border-rose-300 hover:shadow-glow-rose",
         outline:
-          "border-2 border-[#407516]/30 bg-white/80 text-foreground hover:bg-[#407516]/10 hover:border-[#407516]/50 hover:shadow-sm",
+          "border-2 border-[#00A0B5]/30 bg-white/80 text-foreground hover:bg-[#00A0B5]/10 hover:border-[#00A0B5]/50 hover:shadow-sm",
         secondary:
-          "bg-pink-50 text-pink-600 border border-pink-200 hover:bg-pink-100 hover:border-pink-300",
-        ghost: "hover:bg-[#407516]/10 hover:text-foreground rounded-xl",
-        link: "text-[#407516] underline-offset-4 hover:underline",
+          "bg-gradient-to-r from-pink-50 to-rose-50 text-pink-600 border border-pink-200 hover:bg-pink-100 hover:border-pink-300 hover:shadow-glow-pink",
+        ghost: "hover:bg-[#00A0B5]/10 hover:text-foreground rounded-xl",
+        link: "text-[#00A0B5] underline-offset-4 hover:underline",
       },
       size: {
         default: "h-11 px-5 py-2.5",

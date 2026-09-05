@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Clock, BookOpen, Gamepad2 } from 'lucide-react';
+import { Clock, BookOpen, Gamepad2, Search } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -28,6 +28,7 @@ export default function CrearSalaPage() {
   const [cursos, setCursos] = useState<{ id: string; nombre: string; gameModeId: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [busquedaCurso, setBusquedaCurso] = useState('');
 
   useEffect(() => {
     if (!teacherId) return;
@@ -42,7 +43,9 @@ export default function CrearSalaPage() {
     });
   }, [teacherId]);
 
-  const filteredCursos = juegoId ? cursos.filter((c) => c.gameModeId === juegoId) : cursos;
+  const filteredCursos = (juegoId ? cursos.filter((c) => c.gameModeId === juegoId) : cursos).filter(
+    (c) => c.nombre.toLowerCase().includes(busquedaCurso.toLowerCase())
+  );
 
   useEffect(() => {
     if (filteredCursos.length > 0 && !filteredCursos.find((c) => c.id === cursoId)) {
@@ -69,7 +72,7 @@ export default function CrearSalaPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -101,7 +104,7 @@ export default function CrearSalaPage() {
                   return (
                     <button
                       key={j.id}
-                      onClick={() => { audioManager.play('select'); setJuegoId(j.id); }}
+                      onClick={() => { audioManager.play('select'); setJuegoId(j.id); setBusquedaCurso(''); }}
                       className={`rounded-2xl border-2 p-4 text-left transition-all ${
                         juegoId === j.id
                           ? esLava
@@ -122,18 +125,31 @@ export default function CrearSalaPage() {
 
             <div className="space-y-2">
               <Label>Curso</Label>
-              <div className="space-y-2">
+              {cursos.filter((c) => c.gameModeId === juegoId).length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Buscar curso..."
+                    value={busquedaCurso}
+                    onChange={(e) => setBusquedaCurso(e.target.value)}
+                    className="h-10 pl-9 text-sm"
+                  />
+                </div>
+              )}
+              <div className="max-h-60 space-y-2 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.15) transparent' }}>
                 {filteredCursos.length === 0 ? (
-                  <p className="text-sm text-gray-400">No hay cursos disponibles para este modo de juego.</p>
+                  <p className="text-sm text-gray-400">
+                    {busquedaCurso ? 'No se encontraron cursos con ese nombre.' : 'No hay cursos disponibles para este modo de juego.'}
+                  </p>
                 ) : (
                   filteredCursos.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => { audioManager.play('select'); setCursoId(c.id); }}
-                      className={`w-full rounded-2xl border-2 p-3 text-left transition-all ${cursoId === c.id ? 'border-cyan-400 bg-cyan-50 shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                       className={`w-full rounded-2xl border-2 p-3 text-left transition-all ${cursoId === c.id ? 'border-[#00A0B5] bg-[#00A0B5]/10 shadow-md' : 'border-gray-100 bg-white hover:border-gray-200'}`}
                     >
                       <div className="flex items-center gap-3">
-                        <BookOpen className="h-4 w-4 text-cyan-500" />
+                        <BookOpen className="h-4 w-4 text-[#00A0B5]" />
                         <span className="text-sm font-semibold text-foreground">{c.nombre}</span>
                       </div>
                     </button>
@@ -149,7 +165,7 @@ export default function CrearSalaPage() {
                   <button
                     key={t}
                     onClick={() => { audioManager.play('select'); setTiempoPorPregunta(t); }}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${tiempoPorPregunta === t ? 'bg-[#407516] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${tiempoPorPregunta === t ? 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                   >
                     {t}
                   </button>

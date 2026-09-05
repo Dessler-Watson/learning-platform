@@ -37,7 +37,7 @@ export default function EstudianteDetallePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -71,7 +71,7 @@ export default function EstudianteDetallePage() {
                 <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-sm ${
                   esEliminado
                     ? 'bg-gradient-to-br from-red-400 to-red-500'
-                    : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
+                     : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-[#00A0B5] to-[#98C54E]'
                 }`}>
                   {esEliminado ? <Skull className="h-7 w-7" /> : detalle.nombre.charAt(0)}
                 </div>
@@ -91,7 +91,7 @@ export default function EstudianteDetallePage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`text-3xl font-bold ${esEliminado ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-cyan-500'}`}>
+                   <p className={`text-3xl font-bold ${esEliminado ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
                     {detalle.puntosNetos}
                   </p>
                   <p className="text-xs text-gray-400">puntos</p>
@@ -121,12 +121,12 @@ export default function EstudianteDetallePage() {
           <Card variant="default">
             <CardContent className="p-5">
               <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-                <Target className="h-4 w-4 text-cyan-500" /> Rendimiento
+                 <Target className="h-4 w-4 text-[#00A0B5]" /> Rendimiento
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 border border-cyan-100">
-                    <Target className="h-5 w-5 text-cyan-500" />
+                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00A0B5]/10 border border-[#00A0B5]/20">
+                     <Target className="h-5 w-5 text-[#00A0B5]" />
                   </div>
                   <div>
                     <p className="text-lg font-bold text-foreground">{detalle.precision}%</p>
@@ -179,7 +179,7 @@ export default function EstudianteDetallePage() {
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
                   <motion.div
-                    className={`h-full rounded-full ${esEliminado ? 'bg-gradient-to-r from-red-300 to-red-400' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-cyan-400 to-cyan-500'}`}
+                     className={`h-full rounded-full ${esEliminado ? 'bg-gradient-to-r from-red-300 to-red-400' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E]'}`}
                     initial={{ width: 0 }}
                     animate={{ width: `${(detalle.preguntasRespondidas / detalle.totalQuestions) * 100}%` }}
                     transition={{ duration: 0.6 }}
@@ -229,7 +229,7 @@ export default function EstudianteDetallePage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full border-2 border-[#00A0B5]/30 bg-[#00A0B5]/10 text-[#00A0B5] font-semibold hover:bg-[#00A0B5]/20 hover:border-[#00A0B5]/50"
             onClick={() => router.push(`/panel/salas/${salaId}/resultados`)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver a resultados

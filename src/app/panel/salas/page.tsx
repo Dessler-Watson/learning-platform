@@ -47,7 +47,7 @@ export default function SalasPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function SalasPage() {
                       esLava ? 'bg-orange-400' : 'bg-emerald-400'
                     }`} />
                     <div className={`absolute -bottom-6 -left-6 h-20 w-20 rounded-full opacity-[0.02] pointer-events-none ${
-                      esLava ? 'bg-red-400' : 'bg-cyan-400'
+                       esLava ? 'bg-red-400' : 'bg-[#00A0B5]'
                     }`} />
                     <div className="flex items-start justify-between">
                       <div className="space-y-1.5">
@@ -124,7 +124,7 @@ export default function SalasPage() {
                         </div>
                         <h3 className="font-bold tracking-tight text-foreground">{sala.nombre}</h3>
                         <p className="text-sm text-gray-400">
-                          Código: <span className={`font-mono font-bold px-2 py-0.5 rounded-lg ${esLava ? 'text-orange-500 bg-orange-50' : 'text-cyan-500 bg-cyan-50'}`}>{sala.codigo}</span>
+                          Código: <span className={`font-mono font-bold px-2 py-0.5 rounded-lg ${esLava ? 'text-[#FFA000] bg-[#FFA000]/10' : 'text-[#00A0B5] bg-[#00A0B5]/10'}`}>{sala.codigo}</span>
                           · {sala.participantes.length} participantes
                           · {sala.totalPreguntas} preguntas
                         </p>

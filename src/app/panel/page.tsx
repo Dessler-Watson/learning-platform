@@ -23,7 +23,7 @@ const ACTIVITY_ICON_MAP: Record<string, typeof Sparkles> = {
 };
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
-  sala_creada: 'text-cyan-500 bg-cyan-50 border border-cyan-100',
+  sala_creada: 'text-[#00A0B5] bg-[#00A0B5]/10 border border-[#00A0B5]/20',
 };
 
 const ActivityItem = memo(function ActivityItem({ act, index, onDelete }: { act: Actividad; index: number; onDelete: (id: string) => void }) {
@@ -114,7 +114,7 @@ export default function InicioPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function InicioPage() {
         <motion.div variants={it} className="relative z-10">
           <h1 className="text-2xl font-bold tracking-tight">
             <span className="text-foreground">
-              Hola, <span className="text-cyan-500">{docente?.nombre?.split(' ')[0] ?? 'Docente'}</span>
+              Hola, <span className="text-[#00A0B5]">{docente?.nombre?.split(' ')[0] ?? 'Docente'}</span>
             </span>
           </h1>
           <p className="mt-1 text-sm text-gray-400">Este es un resumen de la actividad de tus cursos y salas.</p>
@@ -147,7 +147,7 @@ export default function InicioPage() {
                 esLava ? 'bg-orange-400' : 'bg-emerald-400'
               }`} />
               <div className={`absolute -bottom-8 -left-8 h-24 w-24 rounded-full opacity-[0.03] pointer-events-none ${
-                esLava ? 'bg-red-400' : 'bg-cyan-400'
+                esLava ? 'bg-red-400' : 'bg-[#00A0B5]'
               }`} />
               <div className="relative flex items-start justify-between">
                 <div className="space-y-1.5">
@@ -164,7 +164,7 @@ export default function InicioPage() {
                   </div>
                   <h3 className="font-bold tracking-tight text-foreground">{salaActiva.nombre}</h3>
                   <p className="text-sm text-gray-400">
-                    Código: <span className={`font-mono font-bold px-2 py-0.5 rounded-lg ${esLava ? 'text-orange-500 bg-orange-50' : 'text-cyan-500 bg-cyan-50'}`}>{salaActiva.codigo}</span> · {salaActiva.participantes.length} estudiantes conectados
+                    Código: <span className={`font-mono font-bold px-2 py-0.5 rounded-lg ${esLava ? 'text-[#FFA000] bg-[#FFA000]/10' : 'text-[#00A0B5] bg-[#00A0B5]/10'}`}>{salaActiva.codigo}</span> · {salaActiva.participantes.length} estudiantes conectados
                   </p>
                 </div>
                 <Button
@@ -191,10 +191,10 @@ export default function InicioPage() {
         {!salaActiva && (
           <motion.div
             variants={it}
-            className="rounded-3xl border border-dashed border-cyan-200 bg-white/80 backdrop-blur-sm p-8 text-center shadow-sm card-corner-decoration"
+            className="rounded-3xl border border-dashed border-[#00A0B5]/30 bg-white/80 backdrop-blur-sm p-8 text-center shadow-sm card-corner-decoration"
           >
-            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-50 to-pink-50 border border-cyan-100">
-              <DoorOpen className="h-6 w-6 text-cyan-400" />
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[#00A0B5]/10 to-[#EB5D70]/10 border border-[#00A0B5]/20">
+              <DoorOpen className="h-6 w-6 text-[#00A0B5]" />
             </div>
             <p className="text-sm font-bold text-foreground">No tienes salas activas</p>
             <p className="mt-1 text-xs text-gray-400">Crea una sala para comenzar a jugar con tus estudiantes</p>
@@ -212,8 +212,8 @@ export default function InicioPage() {
           <motion.section variants={it}>
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-50 border border-pink-100">
-                  <Clock className="h-4 w-4 text-pink-500" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#EB5D70]/10 border border-[#EB5D70]/20">
+                  <Clock className="h-4 w-4 text-[#EB5D70]" />
                 </div>
                 <h2 className="text-lg font-bold tracking-tight text-foreground">Actividad reciente</h2>
               </div>
@@ -225,7 +225,7 @@ export default function InicioPage() {
                 Borrar historial
               </button>
             </div>
-            <div className="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/20 to-white p-4 shadow-sm card-shimmer">
+            <div className="rounded-3xl border border-[#98C54E]/20 bg-gradient-to-br from-white via-[#98C54E]/5 to-white p-4 shadow-sm card-shimmer">
               <div className="activity-scroll max-h-[360px] space-y-1 overflow-y-auto pr-1">
                 <AnimatePresence mode="popLayout">
                   {actividades.map((act, i) => (
@@ -239,8 +239,8 @@ export default function InicioPage() {
 
         <motion.section variants={it}>
           <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 border border-cyan-100">
-              <Sparkles className="h-4 w-4 text-cyan-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFA000]/10 border border-[#FFA000]/20">
+              <Sparkles className="h-4 w-4 text-[#FFA000]" />
             </div>
             <h2 className="text-lg font-bold tracking-tight text-foreground">Juegos</h2>
           </div>

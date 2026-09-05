@@ -68,6 +68,8 @@ export default function CursosPage() {
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
+  const [nombreError, setNombreError] = useState('');
+
   useEffect(() => {
     if (!teacherId) return;
     Promise.all([
@@ -91,6 +93,7 @@ export default function CursosPage() {
   const openCreate = () => {
     setEditingCurso(null);
     setForm({ ...DEFAULT_FORM, gameModeId: juegos[0]?.id ?? '' });
+    setNombreError('');
     setFormOpen(true);
   };
 
@@ -112,6 +115,14 @@ export default function CursosPage() {
       toast('El nombre del curso es requerido.', 'error');
       return;
     }
+    if (!editingCurso) {
+      const existe = await cursosService.existeCursoConNombre(teacherId, form.gameModeId, form.nombre.trim());
+      if (existe) {
+        setNombreError('Este nombre ya existe, prueba con otro.');
+        return;
+      }
+    }
+    setNombreError('');
     audioManager.play('submit');
     if (editingCurso) {
       await cursosService.actualizar(editingCurso.id, form);
@@ -203,7 +214,7 @@ export default function CursosPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -235,11 +246,11 @@ export default function CursosPage() {
 
         {cursoCopiado && (
           <motion.div variants={it}>
-            <div className="flex items-center justify-between rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3">
-              <span className="text-sm font-medium text-cyan-700">
+            <div className="flex items-center justify-between rounded-2xl border border-[#00A0B5]/30 bg-[#00A0B5]/5 px-4 py-3">
+              <span className="text-sm font-medium text-[#00A0B5]">
                 1 curso copiado: {cursoCopiado.curso.nombre} ({cursoCopiado.preguntas.length} preguntas)
               </span>
-              <button onClick={() => { audioManager.play('click'); limpiarCursoCopiado(); }} className="text-xs font-semibold text-cyan-500 hover:text-cyan-700">
+              <button onClick={() => { audioManager.play('click'); limpiarCursoCopiado(); }} className="text-xs font-semibold text-[#00A0B5] hover:text-[#00A0B5]/80">
                 Limpiar
               </button>
             </div>
@@ -273,11 +284,11 @@ export default function CursosPage() {
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                     whileHover={{ y: -3, scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group relative rounded-3xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/20 to-white p-5 shadow-sm transition-all hover:shadow-glow-cyan hover:border-cyan-300 card-shimmer card-corner-decoration overflow-hidden"
+                    className="group relative rounded-3xl border border-[#00A0B5]/20 bg-gradient-to-br from-white via-[#00A0B5]/5 to-white p-5 shadow-sm transition-all hover:shadow-glow-cyan hover:border-[#00A0B5]/40 card-shimmer card-corner-decoration overflow-hidden"
                   >
                     {/* Decorative elements */}
-                    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-cyan-300 opacity-[0.04] pointer-events-none" />
-                    <div className="absolute -bottom-5 -left-5 h-16 w-16 rounded-full bg-emerald-300 opacity-[0.03] pointer-events-none" />
+                    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-[#00A0B5] opacity-[0.04] pointer-events-none" />
+                    <div className="absolute -bottom-5 -left-5 h-16 w-16 rounded-full bg-[#98C54E] opacity-[0.03] pointer-events-none" />
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
                         <BookOpen className="h-5 w-5 text-gray-400" />
@@ -292,7 +303,7 @@ export default function CursosPage() {
                         {menuOpen === curso.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(null)} />
-                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-cyan-200 bg-white py-1 shadow-md">
+                            <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-[#00A0B5]/20 bg-white py-1 shadow-md">
                               <button onClick={() => openEdit(curso)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
                                 <Pencil className="h-3.5 w-3.5 text-gray-400" /> Editar curso
                               </button>
@@ -361,8 +372,9 @@ export default function CursosPage() {
               <Input
                 placeholder="Nombre del curso"
                 value={form.nombre}
-                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                onChange={(e) => { setForm({ ...form, nombre: e.target.value }); setNombreError(''); }}
               />
+              {nombreError && <p className="text-sm text-red-500">{nombreError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Descripcion</Label>
@@ -385,19 +397,21 @@ export default function CursosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => setForm({ ...form, estado: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
-                  <SelectItem value="borrador">Borrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {editingCurso && (
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => setForm({ ...form, estado: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="activo">Activo</SelectItem>
+                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                    <SelectItem value="borrador">Borrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>Cancelar</Button>
@@ -446,6 +460,7 @@ export default function CursosPage() {
         onOpenChange={setAiModalOpen}
         gameModeName={juegos[0]?.nombre ?? 'Camino de Decisiones'}
         onQuestionsGenerated={handleAiQuestionsGenerated}
+        cursosExistentes={cursos}
       />
     </div>
   );

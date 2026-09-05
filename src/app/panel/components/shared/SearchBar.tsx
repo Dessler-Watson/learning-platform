@@ -15,14 +15,14 @@ export function SearchBar({ value, onChange, placeholder = 'Buscar...', classNam
   return (
     <div className={cn('relative group', className)}>
       <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-        <Search className="h-4 w-4 text-cyan-400 group-focus-within:text-cyan-500 transition-colors duration-200" />
+        <Search className="h-4 w-4 text-[#00A0B5]/50 group-focus-within:text-[#00A0B5] transition-colors duration-200" />
       </div>
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="pl-11 bg-white/80 backdrop-blur-sm search-glow border-cyan-100/60 focus:border-cyan-300"
+        className="pl-11 bg-white/80 backdrop-blur-sm search-glow border-[#00A0B5]/20 focus:border-[#00A0B5]/40"
       />
       {value && (
         <button

@@ -36,7 +36,7 @@ export default function ResultadosPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default function ResultadosPage() {
         {/* Stats cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Participantes', value: totalParticipantes, icon: Users, color: esLava ? 'text-orange-500 bg-orange-50' : 'text-cyan-500 bg-cyan-50' },
+             { label: 'Participantes', value: totalParticipantes, icon: Users, color: esLava ? 'text-orange-500 bg-orange-50' : 'text-[#00A0B5] bg-[#00A0B5]/10' },
             { label: 'Completados', value: completados, icon: Trophy, color: 'text-emerald-500 bg-emerald-50' },
             { label: 'Eliminados', value: eliminados, icon: AlertTriangle, color: esLava ? 'text-red-500 bg-red-50' : 'text-rose-500 bg-rose-50' },
             { label: 'Promedio', value: promedioPuntos, icon: TrendingUp, color: 'text-amber-500 bg-amber-50' },
@@ -114,13 +114,13 @@ export default function ResultadosPage() {
                   <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
                     eliminadoLava
                       ? 'bg-red-100 text-red-500'
-                      : esLava ? 'bg-orange-100 text-orange-600' : 'bg-cyan-100 text-cyan-600'
+                       : esLava ? 'bg-orange-100 text-orange-600' : 'bg-[#00A0B5]/10 text-[#00A0B5]'
                   }`}>
                     {eliminadoLava ? <Skull className="h-4 w-4" /> : p.nombre.charAt(0)}
                   </div>
                   <span className="flex-1 text-sm font-semibold text-foreground">{p.nombre}</span>
                   <StatusBadge label={p.estado === 'eliminado' ? 'Eliminado' : 'Completado'} className={p.estado === 'eliminado' ? (esLava ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-rose-50 text-rose-600 border border-rose-200') : 'bg-emerald-50 text-emerald-600 border border-emerald-200'} />
-                  <span className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-cyan-500'}`}>{p.puntosNetos}</span>
+                   <span className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</span>
                   <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
                 </motion.div>
                 );

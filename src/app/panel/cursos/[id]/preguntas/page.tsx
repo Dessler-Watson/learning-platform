@@ -14,7 +14,6 @@ import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import { PageHeader } from '../../../components/shared/PageHeader';
 import { SearchBar } from '../../../components/shared/SearchBar';
 import { EmptyState } from '../../../components/shared/EmptyState';
-import { StatusBadge } from '../../../components/shared/StatusBadge';
 import { BackButton } from '../../../components/shared/BackButton';
 import { usePanelStore } from '../../../store/usePanelStore';
 import { useToast } from '../../../ui/toast';
@@ -56,6 +55,9 @@ export default function PreguntasPage() {
   const [deleteTarget, setDeleteTarget] = useState<Pregunta | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const [preguntaError, setPreguntaError] = useState('');
+  const [opcionesError, setOpcionesError] = useState('');
+
   useEffect(() => {
     if (!teacherId || !cursoId) return;
     Promise.all([
@@ -75,6 +77,8 @@ export default function PreguntasPage() {
   const openCreate = () => {
     setEditingPregunta(null);
     setForm(DEFAULT_FORM);
+    setPreguntaError('');
+    setOpcionesError('');
     setFormOpen(true);
   };
 
@@ -86,6 +90,8 @@ export default function PreguntasPage() {
       opcionB: pregunta.opciones[1],
       respuestaCorrecta: pregunta.respuestaCorrecta === pregunta.opciones[0] ? 'A' : 'B',
     });
+    setPreguntaError('');
+    setOpcionesError('');
     setFormOpen(true);
   };
 
@@ -93,6 +99,19 @@ export default function PreguntasPage() {
     if (!teacherId || !clickLock()) return;
     if (!form.enunciado.trim() || !form.opcionA.trim() || !form.opcionB.trim()) {
       toast('Completa todos los campos.', 'error');
+      return;
+    }
+    setPreguntaError('');
+    setOpcionesError('');
+    if (form.opcionA.trim().toLowerCase() === form.opcionB.trim().toLowerCase()) {
+      setOpcionesError('Las opciones A y B no pueden ser iguales.');
+      return;
+    }
+    const existePregunta = preguntas.some(
+      (p) => p.enunciado.trim().toLowerCase() === form.enunciado.trim().toLowerCase() && p.id !== editingPregunta?.id
+    );
+    if (existePregunta) {
+      setPreguntaError('Esta pregunta ya existe, prueba con otra.');
       return;
     }
     const correctAnswer = form.respuestaCorrecta === 'A' ? form.opcionA : form.opcionB;
@@ -135,7 +154,7 @@ export default function PreguntasPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00A0B5] border-t-transparent" />
       </div>
     );
   }
@@ -185,17 +204,13 @@ export default function PreguntasPage() {
                   layout
                   exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                   whileHover={{ scale: 1.005 }}
-                  className="group rounded-3xl border border-cyan-200 bg-white p-5 shadow-sm hover:shadow-glow-cyan transition-all"
+                   className="group rounded-3xl border border-[#00A0B5]/20 bg-gradient-to-br from-white via-[#00A0B5]/5 to-white p-5 shadow-sm hover:shadow-glow-cyan transition-all"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500">
                         {i + 1}
                       </span>
-                      <StatusBadge
-                        label={pregunta.estado}
-                        className={pregunta.estado === 'activa' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-gray-50 text-gray-400 border border-gray-200'}
-                      />
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(pregunta)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -237,15 +252,16 @@ export default function PreguntasPage() {
               <Textarea
                 placeholder="Escribe la pregunta..."
                 value={form.enunciado}
-                onChange={(e) => setForm({ ...form, enunciado: e.target.value })}
+                onChange={(e) => { setForm({ ...form, enunciado: e.target.value }); setPreguntaError(''); }}
               />
+              {preguntaError && <p className="text-sm text-red-500">{preguntaError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Opcion A</Label>
               <Input
                 placeholder="Opcion A"
                 value={form.opcionA}
-                onChange={(e) => setForm({ ...form, opcionA: e.target.value })}
+                onChange={(e) => { setForm({ ...form, opcionA: e.target.value }); setOpcionesError(''); }}
               />
             </div>
             <div className="space-y-2">
@@ -253,8 +269,9 @@ export default function PreguntasPage() {
               <Input
                 placeholder="Opcion B"
                 value={form.opcionB}
-                onChange={(e) => setForm({ ...form, opcionB: e.target.value })}
+                onChange={(e) => { setForm({ ...form, opcionB: e.target.value }); setOpcionesError(''); }}
               />
+              {opcionesError && <p className="text-sm text-red-500">{opcionesError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Respuesta correcta</Label>
@@ -265,7 +282,7 @@ export default function PreguntasPage() {
                     form.respuestaCorrecta === 'A' ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                   }`}
                 >
-                  A) {form.opcionA || '...'}
+                  A) {form.opcionA}
                 </button>
                 <button
                   onClick={() => setForm({ ...form, respuestaCorrecta: 'B' })}
@@ -273,7 +290,7 @@ export default function PreguntasPage() {
                     form.respuestaCorrecta === 'B' ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                   }`}
                 >
-                  B) {form.opcionB || '...'}
+                  B) {form.opcionB}
                 </button>
               </div>
             </div>

@@ -220,11 +220,11 @@ export default function LoginPage() {
                         >
                           <div className={cn(
                             'flex h-8 w-8 items-center justify-center rounded-xl',
-                            account.role === 'admin' ? 'bg-amber-50' : 'bg-[#407516]/10'
+                             account.role === 'admin' ? 'bg-amber-50' : 'bg-[#00A0B5]/10'
                           )}>
                             {account.role === 'admin'
                               ? <Shield className="h-4 w-4 text-amber-500" />
-                              : <Mail className="h-4 w-4 text-[#407516]" />
+                               : <Mail className="h-4 w-4 text-[#00A0B5]" />
                             }
                           </div>
                           <div className="text-left">
@@ -245,16 +245,17 @@ export default function LoginPage() {
                     ¿No tienes cuenta?{' '}
                     <button
                       onClick={() => { audioManager.play('navigate'); router.push('/panel/register'); }}
-                      className="font-bold text-[#407516] hover:underline"
+                       className="font-bold text-[#00A0B5] hover:underline"
                     >
                       Crear cuenta
                     </button>
                   </p>
                   <button
                     onClick={() => { audioManager.play('navigate'); router.push('/'); }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#407516]/40 text-[#407516] transition-all duration-200 hover:bg-[#407516]/10 hover:border-[#407516]/60 hover:text-[#407516] active:scale-95"
+                    className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#00A0B5]/30 bg-[#00A0B5]/10 px-4 py-2.5 text-sm font-semibold text-[#00A0B5] transition-all duration-200 hover:bg-[#00A0B5]/20 hover:border-[#00A0B5]/50 hover:shadow-md hover:shadow-[#00A0B5]/10 active:scale-95"
                   >
                     <ArrowLeft className="h-4 w-4" />
+                    Volver
                   </button>
                 </div>
               </CardContent>
