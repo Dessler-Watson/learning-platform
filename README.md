@@ -24,7 +24,19 @@ De esta manera, EduPlay combina educacion, videojuegos, gamificacion e inteligen
 - Lucide React: Libreria de iconos.
 - Google Gemini API: Inteligencia artificial para generar preguntas y contenido.
 
-## 3. Estructura del proyecto
+
+## 3. Graficos 3D / Motor de Juego
+
+•	Three.js 0.160 - Biblioteca de graficos 3D para WebGL
+
+•	React Three Fiber 8.15 - Integracion declarativa de Three.js con React
+
+•	React Three Rapier 1.3 - Motor de fisicas para colisiones, gravedad y movimiento
+
+•	React Three Drei 9.88 - Utilidades y helpers para R3F (camaras, luces, textos 3D
+
+
+## 4. Estructura del proyecto
 
 ```
 EduPlay/
@@ -114,7 +126,7 @@ EduPlay/
 |         |--- puntos.png
 ```
 
-## 4. Instalacion basica
+## 5. Instalacion basica
 
 ### Requisitos
 
@@ -150,7 +162,7 @@ Nota: La clave es necesaria unicamente para la generacion de preguntas con IA de
 
 EduPlay utiliza archivos JSON en la carpeta `data/` como almacenamiento local. No se requiere configurar servidores SQL ni ejecutar migraciones.
 
-## 5. Ejecucion del sistema
+## 6. Ejecucion del sistema
 
 ### Modo desarrollo
 
@@ -179,9 +191,13 @@ npm run build
 npm run start
 ```
 
-## 6. Seguridad y Buenas Practicas
+## 7. Seguridad y Buenas Practicas
 
 EduPlay aplica diferentes medidas y buenas practicas para proteger la informacion de los usuarios y mantener un funcionamiento seguro de la plataforma.
+
+Estudiante: Plataforma de juegos 3D donde el estudiante se registra o entra como invitado, accede a su dashboard, selecciona juegos, se une a salas con codigos y participa en partidas educativas con graficos 3D en tiempo real.
+
+Docente: Sub-aplicacion administrativa donde el docente puede crear cursos, gestionar preguntas (con generacion asistida por IA), crear salas de juego con codigos de acceso, monitorear partidas en vivo y revisar resultados individuales y grupales.
 
 - Control de acceso por roles: la plataforma diferencia entre usuarios estudiantes y docentes, permitiendo que cada tipo de usuario acceda a las funcionalidades correspondientes.
 - Proteccion de credenciales: las credenciales y configuraciones sensibles no deben almacenarse directamente dentro del codigo fuente, sino mediante variables de entorno.
