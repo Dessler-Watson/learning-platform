@@ -23,6 +23,7 @@ De esta manera, EduPlay combina educacion, videojuegos, gamificacion e inteligen
 - React Hook Form + Zod: Validacion y manejo de formularios.
 - Lucide React: Libreria de iconos.
 - Google Gemini API: Inteligencia artificial para generar preguntas y contenido.
+  
 
 
 ## 3. Graficos 3D / Motor de Juego
@@ -158,9 +159,9 @@ GEMINI_API_KEY=tu_clave_aqui
 
 Nota: La clave es necesaria unicamente para la generacion de preguntas con IA desde el panel docente.
 
-4. No requiere instalacion de base de datos:
+4.  instalacion de base de datos pendiente:
 
-EduPlay utiliza archivos JSON en la carpeta `data/` como almacenamiento local. No se requiere configurar servidores SQL ni ejecutar migraciones.
+EduPlay utiliza archivos JSON en la carpeta `data/` El proyecto cuenta ya con su driagrama de base de datos  ( POSTGRESQL).
 
 ## 6. Ejecucion del sistema
 
