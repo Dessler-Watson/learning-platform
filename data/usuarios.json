@@ -114,5 +114,41 @@
     "fecha_registro": "2026-09-05T11:17:54.958Z",
     "fecha_nacimiento": "2021-03-02",
     "sexo": "femenino"
+  },
+  {
+    "id_usuario": 12,
+    "avatar_id": 8,
+    "nombre": "casimiro1",
+    "apellido": "sotelo1",
+    "correo": "s64@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-06T01:33:36.697Z",
+    "fecha_nacimiento": "2017-01-16",
+    "sexo": "masculino"
+  },
+  {
+    "id_usuario": 13,
+    "avatar_id": 8,
+    "nombre": "casimiro",
+    "apellido": "sotelo",
+    "correo": "ana@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-06T01:36:48.275Z",
+    "fecha_nacimiento": "2014-01-15",
+    "sexo": "masculino"
+  },
+  {
+    "id_usuario": 14,
+    "avatar_id": 2,
+    "nombre": "casimirooo",
+    "apellido": "sotelo",
+    "correo": "casimiro@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-06T01:47:55.471Z",
+    "fecha_nacimiento": "2019-11-16",
+    "sexo": "masculino"
   }
 ]

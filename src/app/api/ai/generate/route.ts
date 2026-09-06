@@ -41,30 +41,31 @@ export async function POST(req: NextRequest) {
 
       if (errCode === 400) {
         return NextResponse.json(
-          { error: `Solicitud invalida: ${errMsg}`, type: 'bad_request' },
+          { error: 'Solicitud invalida. Por favor, intenta de nuevo.', type: 'bad_request' },
           { status: 400 }
         );
       }
       if (errCode === 401 || errCode === 403) {
         return NextResponse.json(
-          { error: 'La API Key de Gemini no es valida o no tiene permisos. Revisa GEMINI_API_KEY.', type: 'auth_error' },
+          { error: 'La clave de API de Gemini no es valida o no tiene permisos. Verifica la configuracion.', type: 'auth_error' },
           { status: errCode }
         );
       }
-      if (errCode === 429 || errMsg.toLowerCase().includes('resource_exhausted') || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('try again')) {
+      if (errCode === 429 || errMsg.toLowerCase().includes('resource_exhausted') || errMsg.toLowerCase().includes('high demand')) {
         return NextResponse.json(
           { error: 'Se alcanzo el limite de solicitudes de Gemini. Espera un momento e intentalo de nuevo.', type: 'rate_limit' },
           { status: 429 }
         );
       }
-
-      const translatedMsg = errMsg
-        .replace(/This model is currently experiencing high demand\. Spikes in demand are usually temporary\. Please try again later\./i, 'El modelo esta experimentando alta demanda. Por favor, intentalo de nuevo mas tarde.')
-        .replace(/Please try again later\./i, 'Por favor, intentalo de nuevo mas tarde.')
-        .replace(/Try again later\./i, 'Intentalo de nuevo mas tarde.');
+      if (errMsg.toLowerCase().includes('no longer available') || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not available')) {
+        return NextResponse.json(
+          { error: 'El modelo de IA seleccionado ya no esta disponible. Contacta al administrador para actualizar la configuracion.', type: 'model_error' },
+          { status: errCode }
+        );
+      }
 
       return NextResponse.json(
-        { error: `Error de Gemini: ${translatedMsg}`, type: 'api_error' },
+        { error: 'Ocurrio un error al comunicarse con Gemini. Intenta de nuevo mas tarde.', type: 'api_error' },
         { status: errCode }
       );
     }
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
     console.error('[AI Generate] Error de conexion:', err);
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: `Error al conectar con Gemini: ${message}`, type: 'connection_error' },
+      { error: 'No se pudo conectar con Gemini. Verifica tu conexion a internet e intentalo de nuevo.', type: 'connection_error' },
       { status: 502 }
     );
   }
