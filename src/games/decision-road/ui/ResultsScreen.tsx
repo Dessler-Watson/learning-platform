@@ -128,7 +128,7 @@ function SimpleScreen({ onContinue }: { onContinue: () => void }) {
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0.9, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-      className="w-[88%] max-w-sm rounded-[32px] border-2 border-white/70 bg-edu-cream p-10 text-center shadow-game-lg"
+      className="relative max-h-[92vh] w-[95%] max-w-sm overflow-y-auto rounded-[32px] border-2 border-white/70 bg-edu-cream p-6 text-center shadow-game-lg sm:max-w-sm sm:p-10 md:max-w-md md:p-10"
     >
       <motion.div
         initial={{ scale: 0 }}
@@ -223,7 +223,7 @@ function FullResultsScreen({
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0.95, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-      className="relative max-h-[88vh] w-[92%] max-w-md overflow-y-auto rounded-[28px] border-2 border-white/70 bg-edu-cream p-5 shadow-game-lg"
+      className="relative max-h-[90vh] w-[95%] max-w-xs overflow-y-auto rounded-[28px] border-2 border-white/70 bg-edu-cream p-4 shadow-game-lg sm:max-w-xs sm:p-5 md:max-w-md md:p-5"
     >
       <div className="relative z-10">
         <div className="mb-4 text-center">

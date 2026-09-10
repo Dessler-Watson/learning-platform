@@ -11,6 +11,7 @@ import { DecisionHUD } from '@/games/decision-road/ui/DecisionHUD';
 import { QuestionPanel } from '@/games/decision-road/ui/QuestionPanel';
 import { FeedbackOverlay } from '@/games/decision-road/ui/FeedbackOverlay';
 import { ResultsScreen } from '@/games/decision-road/ui/ResultsScreen';
+import { MobileControls } from '@/games/decision-road/ui/MobileControls';
 
 function Scene() {
   return (
@@ -35,7 +36,7 @@ export function GameCanvas() {
         <fog attach="fog" args={['#B3E5FC', 120, 450]} />
         <Suspense fallback={null}><Scene /></Suspense>
       </Canvas>
-      <DecisionHUD /><QuestionPanel /><FeedbackOverlay /><ResultsScreen />
+      <DecisionHUD /><QuestionPanel /><FeedbackOverlay /><ResultsScreen /><MobileControls />
     </div>
   );
 }

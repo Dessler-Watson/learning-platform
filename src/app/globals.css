@@ -111,3 +111,26 @@ p, span, label, input, textarea, select,
     text-shadow: 0 3px 0 rgba(0,0,0,0.12);
   }
 }
+
+/* ================================================
+   RESPONSIVE: Camino de Decisiones
+   ================================================ */
+
+/* --- Mobile Controls: ocultar en desktop --- */
+.mobile-controls {
+  display: none !important;
+}
+
+/* --- DecisionHUD responsive --- */
+@media (max-width: 1024px) {
+  .mobile-controls {
+    display: flex !important;
+  }
+}
+
+/* --- Question Panel responsive --- */
+@media (max-width: 768px) {
+  .mobile-controls {
+    display: flex !important;
+  }
+}

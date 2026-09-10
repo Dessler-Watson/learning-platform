@@ -1,31 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useGameStore, PENALTY } from '@/stores/game.store';
-import { characterRigidBody } from '@/shared/refs/characterRef';
-import { DECISION_ROAD_CONFIG as CFG } from '@/games/decision-road/config';
+import { useGameStore } from '@/stores/game.store';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
-type Stage = 'idle' | 'impact' | 'text' | 'fly' | 'land' | 'modal' | 'done';
+type Stage = 'idle' | 'impact' | 'text' | 'fly' | 'land' | 'done';
 
 const ORBIT_STARS = [0, 60, 120, 180, 240, 300];
 const TRAIL_DOTS = Array.from({ length: 12 }, (_, i) => i);
 
 export function FeedbackOverlay() {
   const phase = useGameStore((s) => s.phase);
-  const explanation = useGameStore((s) => s.explanation);
-  const retryCount = useGameStore((s) => s.retryCount);
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
   const questions = useGameStore((s) => s.questions);
   const streak = useGameStore((s) => s.streak);
-  const prevScore = useGameStore((s) => s.prevScore);
+  const isMobile = useIsMobile();
 
   const showCorrect = phase === 'correctFeedback';
-  const showIncorrect = phase === 'incorrectFeedback' && !!explanation;
-  const maxRetriesReached = retryCount >= CFG.maxRetries;
+  const showIncorrect = phase === 'incorrectFeedback';
   const question = questions[currentQuestionIndex];
 
-  const pointsEarned = 25 + Math.floor(streak * 5);
-  const didDeduct = showIncorrect && prevScore > PENALTY;
+  const correctAnswerText = question
+    ? (question.correctAnswer === 'A' ? question.optionA : question.optionB)
+    : null;
 
   const [stage, setStage] = useState<Stage>('idle');
 
@@ -34,29 +31,18 @@ export function FeedbackOverlay() {
     const timers: ReturnType<typeof setTimeout>[] = [];
     timers.push(setTimeout(() => setStage('impact'), 0));
     timers.push(setTimeout(() => setStage('text'), 120));
-    if (showIncorrect && !didDeduct) {
-      // Sin deducción: saltar directo al modal tras mostrar el texto.
-      timers.push(setTimeout(() => setStage('modal'), 1100));
-    } else {
-      timers.push(setTimeout(() => setStage('fly'), 1000));
-      timers.push(setTimeout(() => setStage('land'), 2500));
-      if (showCorrect) {
-        timers.push(setTimeout(() => setStage('done'), 2850));
-      } else {
-        timers.push(setTimeout(() => setStage('modal'), 2900));
-      }
-    }
+    timers.push(setTimeout(() => setStage('fly'), 1000));
+    timers.push(setTimeout(() => setStage('land'), 2500));
+    timers.push(setTimeout(() => setStage('done'), 2850));
     return () => timers.forEach(clearTimeout);
-  }, [showCorrect, showIncorrect, currentQuestionIndex, didDeduct]);
+  }, [showCorrect, showIncorrect, currentQuestionIndex]);
 
-  // Cuando el elemento llega al contador, dispara el conteo animado.
   useEffect(() => {
     if (stage !== 'fly') return;
     const t = setTimeout(() => useGameStore.getState().triggerScoreCount(), 1200);
     return () => clearTimeout(t);
   }, [stage]);
 
-  // Auto-avance al completar (correct o retry confirmado).
   useEffect(() => {
     if (stage !== 'done') return;
     const t = setTimeout(() => {
@@ -67,21 +53,6 @@ export function FeedbackOverlay() {
     }, 250);
     return () => clearTimeout(t);
   }, [stage]);
-
-  const handleRetry = () => {
-    const store = useGameStore.getState();
-    const idx = maxRetriesReached ? store.currentQuestionIndex + 1 : store.currentQuestionIndex;
-    const rb = characterRigidBody.current;
-    if (rb) {
-      const doorZ = 12 - idx * 25;
-      rb.setTranslation({ x: 0, y: 2, z: doorZ + 8 }, true);
-      rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    }
-    if (maxRetriesReached) { store.resetRetry(); store.advanceQuestion(); store.setPhase('playing'); }
-    else { store.resetRetry(); store.setExplanation(null); store.setPhase('playing'); }
-  };
-
-  const correctAnswer = question && maxRetriesReached ? (question.correctAnswer === 'A' ? question.optionA : question.optionB) : null;
 
   const isCorrectFlow = showCorrect;
   const isIncorrectFlow = showIncorrect;
@@ -116,7 +87,7 @@ export function FeedbackOverlay() {
             {(stage === 'text' || stage === 'fly') && (
               <motion.div
                 key={isCorrectFlow ? 'correcto-wrap' : 'incorrecto-wrap'}
-                style={{ position: 'absolute', inset: 0, zIndex: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
+                style={{ position: 'absolute', inset: 0, zIndex: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
               >
                 {/* Glow detrás */}
                 <motion.div
@@ -125,8 +96,8 @@ export function FeedbackOverlay() {
                   transition={{ duration: 1.0 }}
                   style={{
                     position: 'absolute',
-                    width: 360, height: 360, left: '50%', top: '50%',
-                    marginLeft: -180, marginTop: -180,
+                    width: isMobile ? 200 : 360, height: isMobile ? 200 : 360, left: '50%', top: '50%',
+                    marginLeft: isMobile ? -100 : -180, marginTop: isMobile ? -100 : -180,
                     borderRadius: '50%',
                     background: isCorrectFlow
                       ? 'radial-gradient(circle, rgba(46,158,79,0.35) 0%, rgba(46,158,79,0.1) 40%, transparent 70%)'
@@ -174,7 +145,7 @@ export function FeedbackOverlay() {
                     }}
                     transition={stage === 'text' ? { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' } : { duration: 0.3 }}
                     style={{
-                      fontSize: 104, fontWeight: 900, color: '#2E9E4F',
+                      fontSize: isMobile ? 52 : 104, fontWeight: 900, color: '#2E9E4F',
                       fontFamily: 'var(--font-baloo)', margin: 0, lineHeight: 1,
                       textShadow: '0 0 24px rgba(110,224,138,0.8), 0 0 48px rgba(46,158,79,0.6), 0 6px 0 rgba(0,0,0,0.18)',
                       letterSpacing: '-2px',
@@ -194,7 +165,7 @@ export function FeedbackOverlay() {
                     }}
                     transition={stage === 'text' ? { scale: { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }, x: { duration: 0.5 } } : { duration: 0.3 }}
                     style={{
-                      fontSize: 104, fontWeight: 900, color: '#E94930',
+                      fontSize: isMobile ? 52 : 104, fontWeight: 900, color: '#E94930',
                       fontFamily: 'var(--font-baloo)', margin: 0, lineHeight: 1,
                       textShadow: '0 0 24px rgba(233,73,48,0.8), 0 0 48px rgba(233,73,48,0.5), 0 6px 0 rgba(0,0,0,0.18)',
                       letterSpacing: '-2px',
@@ -204,6 +175,41 @@ export function FeedbackOverlay() {
                     ¡INCORRECTO!
                   </motion.h1>
                 )}
+              </motion.div>
+            )}
+
+            {/* (2b) Respuesta correcta cuando es incorrecto */}
+            {isIncorrectFlow && correctAnswerText && (stage === 'fly' || stage === 'land' || stage === 'done') && (
+              <motion.div
+                key="correct-answer"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                style={{
+                  position: 'absolute', zIndex: 23, left: '50%', top: '62%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(255,255,255,0.95)',
+                  border: '2px solid rgba(46,158,79,0.4)',
+                  borderRadius: 16,
+                  padding: isMobile ? '10px 14px' : '14px 22px',
+                  maxWidth: isMobile ? 300 : 420,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <p style={{
+                  margin: 0, fontSize: isMobile ? 12 : 15, fontWeight: 800, color: '#2E9E4F',
+                  fontFamily: 'var(--font-baloo)', lineHeight: 1.4,
+                }}>
+                  Respuesta correcta:
+                </p>
+                <p style={{
+                  margin: '4px 0 0', fontSize: isMobile ? 13 : 16, fontWeight: 700, color: '#2A1E0E',
+                  fontFamily: 'var(--font-baloo)', lineHeight: 1.3,
+                }}>
+                  {correctAnswerText}
+                </p>
               </motion.div>
             )}
 
@@ -236,7 +242,7 @@ export function FeedbackOverlay() {
                       <img src="/images/puntos.png" alt="" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'drop-shadow(0 0 16px rgba(253,219,51,0.95)) drop-shadow(0 0 6px rgba(255,255,255,0.7))' }} />
                     </motion.div>
                   </motion.div>
-                ) : didDeduct ? (
+                ) : (
                   <motion.div
                     key="fly-main-neg"
                     initial={{ x: 0, y: 0, opacity: 0, scale: 0.3 }}
@@ -264,11 +270,11 @@ export function FeedbackOverlay() {
                         fontFamily: 'var(--font-baloo)', lineHeight: 1,
                         textShadow: '0 0 20px rgba(233,73,48,0.95), 0 0 8px rgba(255,255,255,0.5), 0 4px 0 rgba(0,0,0,0.2)',
                       }}>
-                        −{PENALTY}
+                        ✗
                       </span>
                     </motion.div>
                   </motion.div>
-                ) : null}
+                )}
 
                 {/* Estela de partículas durante el viaje */}
                 {TRAIL_DOTS.map((i) => (
@@ -317,53 +323,6 @@ export function FeedbackOverlay() {
               />
             )}
           </>
-        )}
-      </AnimatePresence>
-
-      {/* ===== MODAL INCORRECTO: explicación + botón de reintentar/continuar ===== */}
-      <AnimatePresence>
-        {isIncorrectFlow && stage === 'modal' && explanation && (
-          <motion.div
-            key="incorrect-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(30,10,8,0.55)', backdropFilter: 'blur(6px)' }}
-          >
-            <motion.div
-              initial={{ scale: 0.85, y: 30, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.85, y: 30, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 18 }}
-              style={{ background: 'rgba(255,255,255,0.97)', border: '2px solid rgba(233,73,48,0.4)', borderRadius: 28, padding: '26px 26px 22px', maxWidth: 440, width: '88%', textAlign: 'center', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}
-            >
-              {maxRetriesReached && correctAnswer && (
-                <div style={{ background: 'rgba(253,219,51,0.18)', border: '1px solid rgba(253,219,51,0.4)', borderRadius: 14, padding: '12px 16px', margin: '14px 0', color: '#B7791F', fontSize: 15, fontWeight: 800 }}>
-                  ✅ {correctAnswer}
-                </div>
-              )}
-
-              <p style={{ color: '#4A5770', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>{explanation}</p>
-
-              {!maxRetriesReached && (
-                <p style={{ color: '#B0A090', fontSize: 11, marginBottom: 14 }}>Intento {retryCount} de {CFG.maxRetries}</p>
-              )}
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleRetry}
-                style={{
-                  width: '100%', padding: '16px', borderRadius: 18, border: 'none',
-                  background: 'linear-gradient(135deg, #EB5D70, #EB5D70)',
-                  color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
-                }}
-              >
-                {maxRetriesReached ? 'Continuar ▶' : 'Intentar nuevamente'}
-              </motion.button>
-            </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
     </>

@@ -1,11 +1,13 @@
 'use client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 export function QuestionPanel() {
   const phase = useGameStore((s) => s.phase);
   const questions = useGameStore((s) => s.questions);
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
+  const isMobile = useIsMobile();
   const visible = phase === 'playing' || phase === 'question';
   const question = questions[currentQuestionIndex];
   const total = questions.length;
@@ -21,17 +23,17 @@ export function QuestionPanel() {
           exit={{ y: -70, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 220, damping: 22 }}
           style={{
-            position: 'absolute', top: 10, left: 0, right: 0, zIndex: 10,
+            position: 'absolute', top: isMobile ? 50 : 10, left: 0, right: 0, zIndex: 10,
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            pointerEvents: 'none', padding: '0 12px',
+            pointerEvents: 'none', padding: isMobile ? '0 8px' : '0 12px',
           }}
         >
           {/* Etiqueta PREGUNTA */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 640, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: isMobile ? 360 : 640, marginBottom: isMobile ? 6 : 10 }}>
             <span style={{
               background: 'linear-gradient(135deg, #EB5D70, #EB5D70)',
-              color: '#fff', padding: '6px 18px', borderRadius: 999,
-              fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
+              color: '#fff', padding: isMobile ? '4px 12px' : '6px 18px', borderRadius: 999,
+              fontSize: isMobile ? 10 : 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
               boxShadow: '0 4px 12px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
               whiteSpace: 'nowrap',
             }}>
@@ -42,12 +44,12 @@ export function QuestionPanel() {
           {/* Card de pregunta */}
           <div style={{
             background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)',
-            borderRadius: 26, padding: '18px 28px', maxWidth: 640, width: '100%',
+            borderRadius: isMobile ? 18 : 26, padding: isMobile ? '12px 16px' : '18px 28px', maxWidth: isMobile ? 360 : 640, width: '100%',
             border: '2px solid rgba(240,135,169,0.2)',
             boxShadow: '0 12px 40px rgba(30,42,58,0.18), 0 2px 8px rgba(0,0,0,0.06)',
           }}>
             <p style={{
-              color: '#2A1E0E', fontSize: 18, fontWeight: 700, textAlign: 'center',
+              color: '#2A1E0E', fontSize: isMobile ? 14 : 18, fontWeight: 700, textAlign: 'center',
               margin: 0, lineHeight: 1.35,
             }}>
               {question.statement}

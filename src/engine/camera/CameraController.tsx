@@ -9,8 +9,10 @@ import { characterRigidBody } from '@/shared/refs/characterRef';
 export function CameraController() {
   const { camera, gl } = useThree();
   const state = useRef({ theta: CAMERA.theta, phi: CAMERA.phi, distance: CAMERA.distance, target: new THREE.Vector3(), currentPos: new THREE.Vector3(), currentLookAt: new THREE.Vector3() });
+  const isTouchDevice = useRef(typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
 
   useEffect(() => {
+    if (isTouchDevice.current) return;
     const canvas = gl.domElement;
     const onMouseMove = (e: MouseEvent) => { if (document.pointerLockElement !== canvas) return; state.current.theta -= e.movementX * CAMERA.lookSpeed; state.current.phi = clamp(state.current.phi - e.movementY * CAMERA.lookSpeed, CAMERA.minPhi, CAMERA.maxPhi); };
     const onWheel = (e: WheelEvent) => { if (document.pointerLockElement !== canvas) return; e.preventDefault(); state.current.distance = clamp(state.current.distance + e.deltaY * 0.01 * CAMERA.zoomSpeed, CAMERA.minDistance, CAMERA.maxDistance); };

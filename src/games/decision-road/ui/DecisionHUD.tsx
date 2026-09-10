@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
@@ -48,6 +49,7 @@ export function DecisionHUD() {
   const questions = useGameStore((s) => s.questions);
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
   const animatedScore = useAnimatedNumber(score, countTick);
+  const isMobile = useIsMobile();
   if (phase === 'loading' || phase === 'intro' || phase === 'completed' || phase === 'results') return null;
   const total = questions.length;
   const current = Math.min(currentQuestionIndex + 1, total);
@@ -62,23 +64,23 @@ export function DecisionHUD() {
       style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10, pointerEvents: 'none' }}
     >
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 16,
+        display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 16,
         background: 'rgba(16,24,36,0.75)', backdropFilter: 'blur(14px)',
-        borderRadius: 999, padding: '10px 18px 10px 14px',
+        borderRadius: 999, padding: isMobile ? '7px 10px 7px 8px' : '10px 18px 10px 14px',
         boxShadow: '0 12px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1)',
         border: '1px solid rgba(46,158,79,0.25)',
       }}>
-        <span style={{ color: '#2E9E4F', fontSize: 14, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>
+        <span style={{ color: '#2E9E4F', fontSize: isMobile ? 10 : 14, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>
           {current}/{total}
         </span>
-        <div style={{ width: 110, height: 8, background: 'rgba(255,255,255,0.14)', borderRadius: 999, overflow: 'hidden' }}>
+        <div style={{ width: isMobile ? 50 : 110, height: isMobile ? 6 : 8, background: 'rgba(255,255,255,0.14)', borderRadius: 999, overflow: 'hidden' }}>
           <motion.div
             animate={{ width: `${progress}%` }}
             transition={{ type: 'spring', stiffness: 100, damping: 20 }}
             style={{ height: '100%', background: 'linear-gradient(90deg, #2E9E4F, #6EE08A)', borderRadius: 999 }}
           />
         </div>
-        <div style={{ width: 110, height: 8, background: 'rgba(255,255,255,0.14)', borderRadius: 999, overflow: 'hidden' }}>
+        <div style={{ width: isMobile ? 50 : 110, height: isMobile ? 6 : 8, background: 'rgba(255,255,255,0.14)', borderRadius: 999, overflow: 'hidden' }}>
           <motion.div
             animate={{ width: `${Math.min(100, (animatedScore / 400) * 100)}%` }}
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -89,7 +91,7 @@ export function DecisionHUD() {
           key={countTick}
           animate={scoreArrived && countTick > 0 ? { scale: [1, 1.45, 0.92, 1.08, 1] } : { scale: 1 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 52, justifyContent: 'center', position: 'relative', padding: '2px 8px', borderRadius: 999 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: isMobile ? 36 : 52, justifyContent: 'center', position: 'relative', padding: '2px 6px', borderRadius: 999 }}
         >
           <AnimatePresence>
             {countTick > 0 && scoreArrived && (
@@ -108,11 +110,11 @@ export function DecisionHUD() {
               />
             )}
           </AnimatePresence>
-          <img src="/images/puntos.png" alt="Puntos" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+          <img src="/images/puntos.png" alt="Puntos" style={{ width: isMobile ? 16 : 22, height: isMobile ? 16 : 22, objectFit: 'contain' }} />
           <motion.span
             animate={scoreArrived && countTick > 0 ? { color: ['#6EE08A', '#FDDB33', '#6EE08A'] } : {}}
             transition={{ duration: 0.6 }}
-            style={{ fontSize: 18, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#6EE08A' }}
+            style={{ fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#6EE08A' }}
           >
             {animatedScore}
           </motion.span>
