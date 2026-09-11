@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Sparkles, Gamepad2, Trophy } from 'lucide-react';
+import { Settings, Bell, Sparkles, Gamepad2, Trophy, Brain } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
 import { audioManager } from '@/shared/lib/audio';
@@ -200,7 +200,6 @@ export function DashboardScreen() {
               <div className="text-lg font-extrabold leading-tight text-white">
                 {perfil.usuario.nombre}
               </div>
-              <div className="text-xs font-bold text-white/85">Bienvenido de nuevo!</div>
             </div>
           </button>
 
@@ -327,6 +326,40 @@ export function DashboardScreen() {
                 {salaError}
               </p>
             )}
+          </div>
+        </motion.div>
+
+        {/* Card: Modo práctica */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.5 }}
+          className="relative mt-5 overflow-hidden rounded-[28px]"
+          style={{
+            background: 'linear-gradient(90deg, #00A0B5 0%, #008A9D 100%)',
+            boxShadow: '0 8px 0 rgba(0, 100, 120, 0.35), 0 12px 32px rgba(0, 160, 181, 0.35)',
+          }}
+        >
+          <Brain size={16} color="rgba(255,255,255,0.45)" className="absolute right-5 top-5" />
+
+          <div className="p-6">
+            <div className="mb-1 flex items-center gap-2">
+              <Brain size={22} color="#fff" />
+              <h2 className="text-xl font-black text-white">Modo práctica</h2>
+            </div>
+            <p className="mb-5 text-sm font-bold text-white/85">
+              Practica por tu cuenta con preguntas generadas por IA.
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97, y: 2 }}
+              onClick={() => { audioManager.play('click'); window.location.href = '/practica'; }}
+              className="rounded-xl bg-white px-6 py-3 text-sm font-black shadow-game-sm"
+              style={{ color: '#008A9D' }}
+            >
+              Practicar
+            </motion.button>
           </div>
         </motion.div>
 

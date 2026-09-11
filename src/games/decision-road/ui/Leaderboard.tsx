@@ -38,10 +38,11 @@ export function Leaderboard() {
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
   const questions = useGameStore((s) => s.questions);
   const isMobile = useIsMobile();
+  const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
   const [competitors, setCompetitors] = useState<Competitor[]>(initCompetitors);
   const lastQuestionRef = useRef(currentQuestionIndex);
 
-  const visible = !isMobile && (phase === 'playing' || phase === 'question' || phase === 'correctFeedback' || phase === 'incorrectFeedback');
+  const visible = !isPractice && (phase === 'playing' || phase === 'question' || phase === 'correctFeedback' || phase === 'incorrectFeedback');
   const total = questions.length;
   const current = Math.min(currentQuestionIndex + 1, total);
 
@@ -105,34 +106,33 @@ export function Leaderboard() {
       transition={{ type: 'spring', stiffness: 180, damping: 20 }}
       style={{
         position: 'absolute',
-        top: '50%',
-        left: 16,
-        transform: 'translateY(-50%)',
+        top: isMobile ? 8 : 16,
+        left: isMobile ? 8 : 16,
         zIndex: 10,
         pointerEvents: 'none',
       }}
     >
       <div style={{
-        background: 'rgba(16,24,36,0.75)',
+        background: 'rgba(16,24,36,0.85)',
         backdropFilter: 'blur(14px)',
-        borderRadius: 18,
-        padding: '10px 12px',
-        minWidth: 160,
-        maxWidth: 190,
+        borderRadius: isMobile ? 12 : 18,
+        padding: isMobile ? '6px 8px' : '10px 12px',
+        minWidth: isMobile ? 120 : 160,
+        maxWidth: isMobile ? 150 : 190,
         boxShadow: '0 12px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1)',
         border: '1px solid rgba(46,158,79,0.25)',
       }}>
         {/* Header */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          marginBottom: 8, paddingBottom: 6,
+          display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6,
+          marginBottom: isMobile ? 4 : 8, paddingBottom: isMobile ? 4 : 6,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
         }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <svg width={isMobile ? 10 : 14} height={isMobile ? 10 : 14} viewBox="0 0 24 24" fill="none">
             <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#FDDB33" />
           </svg>
           <span style={{
-            color: '#FDDB33', fontSize: 11, fontWeight: 900,
+            color: '#FDDB33', fontSize: isMobile ? 9 : 11, fontWeight: 900,
             fontFamily: 'var(--font-baloo)', letterSpacing: 0.5,
           }}>
             POSICIONES
@@ -140,7 +140,7 @@ export function Leaderboard() {
         </div>
 
         {/* Player list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 2 : 4 }}>
           <AnimatePresence mode="popLayout">
             {allPlayers.map((p, idx) => {
               const isPlayer = 'isPlayer' in p && p.isPlayer;
@@ -153,17 +153,17 @@ export function Leaderboard() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '4px 6px',
-                    borderRadius: 10,
+                    display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6,
+                    padding: isMobile ? '2px 4px' : '4px 6px',
+                    borderRadius: isMobile ? 6 : 10,
                     background: isPlayer ? 'rgba(46,158,79,0.2)' : 'transparent',
                     border: isPlayer ? '1px solid rgba(46,158,79,0.4)' : '1px solid transparent',
                   }}
                 >
                   {/* Position */}
                   <span style={{
-                    width: 16, textAlign: 'center',
-                    fontSize: 10, fontWeight: 900,
+                    width: isMobile ? 12 : 16, textAlign: 'center',
+                    fontSize: isMobile ? 8 : 10, fontWeight: 900,
                     fontFamily: 'var(--font-baloo)',
                     color: idx === 0 ? '#FDDB33' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'rgba(255,255,255,0.5)',
                   }}>
@@ -172,7 +172,7 @@ export function Leaderboard() {
 
                   {/* Avatar */}
                   <div style={{
-                    width: 22, height: 22, borderRadius: '50%',
+                    width: isMobile ? 16 : 22, height: isMobile ? 16 : 22, borderRadius: '50%',
                     overflow: 'hidden', flexShrink: 0,
                     border: isPlayer ? '1.5px solid #6EE08A' : '1px solid rgba(255,255,255,0.15)',
                   }}>
@@ -182,7 +182,7 @@ export function Leaderboard() {
                   {/* Name */}
                   <span style={{
                     flex: 1, minWidth: 0,
-                    fontSize: 10, fontWeight: 700,
+                    fontSize: isMobile ? 8 : 10, fontWeight: 700,
                     fontFamily: 'var(--font-baloo)',
                     color: isPlayer ? '#6EE08A' : 'rgba(255,255,255,0.8)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -198,18 +198,18 @@ export function Leaderboard() {
                       animate={{ scale: 1, color: isPlayer ? '#6EE08A' : 'rgba(255,255,255,0.9)' }}
                       transition={{ duration: 0.4 }}
                       style={{
-                        fontSize: 10, fontWeight: 900,
+                        fontSize: isMobile ? 8 : 10, fontWeight: 900,
                         fontFamily: 'var(--font-baloo)',
-                        minWidth: 24, textAlign: 'right',
+                        minWidth: isMobile ? 18 : 24, textAlign: 'right',
                       }}
                     >
                       {p.score}
                     </motion.span>
                     {'trend' in p && p.trend === 'up' && (
-                      <span style={{ fontSize: 8, color: '#6EE08A' }}>▲</span>
+                      <span style={{ fontSize: isMobile ? 6 : 8, color: '#6EE08A' }}>▲</span>
                     )}
                     {'trend' in p && p.trend === 'down' && (
-                      <span style={{ fontSize: 8, color: '#E94930' }}>▼</span>
+                      <span style={{ fontSize: isMobile ? 6 : 8, color: '#E94930' }}>▼</span>
                     )}
                   </div>
                 </motion.div>

@@ -10,10 +10,11 @@ import { useGameStore } from '@/stores/game.store';
 export function DecisionWorld({ children }: { children: React.ReactNode }) {
   const questions = useGameStore((s) => s.questions);
   const finishZ = 12 - (questions.length - 1) * 25 - 8;
+  const pathLength = Math.max(480, 20 - finishZ + 40);
   return (
     <group>
       <Sky /><Clouds /><ParticleField count={40} spread={50} color="#ffeebb" size={0.05} speed={0.2} />
-      <Path /><DoorSystem /><FinishLine position={[0, 1.5, finishZ]} />
+      <Path length={pathLength} /><DoorSystem /><FinishLine position={[0, 1.5, finishZ]} />
       {children}<CharacterDissolve />
     </group>
   );

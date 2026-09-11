@@ -30,6 +30,7 @@ ${existingBlock}
 REGLAS ESTRICTAS:
 - Genera EXACTAMENTE ${amount} preguntas.
 - Cada pregunta debe tener exactamente DOS opciones: A y B.
+- Las opciones A y B deben ser DIFERENTES entre si. NUNCA pongas la misma respuesta en ambas opciones.
 - Solo una opcion puede ser correcta.
 - Indica claramente cual es la respuesta correcta (solo "A" o "B").
 - Evita preguntas ambiguas o confusas.
@@ -43,8 +44,8 @@ Formato de respuesta JSON:
   "questions": [
     {
       "question": "Pregunta aqui?",
-      "optionA": "Opcion A aqui",
-      "optionB": "Opcion B aqui",
+      "optionA": "Opcion A aqui (diferente a B)",
+      "optionB": "Opcion B aqui (diferente a A)",
       "correctAnswer": "A"
     }
   ]
@@ -89,6 +90,10 @@ export async function generateQuestions(
   return parsed;
 }
 
+function normalizeText(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim();
+}
+
 function parseResponse(raw: string): GeneratedQuestion[] {
   try {
     const cleaned = raw.replace(/```json\n?|\n?```/g, '').trim();
@@ -103,12 +108,28 @@ function parseResponse(raw: string): GeneratedQuestion[] {
         typeof q.optionB === 'string' &&
         (q.correctAnswer === 'A' || q.correctAnswer === 'B')
       )
-      .map((q: Record<string, unknown>) => ({
-        question: (q.question as string).trim(),
-        optionA: (q.optionA as string).trim(),
-        optionB: (q.optionB as string).trim(),
-        correctAnswer: q.correctAnswer as 'A' | 'B',
-      }));
+      .filter((q: Record<string, unknown>) => {
+        const a = normalizeText(q.optionA as string);
+        const b = normalizeText(q.optionB as string);
+        return a !== b && a.length > 0 && b.length > 0;
+      })
+      .map((q: Record<string, unknown>) => {
+        const shouldSwap = Math.random() < 0.5;
+        if (shouldSwap) {
+          return {
+            question: (q.question as string).trim(),
+            optionA: (q.optionB as string).trim(),
+            optionB: (q.optionA as string).trim(),
+            correctAnswer: (q.correctAnswer as 'A' | 'B') === 'A' ? 'B' : 'A',
+          };
+        }
+        return {
+          question: (q.question as string).trim(),
+          optionA: (q.optionA as string).trim(),
+          optionB: (q.optionB as string).trim(),
+          correctAnswer: q.correctAnswer as 'A' | 'B',
+        };
+      });
   } catch {
     return [];
   }

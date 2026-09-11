@@ -73,8 +73,14 @@ export function ResultsScreen() {
   const [view, setView] = useState<'simple' | 'full'>('simple');
   const [perfil, setPerfil] = useState<PerfilData | null>(null);
 
+  const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
+
   useEffect(() => {
     if (!show) return;
+    if (isPractice) {
+      setTimeout(() => { window.location.href = '/practica/resultados'; }, 1500);
+      return;
+    }
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
     if (!raw) return;
     const user = JSON.parse(raw);
@@ -84,9 +90,57 @@ export function ResultsScreen() {
       .then((r) => r.json())
       .then((data: PerfilData) => setPerfil(data))
       .catch(() => {});
-  }, [show]);
+  }, [show, isPractice]);
 
   if (!show || !result) return null;
+
+  if (isPractice) {
+    return (
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            key="results-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 flex items-center justify-center"
+            style={{ background: 'rgba(30,20,10,0.55)', backdropFilter: 'blur(8px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              className="relative max-h-[92vh] w-[95%] max-w-sm overflow-y-auto rounded-[32px] border-2 border-white/70 bg-edu-cream p-6 text-center shadow-game-lg"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 14 }}
+                className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-edu-green text-white shadow-glow-green"
+              >
+                <CheckCircle size={40} strokeWidth={3} />
+              </motion.div>
+              <h1 className="font-baloo text-3xl font-black text-surface-800">PRACTICA COMPLETADA</h1>
+              <div className="mx-auto mb-5 mt-3 h-1 w-28 rounded-full bg-edu-green" />
+              <p className="mb-6 text-sm font-bold text-surface-500">
+                {result.correctAnswers} correctas de {result.totalQuestions} preguntas
+              </p>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97, y: 2 }}
+                onClick={() => { window.location.href = '/practica/resultados'; }}
+                className="btn-game inline-flex items-center gap-2 rounded-xl bg-edu-blue px-8 py-4 text-base text-white"
+                style={{ boxShadow: '0 6px 0 rgba(0, 138, 157, 0.4), 0 8px 24px rgba(0,160,181,0.35)' }}
+              >
+                VER RESULTADOS <ArrowRight size={20} />
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -270,7 +324,7 @@ function FullResultsScreen({
           <StatCard icon={<CheckCircle size={18} />} label="Correctas" value={`${result.correctAnswers}/${result.totalQuestions}`} accent="#98C54E" bg="#F1F8E3" />
           <StatCard icon={<XCircle size={18} />} label="Fallas" value={`${result.incorrectAnswers}`} accent="#EB5D70" bg="#FDEBF3" />
           <StatCard icon={<Clock size={18} />} label="Tiempo" value={`~${formatTimeMs(estimatedTimeMs)}`} accent="#00A0B5" bg="#E8F7FE" />
-          <StatCard icon={<Trophy size={18} />} label="Puntos" value={`+${result.score}`} accent="#FFA000" bg="#FFF0D6" />
+          <StatCard icon={<Trophy size={18} />} label="Puntos" value={result.score >= 0 ? `+${result.score}` : `${result.score}`} accent="#FFA000" bg="#FFF0D6" />
         </div>
 
         {/* Ranking */}
@@ -314,7 +368,7 @@ function FullResultsScreen({
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { window.location.href = '/sala-espera'; }} className="card-game flex items-center justify-center gap-2 py-3 text-sm font-black text-surface-700">
             <Users size={16} /> Ir a la sala
           </motion.button>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { window.location.href = '/inicio'; }} className="btn-game flex items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white" style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { const isPractice = !!sessionStorage.getItem('eduplay_practice'); window.location.href = isPractice ? '/practica/resultados' : '/inicio'; }} className="btn-game flex items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white" style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}>
             <Home size={16} /> Salir al menu
           </motion.button>
         </div>

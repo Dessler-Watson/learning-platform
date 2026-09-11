@@ -69,7 +69,10 @@ export function GameMenuButton() {
                   Cancelar
                 </button>
                 <button
-                  onClick={() => { window.location.href = '/inicio'; }}
+                  onClick={() => {
+                    const isPractice = !!sessionStorage.getItem('eduplay_practice');
+                    window.location.href = isPractice ? '/practica/resultados' : '/inicio';
+                  }}
                   className="flex-1 rounded-xl bg-edu-pink py-3 text-sm font-bold text-white"
                 >
                   Salir

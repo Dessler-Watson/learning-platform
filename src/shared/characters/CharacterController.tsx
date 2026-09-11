@@ -7,7 +7,6 @@ import * as THREE from 'three';
 import { useKeyboard } from '@/shared/hooks/useKeyboard';
 import { CHARACTER } from '@/shared/config/game.config';
 import { characterRigidBody } from '@/shared/refs/characterRef';
-import { useGameStore } from '@/stores/game.store';
 import RobloxAvatar from './RobloxAvatar';
 
 export function CharacterController() {
@@ -16,8 +15,6 @@ export function CharacterController() {
   const keysRef = useKeyboard();
   const grounded = useRef(false);
   const jumpRequested = useRef(false);
-  const phase = useGameStore((s) => s.phase);
-  const isVisible = phase !== 'incorrectFeedback';
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); jumpRequested.current = true; } };
@@ -55,7 +52,7 @@ export function CharacterController() {
   return (
     <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 22]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
       <CapsuleCollider args={[0.9, 0.2]} position={[0, 1.1, 0]} restitution={0} />
-      <group visible={isVisible} position={[0, 1.35, 0]}>
+      <group position={[0, 1.35, 0]}>
         <RobloxAvatar ref={avatarRef} />
       </group>
     </RigidBody>

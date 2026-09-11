@@ -7,8 +7,11 @@ const START_Z = 12; const SPACING = 25;
 export function GameFlow() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const pool = [...dignidadMujerQuestions].sort(() => Math.random() - 0.5).slice(0, CFG.questionsPerLevel);
-    useGameStore.getState().setQuestions(pool);
+    const existing = useGameStore.getState().questions;
+    if (existing.length === 0) {
+      const pool = [...dignidadMujerQuestions].sort(() => Math.random() - 0.5).slice(0, CFG.questionsPerLevel);
+      useGameStore.getState().setQuestions(pool);
+    }
     setTimeout(() => useGameStore.getState().setPhase('playing'), 400);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
