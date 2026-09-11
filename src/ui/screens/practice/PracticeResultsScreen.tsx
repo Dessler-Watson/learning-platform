@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, CheckCircle2, XCircle, Flame, ArrowLeft, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy, CheckCircle2, XCircle, Flame, ArrowLeft, RotateCcw, ChevronDown, ChevronUp, Skull } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 
@@ -13,6 +13,7 @@ interface AnsweredQuestion {
   correctAnswer: 'A' | 'B';
   playerChoice: 'A' | 'B' | null;
   isCorrect: boolean;
+  deathQuestion?: boolean;
 }
 
 interface PracticeResult {
@@ -220,7 +221,9 @@ export function PracticeResultsScreen() {
                   exit={{ height: 0, opacity: 0 }}
                   className="mb-4 overflow-hidden space-y-2"
                 >
-                  {result.answeredQuestions.map((q, i) => (
+                  {result.answeredQuestions.map((q, i) => {
+                    const isDeath = q.deathQuestion === true;
+                    return (
                     <motion.div
                       key={i}
                       initial={{ opacity: 0, y: 8 }}
@@ -228,29 +231,40 @@ export function PracticeResultsScreen() {
                       transition={{ delay: i * 0.03 }}
                       className="rounded-2xl border-2 p-3"
                       style={{
-                        background: q.playerChoice === null
-                          ? 'rgba(138, 122, 106, 0.05)'
-                          : q.isCorrect
-                            ? 'rgba(152, 197, 78, 0.08)'
-                            : 'rgba(235, 93, 112, 0.08)',
-                        borderColor: q.playerChoice === null
-                          ? 'rgba(138, 122, 106, 0.15)'
-                          : q.isCorrect
-                            ? 'rgba(152, 197, 78, 0.25)'
-                            : 'rgba(235, 93, 112, 0.25)',
+                        background: isDeath
+                          ? 'rgba(233, 73, 48, 0.12)'
+                          : q.playerChoice === null
+                            ? 'rgba(138, 122, 106, 0.05)'
+                            : q.isCorrect
+                              ? 'rgba(152, 197, 78, 0.08)'
+                              : 'rgba(235, 93, 112, 0.08)',
+                        borderColor: isDeath
+                          ? 'rgba(233, 73, 48, 0.6)'
+                          : q.playerChoice === null
+                            ? 'rgba(138, 122, 106, 0.15)'
+                            : q.isCorrect
+                              ? 'rgba(152, 197, 78, 0.25)'
+                              : 'rgba(235, 93, 112, 0.25)',
+                        boxShadow: isDeath ? '0 0 16px rgba(233, 73, 48, 0.3)' : undefined,
                       }}
                     >
                       <div className="flex items-start gap-2 mb-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
-                          style={{
-                            background: q.playerChoice === null
-                              ? '#8A7A6A'
-                              : q.isCorrect ? '#98C54E' : '#EB5D70',
-                          }}
-                        >
-                          {i + 1}
-                        </span>
-                        <p className="text-xs font-bold text-surface-800 leading-tight">{q.question}</p>
+                        {isDeath ? (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E94930]">
+                            <Skull size={12} className="text-white" />
+                          </span>
+                        ) : (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
+                            style={{
+                              background: q.playerChoice === null
+                                ? '#8A7A6A'
+                                : q.isCorrect ? '#98C54E' : '#EB5D70',
+                            }}
+                          >
+                            {i + 1}
+                          </span>
+                        )}
+                        <p className={`text-xs font-bold leading-tight ${isDeath ? 'text-[#E94930]' : 'text-surface-800'}`}>{q.question}</p>
                       </div>
                       <div className="ml-7 space-y-1">
                         <div className="flex items-center gap-2 text-[11px]">
@@ -275,7 +289,8 @@ export function PracticeResultsScreen() {
                         )}
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>

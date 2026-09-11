@@ -28,6 +28,23 @@ export function CharacterController() {
     const pos = rb.current.translation();
     const vel = rb.current.linvel();
     const keys = keysRef.current;
+
+    // Clamp position to stay on the path
+    const HALF_W = 7;
+    const MAX_Z = 19;
+    const MIN_Z = -500;
+    let clampedX = Math.max(-HALF_W, Math.min(HALF_W, pos.x));
+    let clampedZ = Math.max(MIN_Z, Math.min(MAX_Z, pos.z));
+    let blockedX = false;
+    let blockedZ = false;
+    if (pos.x !== clampedX) blockedX = true;
+    if (pos.z !== clampedZ) blockedZ = true;
+    if (blockedX || blockedZ) {
+      rb.current.setTranslation({ x: clampedX, y: pos.y, z: clampedZ }, true);
+      const bv = rb.current.linvel();
+      rb.current.setLinvel({ x: blockedX ? 0 : bv.x, y: bv.y, z: blockedZ ? 0 : bv.z }, true);
+    }
+
     grounded.current = Math.abs(vel.y) < 0.05;
     const cf = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); cf.y = 0; cf.normalize();
     const cr = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); cr.y = 0; cr.normalize();
@@ -50,7 +67,7 @@ export function CharacterController() {
   });
 
   return (
-    <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 22]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
+    <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 18]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
       <CapsuleCollider args={[0.9, 0.2]} position={[0, 1.1, 0]} restitution={0} />
       <group position={[0, 1.35, 0]}>
         <RobloxAvatar ref={avatarRef} />

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useLavaStore } from '@/stores/lava.store';
 import { LAVA_CONFIG as C } from '@/games/lava-knowledge/config';
 import { dignidadMujerQuestions } from '@/education/question-bank/dignidad-mujer';
+
 export function LavaGameFlow() {
   const phase = useLavaStore((s) => s.phase);
 

@@ -14,6 +14,7 @@ interface HistoryEntry {
   topic: string;
   amount: number;
   questions: GeneratedQuestion[];
+  mode: 'decisiones' | 'lava';
   createdAt: number;
 }
 
@@ -79,12 +80,13 @@ export function PracticeScreen() {
     }
   };
 
-  const addToHistory = (topicText: string, amountNum: number, generated: GeneratedQuestion[]) => {
+  const addToHistory = (topicText: string, amountNum: number, generated: GeneratedQuestion[], mode: 'decisiones' | 'lava') => {
     const entry: HistoryEntry = {
       id: Date.now().toString(),
       topic: topicText,
       amount: amountNum,
       questions: generated,
+      mode,
       createdAt: Date.now(),
     };
     const updated = [entry, ...history].slice(0, 20);
@@ -105,9 +107,7 @@ export function PracticeScreen() {
     setAmount(entry.amount);
     setQuestions(entry.questions);
     setShowHistory(false);
-    if (!selectedMode) {
-      setSelectedMode('decisiones');
-    }
+    setSelectedMode(entry.mode || 'decisiones');
     setStep('ready');
   };
 
@@ -139,7 +139,7 @@ export function PracticeScreen() {
         throw new Error('Gemini devolvio un formato inesperado. Intenta generar nuevamente.');
       }
       setQuestions(result);
-      addToHistory(topic.trim(), amount, result);
+      addToHistory(topic.trim(), amount, result, selectedMode!);
       setStep('ready');
       audioManager.play('success');
     } catch (err) {

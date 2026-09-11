@@ -3,17 +3,29 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { Check, X } from 'lucide-react';
+import { getTargetCenter, hudTargets } from '@/shared/refs/hudRefs';
 
 type Stage = 'idle' | 'impact' | 'text' | 'fly' | 'land' | 'done';
 
 const ORBIT_STARS = [0, 60, 120, 180, 240, 300];
-const TRAIL_DOTS = Array.from({ length: 12 }, (_, i) => i);
+
+function calcFlyDelta(
+  target: { x: number; y: number } | null,
+  startPct: { x: string; y: string },
+  viewW: number,
+  viewH: number,
+): { dx: number; dy: number } {
+  if (!target) return { dx: 0, dy: 0 };
+  const sx = (parseFloat(startPct.x) / 100) * viewW;
+  const sy = (parseFloat(startPct.y) / 100) * viewH;
+  return { dx: target.x - sx, dy: target.y - sy };
+}
 
 export function FeedbackOverlay() {
   const phase = useGameStore((s) => s.phase);
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
   const questions = useGameStore((s) => s.questions);
-  const streak = useGameStore((s) => s.streak);
   const isMobile = useIsMobile();
 
   const showCorrect = phase === 'correctFeedback';
@@ -24,7 +36,10 @@ export function FeedbackOverlay() {
     ? (question.correctAnswer === 'A' ? question.optionA : question.optionB)
     : null;
 
+  const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
+
   const [stage, setStage] = useState<Stage>('idle');
+  const [flyTargets, setFlyTargets] = useState<{ check: { x: number; y: number } | null; cross: { x: number; y: number } | null; star: { x: number; y: number } | null }>({ check: null, cross: null, star: null });
 
   useEffect(() => {
     if (!showCorrect && !showIncorrect) { setStage('idle'); return; }
@@ -39,6 +54,10 @@ export function FeedbackOverlay() {
 
   useEffect(() => {
     if (stage !== 'fly') return;
+    const check = getTargetCenter(hudTargets.checkRef);
+    const cross = getTargetCenter(hudTargets.crossRef);
+    const star = getTargetCenter(hudTargets.starRef);
+    setFlyTargets({ check, cross, star });
     const t = setTimeout(() => useGameStore.getState().triggerScoreCount(), 1200);
     return () => clearTimeout(t);
   }, [stage]);
@@ -57,9 +76,17 @@ export function FeedbackOverlay() {
   const isCorrectFlow = showCorrect;
   const isIncorrectFlow = showIncorrect;
 
+  const viewW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const viewH = typeof window !== 'undefined' ? window.innerHeight : 768;
+
+  const checkDelta = calcFlyDelta(flyTargets.check, { x: '50', y: '45' }, viewW, viewH);
+  const crossDelta = calcFlyDelta(flyTargets.cross, { x: '50', y: '45' }, viewW, viewH);
+  const starDelta = calcFlyDelta(flyTargets.star, { x: '50', y: '45' }, viewW, viewH);
+
+  const starTargetScreen = flyTargets.star;
+
   return (
     <>
-      {/* ===== RESPUESTA CORRECTA / INCORRECTA: texto grande + elemento vuela al contador ===== */}
       <AnimatePresence>
         {(isCorrectFlow || isIncorrectFlow) && (
           <>
@@ -72,8 +99,7 @@ export function FeedbackOverlay() {
                 transition={{ duration: 0.25, ease: 'easeOut' }}
                 style={{
                   position: 'absolute', left: '50%', top: '45%',
-                  width: 220, height: 220,
-                  marginLeft: -110, marginTop: -110,
+                  width: 220, height: 220, marginLeft: -110, marginTop: -110,
                   borderRadius: '50%',
                   background: isCorrectFlow
                     ? 'radial-gradient(circle, rgba(253,219,51,0.85) 0%, rgba(253,219,51,0.35) 40%, transparent 70%)'
@@ -83,13 +109,12 @@ export function FeedbackOverlay() {
               />
             )}
 
-            {/* (2) TEXTO: ¡CORRECTO! verde o ¡INCORRECTO! rojo */}
+            {/* (2) TEXTO: ¡CORRECTO! o ¡INCORRECTO! */}
             {(stage === 'text' || stage === 'fly') && (
               <motion.div
                 key={isCorrectFlow ? 'correcto-wrap' : 'incorrecto-wrap'}
                 style={{ position: 'absolute', inset: 0, zIndex: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
               >
-                {/* Glow detrás */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: stage === 'text' ? [0, 0.9, 0.6, 0] : 0, scale: stage === 'text' ? [0.5, 1.2, 1, 0.9] : 0.5 }}
@@ -106,7 +131,6 @@ export function FeedbackOverlay() {
                   }}
                 />
 
-                {/* Estrellas orbitales */}
                 {ORBIT_STARS.map((angle, i) => (
                   <motion.span
                     key={`orb-${i}`}
@@ -134,22 +158,19 @@ export function FeedbackOverlay() {
                   </motion.span>
                 ))}
 
-                {/* Texto CORRECTO / INCORRECTO con rebote + shake */}
                 {isCorrectFlow ? (
                   <motion.h1
                     initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)' }}
                     animate={{
                       scale: stage === 'text' ? [0.05, 1.25, 0.95, 1.05, 1] : [1, 1.05, 1],
-                      opacity: 1,
-                      filter: 'blur(0px)',
+                      opacity: 1, filter: 'blur(0px)',
                     }}
                     transition={stage === 'text' ? { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' } : { duration: 0.3 }}
                     style={{
                       fontSize: isMobile ? 52 : 104, fontWeight: 900, color: '#2E9E4F',
                       fontFamily: 'var(--font-baloo)', margin: 0, lineHeight: 1,
                       textShadow: '0 0 24px rgba(110,224,138,0.8), 0 0 48px rgba(46,158,79,0.6), 0 6px 0 rgba(0,0,0,0.18)',
-                      letterSpacing: '-2px',
-                      zIndex: 2,
+                      letterSpacing: '-2px', zIndex: 2,
                     }}
                   >
                     ¡CORRECTO!
@@ -159,8 +180,7 @@ export function FeedbackOverlay() {
                     initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)', x: 0 }}
                     animate={{
                       scale: stage === 'text' ? [0.05, 1.25, 0.95, 1.05, 1] : [1, 1.05, 1],
-                      opacity: 1,
-                      filter: 'blur(0px)',
+                      opacity: 1, filter: 'blur(0px)',
                       x: stage === 'text' ? [0, -10, 10, -7, 7, -4, 4, 0] : 0,
                     }}
                     transition={stage === 'text' ? { scale: { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }, x: { duration: 0.5 } } : { duration: 0.3 }}
@@ -168,8 +188,7 @@ export function FeedbackOverlay() {
                       fontSize: isMobile ? 52 : 104, fontWeight: 900, color: '#E94930',
                       fontFamily: 'var(--font-baloo)', margin: 0, lineHeight: 1,
                       textShadow: '0 0 24px rgba(233,73,48,0.8), 0 0 48px rgba(233,73,48,0.5), 0 6px 0 rgba(0,0,0,0.18)',
-                      letterSpacing: '-2px',
-                      zIndex: 2,
+                      letterSpacing: '-2px', zIndex: 2,
                     }}
                   >
                     ¡INCORRECTO!
@@ -198,129 +217,209 @@ export function FeedbackOverlay() {
                   pointerEvents: 'none',
                 }}
               >
-                <p style={{
-                  margin: 0, fontSize: isMobile ? 12 : 15, fontWeight: 800, color: '#2E9E4F',
-                  fontFamily: 'var(--font-baloo)', lineHeight: 1.4,
-                }}>
+                <p style={{ margin: 0, fontSize: isMobile ? 12 : 15, fontWeight: 800, color: '#2E9E4F', fontFamily: 'var(--font-baloo)', lineHeight: 1.4 }}>
                   Respuesta correcta:
                 </p>
-                <p style={{
-                  margin: '4px 0 0', fontSize: isMobile ? 13 : 16, fontWeight: 700, color: '#2A1E0E',
-                  fontFamily: 'var(--font-baloo)', lineHeight: 1.3,
-                }}>
+                <p style={{ margin: '4px 0 0', fontSize: isMobile ? 13 : 16, fontWeight: 700, color: '#2A1E0E', fontFamily: 'var(--font-baloo)', lineHeight: 1.3 }}>
                   {correctAnswerText}
                 </p>
               </motion.div>
             )}
 
-            {/* (3) VIAJE: elemento volando hacia el contador */}
+            {/* (3) VIAJE: elementos volando hacia el HUD */}
             {stage === 'fly' && (
               <>
-                {isCorrectFlow ? (
+                {/* ✓ vuela al HUD (correcta) */}
+                {isCorrectFlow && (
                   <motion.div
-                    key="fly-main"
-                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.3 }}
+                    key="fly-check"
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
                     animate={{
-                      x: [0, -20, 80, 110],
-                      y: [0, '15vh', '32vh', '38vh'],
+                      x: [0, checkDelta.dx * 0.3, checkDelta.dx],
+                      y: [0, checkDelta.dy * 0.4, checkDelta.dy],
                       opacity: [0, 1, 1, 1, 0],
-                      scale: [0.3, 1.2, 0.95, 0.75],
+                      scale: [0.4, 1.1, 0.7],
                     }}
-                    transition={{ duration: 1.5, times: [0, 0.25, 0.7, 1], ease: [0.45, 0.05, 0.25, 1] }}
+                    transition={{ duration: 1.4, times: [0, 0.2, 0.7, 1], ease: [0.33, 0, 0.2, 1] }}
                     style={{
-                      position: 'absolute', zIndex: 26, left: '50%', top: '45%',
-                      width: 'fit-content', margin: '0 auto',
-                      transform: 'translateX(-50%)',
+                      position: 'absolute', zIndex: 28, left: '50%', top: '45%',
+                      marginLeft: -14, marginTop: -14,
                       pointerEvents: 'none',
                     }}
                   >
-                    <motion.div
-                      animate={{ rotate: [0, -8, 8, -4, 0], y: [0, -4, 0, -2, 0] }}
-                      transition={{ duration: 1.5, ease: 'easeInOut' }}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <img src="/images/puntos.png" alt="" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'drop-shadow(0 0 16px rgba(253,219,51,0.95)) drop-shadow(0 0 6px rgba(255,255,255,0.7))' }} />
-                    </motion.div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="fly-main-neg"
-                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.3 }}
-                    animate={{
-                      x: [0, -20, 80, 110],
-                      y: [0, '15vh', '32vh', '38vh'],
-                      opacity: [0, 1, 1, 1, 0],
-                      scale: [0.3, 1.2, 0.95, 0.75],
-                    }}
-                    transition={{ duration: 1.5, times: [0, 0.25, 0.7, 1], ease: [0.45, 0.05, 0.25, 1] }}
-                    style={{
-                      position: 'absolute', zIndex: 26, left: '50%', top: '45%',
-                      width: 'fit-content', margin: '0 auto',
-                      transform: 'translateX(-50%)',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    <motion.div
-                      animate={{ rotate: [0, 8, -8, 4, 0], y: [0, -4, 0, -2, 0] }}
-                      transition={{ duration: 1.5, ease: 'easeInOut' }}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <span style={{
-                        fontSize: 64, fontWeight: 900, color: '#E94930',
-                        fontFamily: 'var(--font-baloo)', lineHeight: 1,
-                        textShadow: '0 0 20px rgba(233,73,48,0.95), 0 0 8px rgba(255,255,255,0.5), 0 4px 0 rgba(0,0,0,0.2)',
-                      }}>
-                        ✗
-                      </span>
-                    </motion.div>
+                    <div style={{
+                      width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius: 999,
+                      background: 'rgba(46,158,79,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 0 20px rgba(46,158,79,0.8), 0 0 8px rgba(255,255,255,0.5)',
+                    }}>
+                      <Check size={isMobile ? 18 : 24} color="#4CAF50" strokeWidth={3} />
+                    </div>
                   </motion.div>
                 )}
 
-                {/* Estela de partículas durante el viaje */}
-                {TRAIL_DOTS.map((i) => (
-                  <motion.span
-                    key={`trail-${i}`}
-                    initial={{ x: 0, y: 0, opacity: 0, scale: 1 }}
+                {/* ★ estrella vuela al HUD (solo modo sala, correcta) */}
+                {isCorrectFlow && !isPractice && (
+                  <motion.div
+                    key="fly-star"
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.3 }}
                     animate={{
-                      x: [0, -10, 50, 70],
-                      y: [0, '8vh', '18vh', '22vh'],
-                      opacity: [0, 1, 0.8, 0],
-                      scale: [0.8, 0.5, 0.3],
+                      x: [0, starDelta.dx * 0.3, starDelta.dx],
+                      y: [0, starDelta.dy * 0.4, starDelta.dy],
+                      opacity: [0, 1, 1, 1, 0],
+                      scale: [0.3, 1.2, 0.6],
+                      rotate: [0, -12, 0],
                     }}
-                    transition={{ duration: 1.5, delay: 0.1 + i * 0.07, ease: [0.45, 0.05, 0.25, 1] }}
+                    transition={{ duration: 1.5, times: [0, 0.2, 0.7, 1], ease: [0.33, 0, 0.2, 1] }}
                     style={{
-                      position: 'absolute', zIndex: 25, left: '50%', top: '45%',
-                      marginLeft: -3, marginTop: -3,
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: isCorrectFlow
-                        ? 'radial-gradient(circle, #FDF293 0%, #FDDB33 60%, transparent 100%)'
-                        : 'radial-gradient(circle, #FCA5A5 0%, #E94930 60%, transparent 100%)',
-                      boxShadow: isCorrectFlow
-                        ? '0 0 10px rgba(253,219,51,0.9)'
-                        : '0 0 10px rgba(233,73,48,0.9)',
+                      position: 'absolute', zIndex: 26, left: '50%', top: '45%',
+                      marginLeft: -18, marginTop: -18,
+                      pointerEvents: 'none',
                     }}
-                  />
-                ))}
+                  >
+                    <img src="/images/puntos.png" alt="" style={{
+                      width: isMobile ? 36 : 48, height: isMobile ? 36 : 48, objectFit: 'contain',
+                      filter: 'drop-shadow(0 0 16px rgba(253,219,51,0.95)) drop-shadow(0 0 6px rgba(255,255,255,0.7))',
+                    }} />
+                  </motion.div>
+                )}
+
+                {/* ✗ vuela al HUD (incorrecta) */}
+                {isIncorrectFlow && (
+                  <motion.div
+                    key="fly-cross"
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.4 }}
+                    animate={{
+                      x: [0, crossDelta.dx * 0.3, crossDelta.dx],
+                      y: [0, crossDelta.dy * 0.4, crossDelta.dy],
+                      opacity: [0, 1, 1, 1, 0],
+                      scale: [0.4, 1.1, 0.7],
+                    }}
+                    transition={{ duration: 1.4, times: [0, 0.2, 0.7, 1], ease: [0.33, 0, 0.2, 1] }}
+                    style={{
+                      position: 'absolute', zIndex: 28, left: '50%', top: '45%',
+                      marginLeft: -14, marginTop: -14,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <div style={{
+                      width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius: 999,
+                      background: 'rgba(233,73,48,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 0 20px rgba(233,73,48,0.8), 0 0 8px rgba(255,255,255,0.5)',
+                    }}>
+                      <X size={isMobile ? 18 : 24} color="#E94930" strokeWidth={3} />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ★ estrella flota hacia arriba desde el HUD y desaparece (solo modo sala, incorrecta) */}
+                {isIncorrectFlow && !isPractice && starTargetScreen && (
+                  <motion.div
+                    key="star-loss"
+                    initial={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                    animate={{
+                      y: [0, -30, -70, -120],
+                      opacity: [1, 1, 0.6, 0],
+                      scale: [1, 0.9, 0.6, 0.3],
+                      x: [0, 6, -4, 2],
+                    }}
+                    transition={{ duration: 1.6, times: [0, 0.25, 0.6, 1], ease: [0.25, 0.1, 0.25, 1] }}
+                    style={{
+                      position: 'absolute', zIndex: 27,
+                      left: starTargetScreen.x, top: starTargetScreen.y,
+                      marginLeft: -12, marginTop: -12,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <img src="/images/puntos.png" alt="" style={{
+                      width: isMobile ? 18 : 24, height: isMobile ? 18 : 24, objectFit: 'contain',
+                      filter: 'drop-shadow(0 0 10px rgba(233,73,48,0.8))',
+                    }} />
+                  </motion.div>
+                )}
+
+                {/* Estela de partículas */}
+                {Array.from({ length: 8 }, (_, i) => {
+                  const target = isCorrectFlow ? checkDelta : crossDelta;
+                  return (
+                    <motion.span
+                      key={`trail-${i}`}
+                      initial={{ x: 0, y: 0, opacity: 0, scale: 1 }}
+                      animate={{
+                        x: [0, target.dx * 0.2, target.dx * 0.6],
+                        y: [0, target.dy * 0.3, target.dy * 0.7],
+                        opacity: [0, 0.7, 0],
+                        scale: [0.7, 0.4, 0.15],
+                      }}
+                      transition={{ duration: 1.3, delay: 0.08 + i * 0.09, ease: [0.33, 0, 0.2, 1] }}
+                      style={{
+                        position: 'absolute', zIndex: 25, left: '50%', top: '45%',
+                        marginLeft: -3, marginTop: -3,
+                        width: 5, height: 5, borderRadius: '50%',
+                        background: isCorrectFlow
+                          ? 'radial-gradient(circle, #FDF293 0%, #FDDB33 60%, transparent 100%)'
+                          : 'radial-gradient(circle, #FCA5A5 0%, #E94930 60%, transparent 100%)',
+                        boxShadow: isCorrectFlow
+                          ? '0 0 8px rgba(253,219,51,0.9)'
+                          : '0 0 8px rgba(233,73,48,0.9)',
+                      }}
+                    />
+                  );
+                })}
               </>
             )}
 
             {/* (4) Flash en el HUD al aterrizar */}
             {stage === 'land' && (
-              <motion.div
-                key="land-flash"
-                initial={{ opacity: 0.85, scale: 0.4 }}
-                animate={{ opacity: 0, scale: 1.6 }}
-                transition={{ duration: 0.4, ease: 'easeOut' }}
-                style={{
-                  position: 'absolute', zIndex: 24, left: '62%', bottom: 26,
-                  width: 110, height: 110, marginLeft: -55,
-                  borderRadius: '50%',
-                  background: isCorrectFlow
-                    ? 'radial-gradient(circle, rgba(253,219,51,0.9) 0%, rgba(253,219,51,0.35) 45%, transparent 70%)'
-                    : 'radial-gradient(circle, rgba(233,73,48,0.9) 0%, rgba(233,73,48,0.35) 45%, transparent 70%)',
-                  pointerEvents: 'none',
-                }}
-              />
+              <>
+                {isCorrectFlow && flyTargets.check && (
+                  <motion.div
+                    key="land-flash-check"
+                    initial={{ opacity: 0.9, scale: 0.3 }}
+                    animate={{ opacity: 0, scale: 2 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    style={{
+                      position: 'absolute', zIndex: 24,
+                      left: flyTargets.check.x, top: flyTargets.check.y,
+                      width: 50, height: 50, marginLeft: -25, marginTop: -25,
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(76,175,80,0.9) 0%, rgba(76,175,80,0.3) 45%, transparent 70%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+                {isCorrectFlow && !isPractice && flyTargets.star && (
+                  <motion.div
+                    key="land-flash-star"
+                    initial={{ opacity: 0.9, scale: 0.3 }}
+                    animate={{ opacity: 0, scale: 2 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    style={{
+                      position: 'absolute', zIndex: 24,
+                      left: flyTargets.star.x, top: flyTargets.star.y,
+                      width: 50, height: 50, marginLeft: -25, marginTop: -25,
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(253,219,51,0.9) 0%, rgba(253,219,51,0.3) 45%, transparent 70%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+                {isIncorrectFlow && flyTargets.cross && (
+                  <motion.div
+                    key="land-flash-cross"
+                    initial={{ opacity: 0.9, scale: 0.3 }}
+                    animate={{ opacity: 0, scale: 2 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    style={{
+                      position: 'absolute', zIndex: 24,
+                      left: flyTargets.cross.x, top: flyTargets.cross.y,
+                      width: 50, height: 50, marginLeft: -25, marginTop: -25,
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(233,73,48,0.9) 0%, rgba(233,73,48,0.3) 45%, transparent 70%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </>
             )}
           </>
         )}

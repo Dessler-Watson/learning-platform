@@ -23,6 +23,7 @@ interface AnsweredQuestion {
   correctAnswer: 'A' | 'B';
   playerChoice: 'A' | 'B' | null;
   isCorrect: boolean;
+  deathQuestion?: boolean;
 }
 
 function savePracticeResults(mode: string, questions: GameQuestion[]) {
@@ -43,10 +44,12 @@ function savePracticeResults(mode: string, questions: GameQuestion[]) {
     });
   } else {
     const state = useLavaStore.getState();
+    const localPlayer = state.players[0];
+    const wasEliminated = localPlayer?.eliminated ?? false;
+    const deathIdx = wasEliminated ? state.currentQuestionIndex : -1;
     answered = questions.map((q, i) => {
-      const localPlayer = state.players[0];
-      const roundResult = state.roundResults.find((r) => r.playerId === 0);
       const wasAnswered = i < state.currentQuestionIndex || (i === state.currentQuestionIndex && state.roundResults.length > 0);
+      const roundResult = state.roundResults.find((r) => r.playerId === 0);
       const isCorrect = wasAnswered ? (roundResult?.correct ?? false) : false;
       return {
         question: q.statement || (q as GameQuestion & { question?: string }).question || '',
@@ -55,6 +58,7 @@ function savePracticeResults(mode: string, questions: GameQuestion[]) {
         correctAnswer: q.correctAnswer,
         playerChoice: wasAnswered ? (localPlayer?.answer ?? null) : null,
         isCorrect: wasAnswered && isCorrect,
+        deathQuestion: i === deathIdx,
       };
     });
   }
