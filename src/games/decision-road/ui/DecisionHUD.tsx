@@ -57,12 +57,12 @@ export function DecisionHUD() {
   const scoreArrived = score === animatedScore;
 
   return (
-    <motion.div
-      initial={{ y: 80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 180, damping: 20 }}
-      style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10, pointerEvents: 'none' }}
-    >
+    <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, zIndex: 10, pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
+      <motion.div
+        initial={{ y: 80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 180, damping: 20 }}
+      >
       <div style={{
         display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 16,
         background: 'rgba(16,24,36,0.75)', backdropFilter: 'blur(14px)',
@@ -120,6 +120,7 @@ export function DecisionHUD() {
           </motion.span>
         </motion.div>
       </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
