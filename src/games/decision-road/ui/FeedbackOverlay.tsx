@@ -205,22 +205,24 @@ export function FeedbackOverlay() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.4 }}
-                style={{
-                  position: 'absolute', zIndex: 23, left: '50%', top: '62%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(255,255,255,0.95)',
-                  border: '2px solid rgba(46,158,79,0.4)',
-                  borderRadius: 16,
-                  padding: isMobile ? '10px 14px' : '14px 22px',
-                  maxWidth: isMobile ? 300 : 420,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                  pointerEvents: 'none',
-                }}
+                  style={{
+                    position: 'absolute', zIndex: 23, left: '50%', top: '62%',
+                    transform: 'translateX(-50%)',
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: '1.5px solid rgba(76,175,80,0.35)',
+                    borderRadius: 20,
+                    padding: isMobile ? '12px 18px' : '16px 26px',
+                    maxWidth: isMobile ? 320 : 440,
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+                    pointerEvents: 'none',
+                  }}
               >
-                <p style={{ margin: 0, fontSize: isMobile ? 12 : 15, fontWeight: 800, color: '#2E9E4F', fontFamily: 'var(--font-baloo)', lineHeight: 1.4 }}>
+                <p style={{ margin: 0, fontSize: isMobile ? 13 : 16, fontWeight: 800, color: '#2E9E4F', fontFamily: 'var(--font-baloo)', lineHeight: 1.4 }}>
                   Respuesta correcta:
                 </p>
-                <p style={{ margin: '4px 0 0', fontSize: isMobile ? 13 : 16, fontWeight: 700, color: '#2A1E0E', fontFamily: 'var(--font-baloo)', lineHeight: 1.3 }}>
+                <p style={{ margin: '4px 0 0', fontSize: isMobile ? 14 : 17, fontWeight: 700, color: '#1a1a2e', fontFamily: 'var(--font-baloo)', lineHeight: 1.3 }}>
                   {correctAnswerText}
                 </p>
               </motion.div>

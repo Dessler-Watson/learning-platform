@@ -103,15 +103,16 @@ export function ResultsScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-30 flex items-center justify-center"
-            style={{ background: 'rgba(30,20,10,0.55)', backdropFilter: 'blur(8px)' }}
-          >
+          className="absolute inset-0 z-30 flex items-center justify-center"
+          style={{ background: 'rgba(10,20,40,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 20 }}
               className="relative max-h-[92vh] w-[95%] max-w-sm overflow-y-auto rounded-[32px] border-2 border-white/70 bg-edu-cream p-6 text-center shadow-game-lg"
+              style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)' }}
             >
               <motion.div
                 initial={{ scale: 0 }}
@@ -151,7 +152,7 @@ export function ResultsScreen() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 z-30 flex items-center justify-center"
-          style={{ background: 'rgba(30,20,10,0.55)', backdropFilter: 'blur(8px)' }}
+          style={{ background: 'rgba(10,20,40,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
         >
           <AnimatePresence mode="wait">
             {view === 'simple' ? (

@@ -2,16 +2,71 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-const CLOUDS = Array.from({ length: 20 }, () => ({ x: (Math.random() - 0.5) * 130, y: 16 + Math.random() * 20, z: Math.random() * 510 - 430, s: 5 + Math.random() * 4, spd: 0.03 + Math.random() * 0.07, flat: 0.3 + Math.random() * 0.3, wide: 1.4 + Math.random() * 0.8 }));
-function noise(x: number, y: number, z: number) { return Math.sin(x * 3.7 + y * 2.1) * 0.14 + Math.cos(z * 3.2 + x * 1.8) * 0.11 + Math.sin(y * 4.5 + z * 2.7) * 0.09 + Math.cos(x * 5.8 - y * 4.1) * 0.07 + Math.sin(z * 6.1 + x * 3.4) * 0.05 + Math.cos(y * 7.3 - z * 5.2) * 0.04; }
-function cloudGeom(scale: number, flat: number, wide: number) {
-  const geo = new THREE.SphereGeometry(1, 14, 10); const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i); const n = noise(x, y, z); const nx = x * wide, ny = y * flat, nz = z * (wide - 0.2); const len = Math.sqrt(nx * nx + ny * ny + nz * nz); const r = (1 + n) * scale; pos.setXYZ(i, (nx / len) * r, (ny / len) * r, (nz / len) * r); }
-  pos.needsUpdate = true; geo.computeVertexNormals(); return geo;
+
+interface CloudData {
+  x: number;
+  y: number;
+  z: number;
+  s: number;
+  spd: number;
+  puffs: { ox: number; oy: number; oz: number; r: number }[];
 }
-function CloudUnit({ x, y, z, s, spd, flat, wide }: typeof CLOUDS[number]) {
-  const ref = useRef<THREE.Mesh>(null); const geo = useMemo(() => cloudGeom(s, flat, wide), [s, flat, wide]);
-  useFrame((_, dt) => { if (ref.current) { ref.current.position.x += spd * dt; if (ref.current.position.x > 70) ref.current.position.x = -70; } });
-  return <mesh ref={ref} position={[x, y, z]} geometry={geo} frustumCulled={false} castShadow={false} receiveShadow={false}><meshBasicMaterial color="#ffffff" transparent opacity={0.75} depthWrite={false} /></mesh>;
+
+const CLOUDS: CloudData[] = Array.from({ length: 12 }, () => {
+  const puffCount = 3 + Math.floor(Math.random() * 3);
+  const puffs = Array.from({ length: puffCount }, (_, i) => ({
+    ox: (i - puffCount / 2) * (1.2 + Math.random() * 0.8),
+    oy: (Math.random() - 0.5) * 0.6,
+    oz: (Math.random() - 0.5) * 0.8,
+    r: 1.8 + Math.random() * 1.5,
+  }));
+  return {
+    x: (Math.random() - 0.5) * 160,
+    y: 20 + Math.random() * 25,
+    z: Math.random() * 520 - 440,
+    s: 0.8 + Math.random() * 0.6,
+    spd: 0.01 + Math.random() * 0.025,
+    puffs,
+  };
+});
+
+function CloudUnit({ data }: { data: CloudData }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((_, dt) => {
+    if (groupRef.current) {
+      groupRef.current.position.x += data.spd * dt;
+      if (groupRef.current.position.x > 85) groupRef.current.position.x = -85;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[data.x, data.y, data.z]} scale={data.s}>
+      {data.puffs.map((puff, i) => (
+        <mesh key={i} position={[puff.ox, puff.oy, puff.oz]} castShadow={false} receiveShadow={false}>
+          <sphereGeometry args={[puff.r, 12, 10]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            roughness={1}
+            metalness={0}
+            transparent
+            opacity={0.9}
+            emissive="#f0f8ff"
+            emissiveIntensity={0.12}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
 }
-export function Clouds() { const list = useMemo(() => CLOUDS, []); return <group>{list.map((c, i) => <CloudUnit key={i} {...c} />)}</group>; }
+
+export function Clouds() {
+  const list = useMemo(() => CLOUDS, []);
+  return (
+    <group>
+      {list.map((c, i) => (
+        <CloudUnit key={i} data={c} />
+      ))}
+    </group>
+  );
+}
