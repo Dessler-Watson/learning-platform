@@ -16,7 +16,7 @@ interface LavaStore {
 }
 
 const MAX_TICKS = 3;
-const START_TICKS = 3;
+const START_TICKS = 2;
 const BLOCK_HEIGHT = 0.5;
 const BASE_Y = 0.3;
 const AVATAR_FOOT_OFFSET = 1.35;
