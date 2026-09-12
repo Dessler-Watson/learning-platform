@@ -137,13 +137,13 @@ export function LavaHUD() {
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
               minWidth: isMobile ? 44 : 52,
             }}>
-              <Flame size={isMobile ? 18 : 22} color={ticks <= 1 ? '#E94930' : ticks <= 2 ? '#FFA000' : '#FFCC00'} />
+              <Flame size={isMobile ? 18 : 22} color={ticks <= 1 ? '#E94930' : '#FFA000'} />
               <span style={{ color: '#B0BEC5', fontSize: isMobile ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Ticks
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
-                {Array.from({ length: 5 }, (_, i) => {
-                  const tickLevel = 5 - i;
+                {Array.from({ length: 3 }, (_, i) => {
+                  const tickLevel = 3 - i;
                   const active = ticks >= tickLevel;
                   const isCurrent = ticks === tickLevel;
                   return (
@@ -155,11 +155,10 @@ export function LavaHUD() {
                         width: isMobile ? 28 : 32, height: isMobile ? 8 : 10, borderRadius: 4,
                         background: active
                           ? tickLevel <= 1 ? 'linear-gradient(90deg, #E94930, #FF6B6B)'
-                            : tickLevel <= 2 ? 'linear-gradient(90deg, #FF8F00, #FFB74D)'
-                            : 'linear-gradient(90deg, #FFCC00, #FFF176)'
+                            : 'linear-gradient(90deg, #FF8F00, #FFB74D)'
                           : 'rgba(255,255,255,0.1)',
                         border: isCurrent ? '1px solid rgba(255,255,255,0.4)' : '1px solid transparent',
-                        boxShadow: active ? `0 0 8px ${tickLevel <= 1 ? 'rgba(233,73,48,0.5)' : tickLevel <= 2 ? 'rgba(255,143,0,0.5)' : 'rgba(255,204,0,0.5)'}` : 'none',
+                        boxShadow: active ? `0 0 8px ${tickLevel <= 1 ? 'rgba(233,73,48,0.5)' : 'rgba(255,143,0,0.5)'}` : 'none',
                         transition: 'background 0.3s, box-shadow 0.3s',
                       }}
                     />

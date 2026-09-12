@@ -15,7 +15,7 @@ interface LavaStore {
   reset: () => void;
 }
 
-const MAX_TICKS = 5;
+const MAX_TICKS = 3;
 const START_TICKS = 3;
 const BLOCK_HEIGHT = 0.5;
 const BASE_Y = 0.3;
