@@ -73,49 +73,74 @@ export function LavaHUD() {
 
   return (
     <>
-      {/* === HUD BAR (bottom center) === */}
+      {/* === HUD BAR (bottom center) - matches DecisionRoad style === */}
       {show && (
-        <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
           <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 20 }}>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 14,
-              background: 'rgba(16,24,36,0.75)', backdropFilter: 'blur(14px)',
-              borderRadius: 999, padding: isMobile ? '7px 12px 7px 10px' : '10px 20px 10px 16px',
-              boxShadow: '0 12px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1)',
-              border: '1px solid rgba(233,73,48,0.25)',
+              display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 18,
+              background: 'linear-gradient(160deg, rgba(60,20,10,0.88) 0%, rgba(80,30,15,0.82) 100%)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 999,
+              padding: isMobile ? '10px 16px 10px 14px' : '14px 28px 14px 22px',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,120,0,0.2)',
             }}>
-              <span style={{ color: '#B0BEC5', fontSize: isMobile ? 11 : 14, fontWeight: 900, fontFamily: 'var(--font-baloo)', whiteSpace: 'nowrap' }}>
+              {/* Question counter */}
+              <span style={{
+                color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 13 : 16, fontWeight: 900,
+                fontFamily: 'var(--font-baloo)', whiteSpace: 'nowrap',
+              }}>
                 {correctCount + incorrectCount}/{total}
               </span>
 
-              <motion.div key={`correct-${correctCount}`} animate={correctCount > 0 ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 2 : 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 16 : 20, height: isMobile ? 16 : 20, borderRadius: 999, background: 'rgba(46,158,79,0.2)' }}>
-                  <Check size={isMobile ? 10 : 13} color="#4CAF50" strokeWidth={3} />
+              {/* Divider */}
+              <div style={{ width: 1, height: isMobile ? 20 : 28, background: 'rgba(255,255,255,0.1)' }} />
+
+              {/* Correct count */}
+              <motion.div key={`correct-${correctCount}`} animate={correctCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: isMobile ? 24 : 30, height: isMobile ? 24 : 30,
+                  borderRadius: 999,
+                  background: 'linear-gradient(135deg, rgba(76,175,80,0.35) 0%, rgba(102,187,106,0.2) 100%)',
+                  border: '1.5px solid rgba(76,175,80,0.4)',
+                }}>
+                  <Check size={isMobile ? 13 : 16} color="#66BB6A" strokeWidth={3} />
                 </div>
-                <span style={{ color: '#4CAF50', fontSize: isMobile ? 12 : 15, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{correctCount}</span>
+                <span style={{ color: '#66BB6A', fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{correctCount}</span>
               </motion.div>
 
-              <motion.div key={`incorrect-${incorrectCount}`} animate={incorrectCount > 0 ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 2 : 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? 16 : 20, height: isMobile ? 16 : 20, borderRadius: 999, background: 'rgba(233,73,48,0.2)' }}>
-                  <X size={isMobile ? 10 : 13} color="#E94930" strokeWidth={3} />
+              {/* Incorrect count */}
+              <motion.div key={`incorrect-${incorrectCount}`} animate={incorrectCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: isMobile ? 24 : 30, height: isMobile ? 24 : 30,
+                  borderRadius: 999,
+                  background: 'linear-gradient(135deg, rgba(239,83,80,0.35) 0%, rgba(239,83,80,0.15) 100%)',
+                  border: '1.5px solid rgba(239,83,80,0.4)',
+                }}>
+                  <X size={isMobile ? 13 : 16} color="#EF5350" strokeWidth={3} />
                 </div>
-                <span style={{ color: '#E94930', fontSize: isMobile ? 12 : 15, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{incorrectCount}</span>
+                <span style={{ color: '#EF5350', fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{incorrectCount}</span>
               </motion.div>
 
-              {!isPractice && <div style={{ width: 1, height: isMobile ? 16 : 22, background: 'rgba(255,255,255,0.15)' }} />}
+              {/* Divider */}
+              {!isPractice && <div style={{ width: 1, height: isMobile ? 20 : 28, background: 'rgba(255,255,255,0.1)' }} />}
 
+              {/* Score */}
               {!isPractice && (
-                <motion.div key={countTick} animate={scoreArrived && countTick > 0 ? { scale: [1, 1.45, 0.92, 1.08, 1] } : { scale: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}
-                  style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 3 : 5, minWidth: isMobile ? 36 : 52, justifyContent: 'center', position: 'relative', padding: '2px 6px', borderRadius: 999 }}>
+                <motion.div key={countTick} animate={scoreArrived && countTick > 0 ? { scale: [1, 1.3, 0.95, 1.05, 1] } : { scale: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 5 : 8, minWidth: isMobile ? 44 : 60, justifyContent: 'center', position: 'relative', padding: '4px 10px', borderRadius: 999 }}>
                   <AnimatePresence>
                     {countTick > 0 && scoreArrived && (
-                      <motion.div key={`flash-${countTick}`} initial={{ opacity: 0.9, scale: 0.5 }} animate={{ opacity: 0, scale: 1.8 }} exit={{ opacity: 0 }} transition={{ duration: 0.45, ease: 'easeOut' }}
-                        style={{ position: 'absolute', inset: -8, borderRadius: 999, background: 'radial-gradient(circle, rgba(253,219,51,0.85) 0%, rgba(253,219,51,0.3) 50%, transparent 70%)', pointerEvents: 'none' }} />
+                      <motion.div key={`flash-${countTick}`} initial={{ opacity: 0.8, scale: 0.5 }} animate={{ opacity: 0, scale: 2 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}
+                        style={{ position: 'absolute', inset: -10, borderRadius: 999, background: 'radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0.2) 50%, transparent 70%)', pointerEvents: 'none' }} />
                     )}
                   </AnimatePresence>
-                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isMobile ? 16 : 22, height: isMobile ? 16 : 22, objectFit: 'contain' }} />
-                  <motion.span animate={scoreArrived && countTick > 0 ? { color: ['#6EE08A', '#FDDB33', '#6EE08A'] } : {}} transition={{ duration: 0.6 }}
-                    style={{ fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#6EE08A' }}>
+                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isMobile ? 18 : 24, height: isMobile ? 18 : 24, objectFit: 'contain', filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
+                  <motion.span animate={scoreArrived && countTick > 0 ? { color: ['#66BB6A', '#FFD54F', '#66BB6A'] } : {}} transition={{ duration: 0.6 }}
+                    style={{ fontSize: isMobile ? 16 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#FFD54F', textShadow: '0 0 12px rgba(255,213,79,0.3)' }}>
                     {animatedScore}
                   </motion.span>
                 </motion.div>
@@ -125,20 +150,22 @@ export function LavaHUD() {
         </div>
       )}
 
-      {/* === TICKS WINDOW (left side) === */}
+      {/* === TICKS INDICATOR (left side) === */}
       {show && (
         <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 50, pointerEvents: 'none' }}>
           <motion.div initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 20 }}>
             <div style={{
-              background: 'rgba(16,24,36,0.8)', backdropFilter: 'blur(14px)',
-              borderRadius: 18, padding: isMobile ? '10px 8px' : '14px 10px',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
-              border: '1px solid rgba(233,73,48,0.2)',
+              background: 'linear-gradient(160deg, rgba(60,20,10,0.88) 0%, rgba(80,30,15,0.82) 100%)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 18,
+              padding: isMobile ? '10px 8px' : '14px 10px',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,120,0,0.2)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
               minWidth: isMobile ? 44 : 52,
             }}>
               <Flame size={isMobile ? 18 : 22} color={ticks <= 1 ? '#E94930' : '#FFA000'} />
-              <span style={{ color: '#B0BEC5', fontSize: isMobile ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Ticks
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
@@ -338,8 +365,8 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
         {label}
       </span>
       <span style={{ lineHeight: 1.3 }}>{text}</span>
-      {celebrate && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>✅</motion.span>}
-      {shake && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>❌</motion.span>}
+      {celebrate && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>&#10003;</motion.span>}
+      {shake && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>&#10007;</motion.span>}
     </motion.button>
   );
 }
