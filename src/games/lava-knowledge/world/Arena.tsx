@@ -8,41 +8,41 @@ import { LavaSurface } from './LavaSurface';
 const LAVA_Y = -1.0;
 const ARENA_HALF = 20;
 
-/* ═══ LAVA GLOW MATERIAL — vertical gradient from lava orange (bottom) to base color (top) ═══ */
+/* ═══ LAVA GLOW MATERIAL — one gradient per mountain ═══ */
 const glowVert = `
-varying float vGradY;
+varying float vWorldY;
 void main(){
-  vGradY = position.y;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorldY = wp.y;
+  gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const glowFrag = `
 uniform vec3 uBase;
-uniform float uHeight;
+uniform float uLavaY;
+uniform float uTotalH;
 uniform float uGlowIntensity;
-varying float vGradY;
+varying float vWorldY;
 void main(){
-  float halfH = uHeight * 0.5;
-  float t = clamp((vGradY + halfH) / uHeight, 0.0, 1.0);
-  float glow = pow(1.0 - t, 2.5) * uGlowIntensity;
+  float t = clamp((vWorldY - uLavaY) / uTotalH, 0.0, 1.0);
+  float glow = pow(1.0 - t, 4.0) * uGlowIntensity;
   vec3 lavaGlow = vec3(1.0, 0.35, 0.0);
   vec3 col = mix(uBase, lavaGlow, glow);
-  float pulse = 0.85 + 0.15 * sin(vGradY * 3.0);
-  col *= pulse;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-function LavaGlowMaterial({ baseColor, height, glowIntensity = 0.7 }: {
-  baseColor: string; height: number; glowIntensity?: number;
+function LavaGlowMaterial({ baseColor, totalHeight, glowIntensity = 0.7 }: {
+  baseColor: string; totalHeight: number; glowIntensity?: number;
 }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uBase: { value: new THREE.Color(baseColor) },
-      uHeight: { value: height },
+      uLavaY: { value: LAVA_Y },
+      uTotalH: { value: totalHeight },
       uGlowIntensity: { value: glowIntensity },
     },
     vertexShader: glowVert,
     fragmentShader: glowFrag,
-  }), [baseColor, height, glowIntensity]);
+  }), [baseColor, totalHeight, glowIntensity]);
   return <primitive object={mat} attach="material" />;
 }
 
@@ -50,7 +50,7 @@ function RockWall({ x, z, rotY, scaleX, height }: {
   x: number; z: number; rotY: number; scaleX: number; height: number;
 }) {
   const wallColor = useMemo(() => {
-    const colors = ['#5B6E8A', '#4A5D78', '#6B7E9A', '#526680'];
+    const colors = ['#2A3848', '#354555', '#2E3D4D', '#333F50'];
     return colors[Math.floor(Math.random() * colors.length)];
   }, []);
 
@@ -61,11 +61,11 @@ function RockWall({ x, z, rotY, scaleX, height }: {
       </RigidBody>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[scaleX * 6, height, 1.6]} />
-        <LavaGlowMaterial baseColor={wallColor} height={height} glowIntensity={0.8} />
+        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} glowIntensity={0.75} />
       </mesh>
-      <mesh position={[0, height / 2 + 0.05, 0]}>
-        <boxGeometry args={[scaleX * 6 + 0.2, 0.12, 1.8]} />
-        <LavaGlowMaterial baseColor={wallColor} height={0.12} glowIntensity={0.8} />
+      <mesh position={[0, height / 2, 0]} receiveShadow>
+        <boxGeometry args={[scaleX * 6, height, 0.4]} />
+        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} glowIntensity={0.75} />
       </mesh>
     </group>
   );
@@ -143,12 +143,11 @@ function VolcanoCliff({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i < 2 ? '#4A5D78' : i < layers.length - 2 ? '#5B6E8A' : '#6B7E9A';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.9;
+        const baseColor = i < 2 ? '#2A3848' : i < layers.length - 2 ? '#354555' : '#4A5D78';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
           </mesh>
         );
       })}
@@ -169,7 +168,7 @@ function VolcanoCliff({ x, z, rotY, layers, cascades }: {
       {cascades.map((c, i) => (
         <LavaCascadeMesh key={`c-${i}`} c={c} layers={layers} />
       ))}
-      <pointLight position={[0, totalH + 2, 0]} intensity={5} color="#FF6600" distance={20} decay={2} />
+      <pointLight position={[0, totalH + 2, 0]} intensity={3} color="#FF6600" distance={25} decay={2} />
     </group>
   );
 }
@@ -186,12 +185,11 @@ function VolcanoShield({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i === 0 ? '#526680' : i === 1 ? '#5B6E8A' : '#6B7E9A';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.9;
+        const baseColor = i === 0 ? '#2E3D4D' : i === 1 ? '#354555' : '#4A5D78';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
           </mesh>
         );
       })}
@@ -206,7 +204,7 @@ function VolcanoShield({ x, z, rotY, layers, cascades }: {
       {cascades.map((c, i) => (
         <LavaCascadeMesh key={`c-${i}`} c={c} layers={layers} />
       ))}
-      <pointLight position={[0, totalH + 1.5, 0]} intensity={4} color="#FF6600" distance={18} decay={2} />
+      <pointLight position={[0, totalH + 1.5, 0]} intensity={3} color="#FF6600" distance={22} decay={2} />
     </group>
   );
 }
@@ -223,12 +221,11 @@ function VolcanoSpike({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i % 3 === 0 ? '#4A5D78' : i % 3 === 1 ? '#5B6E8A' : '#526680';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.9;
+        const baseColor = i % 3 === 0 ? '#2A3848' : i % 3 === 1 ? '#354555' : '#2E3D4D';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
           </mesh>
         );
       })}
@@ -248,7 +245,7 @@ function VolcanoSpike({ x, z, rotY, layers, cascades }: {
       {cascades.map((c, i) => (
         <LavaCascadeMesh key={`c-${i}`} c={c} layers={layers} />
       ))}
-      <pointLight position={[0, totalH + 2.5, 0]} intensity={5} color="#FF5500" distance={20} decay={2} />
+      <pointLight position={[0, totalH + 2.5, 0]} intensity={3} color="#FF5500" distance={25} decay={2} />
     </group>
   );
 }
@@ -370,12 +367,11 @@ function MoundSmall({ x, z, rotY, layers }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i === 0 ? '#5B6E8A' : '#6B7E9A';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.7;
+        const baseColor = i === 0 ? '#354555' : '#4A5D78';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
           </mesh>
         );
       })}
@@ -393,12 +389,11 @@ function VolcanoSpire({ x, z, rotY, layers }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i < layers.length * 0.4 ? '#4A5D78' : '#5B6E8A';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.85;
+        const baseColor = i < layers.length * 0.4 ? '#2A3848' : '#354555';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.75} />
           </mesh>
         );
       })}
@@ -442,16 +437,15 @@ function CrossingMountain({ x, z, rotY, layers, scale = 0.55 }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]} scale={scale}>
       {layers.map((l, i) => {
-        const baseColor = i < 2 ? '#4A5D78' : i < layers.length - 2 ? '#5B6E8A' : '#6B7E9A';
-        const glowStr = Math.max(0, 1 - (l.y / totalH)) * 0.85;
+        const baseColor = i < 2 ? '#2A3848' : i < layers.length - 2 ? '#354555' : '#4A5D78';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} height={l.h} glowIntensity={glowStr} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.75} />
           </mesh>
         );
       })}
-      <pointLight position={[0, totalH + 1, 0]} intensity={2} color="#FF6600" distance={10} decay={2} />
+      <pointLight position={[0, totalH + 1, 0]} intensity={1} color="#FF6600" distance={10} decay={2} />
     </group>
   );
 }
@@ -488,33 +482,35 @@ function getRockPlacements(): RockPlacement[] {
 
 /* Lava glow shader for rocks */
 const rockGlowVert = `
-varying float vGradY;
+varying float vWorldY;
 void main(){
-  vGradY = position.y;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorldY = wp.y;
+  gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const rockGlowFrag = `
 uniform vec3 uBase;
-uniform float uHeight;
-varying float vGradY;
+uniform float uLavaY;
+uniform float uTotalH;
+varying float vWorldY;
 void main(){
-  float halfH = uHeight * 0.5;
-  float t = clamp((vGradY + halfH) / uHeight, 0.0, 1.0);
-  float glow = pow(1.0 - t, 2.0) * 0.6;
-  vec3 lavaGlow = vec3(1.0, 0.35, 0.0);
+  float t = clamp((vWorldY - uLavaY) / uTotalH, 0.0, 1.0);
+  float glow = pow(1.0 - t, 2.0) * 0.85;
+  vec3 lavaGlow = vec3(1.0, 0.4, 0.05);
   vec3 col = mix(uBase, lavaGlow, glow);
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-function LavaRockGlowMaterial({ baseColor, height }: { baseColor: string; height: number }) {
+function LavaRockGlowMaterial({ baseColor, totalHeight }: { baseColor: string; totalHeight: number }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uBase: { value: new THREE.Color(baseColor) },
-      uHeight: { value: height },
+      uLavaY: { value: LAVA_Y },
+      uTotalH: { value: totalHeight },
     },
     vertexShader: rockGlowVert,
     fragmentShader: rockGlowFrag,
-  }), [baseColor, height]);
+  }), [baseColor, totalHeight]);
   return <primitive object={mat} attach="material" />;
 }
 
@@ -531,7 +527,7 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   });
 
   const color = useMemo(() => {
-    const palette = [['#6B7E9A', '#5A6D88'], ['#4A5D78', '#3D4E65'], ['#7A8FA5', '#6B8099'], ['#3D5060', '#2E4050'], ['#5B6E8A', '#4E617D']];
+    const palette = [['#3A4D60', '#2E4050'], ['#2A3848', '#1E2A38'], ['#4A5D70', '#3A4D60'], ['#1E2A38', '#15202E'], ['#354555', '#2A3848']];
     return palette[type][Math.floor(Math.random() * 2)];
   }, [type]);
   const sizeY = useMemo(() => {
@@ -558,7 +554,7 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   }, [type, scale]);
   return (
     <group ref={groupRef} position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
-      <mesh castShadow>{geometry}<LavaRockGlowMaterial baseColor={color} height={sizeY} /></mesh>
+      <mesh castShadow>{geometry}<LavaRockGlowMaterial baseColor={color} totalHeight={sizeY} /></mesh>
     </group>
   );
 }
@@ -590,17 +586,17 @@ export function Arena({ children }: { children: React.ReactNode }) {
     const rand = seededRandom(1100);
     const positions = [
       // Behind left wall
-      { x: -30, z: -10 }, { x: -32, z: 0 }, { x: -30, z: 10 },
-      { x: -36, z: -18 }, { x: -38, z: -6 }, { x: -36, z: 6 }, { x: -38, z: 18 },
+      { x: -34, z: -10 }, { x: -36, z: 0 }, { x: -34, z: 10 },
+      { x: -38, z: -18 }, { x: -40, z: -6 }, { x: -38, z: 6 }, { x: -40, z: 18 },
       // Behind right wall
-      { x: 30, z: -10 }, { x: 32, z: 0 }, { x: 30, z: 10 },
-      { x: 36, z: -18 }, { x: 38, z: -6 }, { x: 36, z: 6 }, { x: 38, z: 18 },
+      { x: 34, z: -10 }, { x: 36, z: 0 }, { x: 34, z: 10 },
+      { x: 38, z: -18 }, { x: 40, z: -6 }, { x: 38, z: 6 }, { x: 40, z: 18 },
       // Behind front wall
-      { x: -10, z: -30 }, { x: 0, z: -32 }, { x: 10, z: -30 },
-      { x: -18, z: -36 }, { x: -6, z: -38 }, { x: 6, z: -36 }, { x: 18, z: -38 },
+      { x: -10, z: -34 }, { x: 0, z: -36 }, { x: 10, z: -34 },
+      { x: -18, z: -38 }, { x: -6, z: -40 }, { x: 6, z: -38 }, { x: 18, z: -40 },
       // Behind back wall
-      { x: -10, z: 30 }, { x: 0, z: 32 }, { x: 10, z: 30 },
-      { x: -18, z: 36 }, { x: -6, z: 38 }, { x: 6, z: 36 }, { x: 18, z: 38 },
+      { x: -10, z: 34 }, { x: 0, z: 36 }, { x: 10, z: 34 },
+      { x: -18, z: 38 }, { x: -6, z: 40 }, { x: 6, z: 38 }, { x: 18, z: 40 },
       // Far outer ring — deep background
       { x: -42, z: -12 }, { x: -44, z: 0 }, { x: -42, z: 12 },
       { x: 42, z: -12 }, { x: 44, z: 0 }, { x: 42, z: 12 },
@@ -677,7 +673,7 @@ export function Arena({ children }: { children: React.ReactNode }) {
       <RockWall x={18} z={14} rotY={-Math.PI * 2 / 3} scaleX={1.5} height={3.5} />
 
       {/* ═══ CLIFF volcanoes (tall, stepped) ═══ */}
-      <VolcanoCliff x={-30} z={-28} rotY={0.3} layers={cliff1.layers} cascades={cliff1.cascades} />
+      <VolcanoCliff x={-34} z={-30} rotY={0.3} layers={cliff1.layers} cascades={cliff1.cascades} />
       <VolcanoCliff x={28} z={-32} rotY={-0.4} layers={cliff2.layers} cascades={cliff2.cascades} />
       <VolcanoCliff x={-34} z={18} rotY={0.6} layers={cliff3.layers} cascades={cliff3.cascades} />
 
@@ -687,7 +683,7 @@ export function Arena({ children }: { children: React.ReactNode }) {
       <VolcanoShield x={30} z={-15} rotY={1.0} layers={shield3.layers} cascades={shield3.cascades} />
 
       {/* ═══ SPIKE volcanoes (asymmetric, offset) ═══ */}
-      <VolcanoSpike x={-35} z={5} rotY={0.8} layers={spike1.layers} cascades={spike1.cascades} />
+      <VolcanoSpike x={-38} z={5} rotY={0.8} layers={spike1.layers} cascades={spike1.cascades} />
       <VolcanoSpike x={15} z={-35} rotY={-0.5} layers={spike2.layers} cascades={spike2.cascades} />
       <VolcanoSpike x={35} z={-5} rotY={1.2} layers={spike3.layers} cascades={spike3.cascades} />
       <VolcanoSpike x={-15} z={-35} rotY={-0.8} layers={spike4.layers} cascades={spike4.cascades} />
@@ -695,13 +691,7 @@ export function Arena({ children }: { children: React.ReactNode }) {
       {/* ═══ Spires (tall narrow pillars) ═══ */}
       {spires.map((s, i) => <VolcanoSpire key={`sp-${i}`} x={s.x} z={s.z} rotY={s.rotY} layers={s.layers} />)}
 
-      {/* ═══ Crossing mountains — only a few, very subtle peek through ═══ */}
-      <CrossingMountain x={-23} z={-10} rotY={0.4} layers={crossing1.layers} scale={0.4} />
-      <CrossingMountain x={23} z={8} rotY={-0.6} layers={crossing2.layers} scale={0.4} />
-      <CrossingMountain x={-10} z={23} rotY={1.2} layers={crossing3.layers} scale={0.4} />
-      <CrossingMountain x={8} z={-23} rotY={2.1} layers={crossing4.layers} scale={0.4} />
-      <CrossingMountain x={-23} z={18} rotY={-0.3} layers={crossing5.layers} scale={0.35} />
-      <CrossingMountain x={23} z={-18} rotY={0.9} layers={crossing6.layers} scale={0.35} />
+      {/* ═══ No crossing mountains — all structures behind walls ═══ */}
 
       {/* ═══ Small mounds — all behind walls ═══ */}
       {mounds.map((m, i) => <MoundSmall key={`ms1-${i}`} x={m.x} z={m.z} rotY={m.rotY} layers={m.data.layers} />)}

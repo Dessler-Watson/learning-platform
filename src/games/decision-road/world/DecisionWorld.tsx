@@ -5,22 +5,28 @@ import { ParticleField } from '@/shared/world/effects/ParticleField';
 import { DoorSystem } from './DoorSystem';
 import { Path } from './Path';
 import { FinishLine } from './FinishLine';
+import { WindParticles } from './WindParticles';
 import { CharacterDissolve } from './CharacterDissolve';
 import { FloatingIslands } from './FloatingIslands';
 import { useGameStore } from '@/stores/game.store';
 export function DecisionWorld({ children }: { children: React.ReactNode }) {
   const questions = useGameStore((s) => s.questions);
-  const finishZ = 12 - (questions.length - 1) * 25 - 8;
-  const pathLength = Math.max(480, 20 - finishZ + 40);
+  const lastStationZ = questions.length > 0 ? 12 - (questions.length - 1) * 25 : 12;
+  const finishZ = lastStationZ - 25;
+  const pathStartZ = 42;
+  const pathEndZ = finishZ - 15;
+  const pathLength = pathStartZ - pathEndZ;
+  const pathCenterZ = (pathStartZ + pathEndZ) / 2;
   return (
     <group>
       <Sky />
-      <Clouds />
-      <ParticleField count={20} spread={50} color="#fff8e1" size={0.035} speed={0.12} />
+      <Clouds pathStartZ={pathStartZ} pathEndZ={pathEndZ} cloudsPerChunk={3} extraChunks={2} />
+      <ParticleField count={80} spread={50} color="#fff8e1" size={0.045} speed={0.12} />
       <FloatingIslands />
-      <Path length={pathLength} />
+      <Path length={pathLength} centerZ={pathCenterZ} />
       <DoorSystem />
-      <FinishLine position={[0, 1.5, finishZ]} />
+      <FinishLine lastStationZ={lastStationZ} />
+      <WindParticles />
       {children}
       <CharacterDissolve />
     </group>

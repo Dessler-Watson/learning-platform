@@ -1,48 +1,98 @@
 'use client';
-import { Text } from '@react-three/drei';
-import { RigidBody, CuboidCollider } from '@react-three/rapier';
+import { useRef, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Text, RoundedBox } from '@react-three/drei';
+import * as THREE from 'three';
+import { characterRigidBody } from '@/shared/refs/characterRef';
 import { useGameStore } from '@/stores/game.store';
 
-export function FinishLine({ position }: { position: [number, number, number] }) {
-  const phase = useGameStore((s) => s.phase); const currentIndex = useGameStore((s) => s.currentQuestionIndex); const questions = useGameStore((s) => s.questions);
-  const isLast = currentIndex === questions.length - 1; const show = phase === 'playing' || phase === 'question' || phase === 'correctFeedback' || phase === 'incorrectFeedback';
-  if (!show || !isLast || questions.length === 0) return null;
-  const [px, py, pz] = position;
-  const flagColors = ['#EF5350', '#FFD54F', '#66BB6A', '#42A5F5', '#AB47BC', '#FF7043', '#26C6DA', '#FFCA28', '#EC407A', '#5C6BC0'];
+const FINISH_Z_OFFSET = 25;
+const PW = 16;
+const PH = 5.5;
+const RADIUS = 0.4;
+
+function Diamond({ position, size, opacity }: { position: [number, number, number]; size: number; opacity: number }) {
   return (
-    <group position={[px, py, pz]}>
-      <mesh position={[-9, 1.2, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.3, 3, 10]} />
-        <meshStandardMaterial color="#FFD54F" roughness={0.3} metalness={0.5} emissive="#FFD54F" emissiveIntensity={0.15} />
+    <mesh position={position} rotation={[0, 0, Math.PI / 4]}>
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial color="#FFD700" transparent opacity={opacity} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+export function FinishLine({ lastStationZ }: { lastStationZ: number }) {
+  const phase = useGameStore((s) => s.phase);
+  const crossed = useRef(false);
+
+  useEffect(() => {
+    crossed.current = false;
+  }, [phase]);
+
+  useFrame(() => {
+    if (phase !== 'finishing' || crossed.current) return;
+    const rb = characterRigidBody.current;
+    if (!rb) return;
+    const pz = rb.translation().z;
+    if (pz <= lastStationZ - FINISH_Z_OFFSET) {
+      crossed.current = true;
+      const store = useGameStore.getState();
+      store.completeLevel();
+      store.setPhase('completed');
+    }
+  });
+
+  if (phase === 'loading' || phase === 'intro') return null;
+
+  const z = lastStationZ - FINISH_Z_OFFSET;
+
+  return (
+    <group position={[0, PH / 2 + 1.0, z]}>
+      {/* Main golden panel — spans full road width */}
+      <RoundedBox args={[PW, PH, 0.15]} radius={RADIUS} smoothness={4}>
+        <meshStandardMaterial
+          color="#DAA520"
+          transparent
+          opacity={0.95}
+          roughness={0.3}
+          metalness={0.15}
+          emissive="#FFD700"
+          emissiveIntensity={0.2}
+          side={THREE.DoubleSide}
+        />
+      </RoundedBox>
+
+      {/* Glow border behind */}
+      <RoundedBox args={[PW + 0.4, PH + 0.4, 0.01]} radius={RADIUS + 0.15} smoothness={4} position={[0, 0, -0.1]}>
+        <meshBasicMaterial color="#FFD700" transparent opacity={0.25} side={THREE.DoubleSide} />
+      </RoundedBox>
+
+      {/* Corner diamonds */}
+      <Diamond position={[PW / 2 - 0.8, PH / 2 - 0.8, 0.1]} size={0.55} opacity={0.2} />
+      <Diamond position={[-PW / 2 + 0.8, PH / 2 - 0.8, 0.1]} size={0.4} opacity={0.15} />
+      <Diamond position={[PW / 2 - 1.1, -PH / 2 + 0.9, 0.1]} size={0.35} opacity={0.12} />
+      <Diamond position={[-PW / 2 + 1.1, -PH / 2 + 0.9, 0.1]} size={0.35} opacity={0.12} />
+
+      {/* Center dark circle backdrop */}
+      <mesh position={[0, 0.3, 0.12]}>
+        <circleGeometry args={[1.3, 32]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.5} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[9, 1.2, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.3, 3, 10]} />
-        <meshStandardMaterial color="#FFD54F" roughness={0.3} metalness={0.5} emissive="#FFD54F" emissiveIntensity={0.15} />
-      </mesh>
-      <mesh position={[0, 2.5, 0]}>
-        <planeGeometry args={[18, 0.45]} />
-        <meshStandardMaterial color="#FFFFFF" side={2} roughness={0.3} emissive="#ffffff" emissiveIntensity={0.1} />
-      </mesh>
-      <mesh position={[0, 2.15, 0]}>
-        <planeGeometry args={[18, 0.55]} />
-        <meshStandardMaterial color="#EF5350" side={2} roughness={0.3} emissive="#EF5350" emissiveIntensity={0.1} />
-      </mesh>
-      <mesh position={[0, 1.8, 0]}>
-        <planeGeometry args={[18, 0.45]} />
-        <meshStandardMaterial color="#FFFFFF" side={2} roughness={0.3} emissive="#ffffff" emissiveIntensity={0.1} />
-      </mesh>
-      <Text position={[0, 2.15, 0.01]} fontSize={0.55} color="#FFFFFF" anchorX="center" anchorY="middle" fontWeight="900" outlineColor="#000000" outlineWidth={0.04}>
-        META
+
+      {/* Star icon above text */}
+      <Text position={[0, 1.0, 0.14]} fontSize={0.65} color="#FFD700" anchorX="center" anchorY="middle" fontWeight="900">
+        ★
       </Text>
-      <RigidBody type="fixed" colliders={false} sensor>
-        <CuboidCollider args={[9, 3, 0.5]} sensor />
-      </RigidBody>
-      {Array.from({ length: 10 }).map((_, i) => (
-        <mesh key={i} position={[-8 + i * 1.8, 2.7, 0.1]}>
-          <planeGeometry args={[0.35, 0.3]} />
-          <meshStandardMaterial color={flagColors[i % flagColors.length]} side={2} emissive={flagColors[i % flagColors.length]} emissiveIntensity={0.15} />
-        </mesh>
-      ))}
+
+      {/* Main META text */}
+      <Text position={[0, -0.3, 0.14]} fontSize={0.95} color="#FFD700" anchorX="center" anchorY="middle" fontWeight="900" outlineColor="#8B6914" outlineWidth={0.05}>
+        !!META!!
+      </Text>
+
+      {/* Subtle pulsing glow */}
+      <mesh position={[0, 0, -0.15]}>
+        <planeGeometry args={[PW + 2, PH + 2]} />
+        <meshBasicMaterial color="#FFD700" transparent opacity={0.06} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }

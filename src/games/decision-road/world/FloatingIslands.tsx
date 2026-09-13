@@ -1,5 +1,6 @@
 'use client';
 import { useMemo } from 'react';
+import { useGameStore } from '@/stores/game.store';
 import * as THREE from 'three';
 
 function seededRandom(seed: number) {
@@ -7,22 +8,56 @@ function seededRandom(seed: number) {
   return x - Math.floor(x);
 }
 
-function makeIslands(): {
+const CHUNK_SIZE = 80;
+const EXTEND_CHUNKS = 3;
+const ISLANDS_PER_CHUNK = 6;
+const MOUNTAINS_PER_CHUNK = 5;
+
+interface IslandData {
   x: number; y: number; z: number;
   scale: number; rotation: number;
   type: number;
-}[] {
-  const items: ReturnType<typeof makeIslands> = [];
-  const count = 32;
-  for (let i = 0; i < count; i++) {
-    const side = seededRandom(i * 3) > 0.5 ? 1 : -1;
+}
+
+interface MountainData {
+  x: number; z: number; h: number; r: number; color: string;
+}
+
+function generateChunkIslands(chunkZ: number, chunkIndex: number): IslandData[] {
+  const items: IslandData[] = [];
+  for (let i = 0; i < ISLANDS_PER_CHUNK; i++) {
+    const seed = chunkIndex * 1000 + i;
+    const side = seededRandom(seed * 3) > 0.5 ? 1 : -1;
     items.push({
-      x: side * (20 + seededRandom(i * 7) * 60),
-      y: -1 - seededRandom(i * 11) * 6,
-      z: -10 - seededRandom(i * 13) * 440,
-      scale: 0.8 + seededRandom(i * 17) * 0.8,
-      rotation: seededRandom(i * 19) * Math.PI * 2,
-      type: Math.floor(seededRandom(i * 23) * 5),
+      x: side * (20 + seededRandom(seed * 7) * 55),
+      y: -1 - seededRandom(seed * 11) * 6,
+      z: chunkZ - seededRandom(seed * 13) * CHUNK_SIZE,
+      scale: 0.7 + seededRandom(seed * 17) * 0.9,
+      rotation: seededRandom(seed * 19) * Math.PI * 2,
+      type: Math.floor(seededRandom(seed * 23) * 5),
+    });
+  }
+  return items;
+}
+
+function generateChunkMountains(chunkZ: number, chunkIndex: number): MountainData[] {
+  const items: MountainData[] = [];
+  const colors1 = ['#4DD0E1', '#26C6DA', '#80DEEA', '#00BCD4', '#0097A7'];
+  const colors2 = ['#B2EBF2', '#80DEEA', '#4DD0E1', '#26C6DA', '#E0F7FA'];
+  const colors3 = ['#E0F7FA', '#B2EBF2', '#80DEEA', '#4DD0E1', '#26C6DA'];
+
+  for (let i = 0; i < MOUNTAINS_PER_CHUNK; i++) {
+    const seed = chunkIndex * 2000 + i;
+    const layer = i % 3;
+    const palette = layer === 0 ? colors1 : layer === 1 ? colors2 : colors3;
+    const hBase = layer === 0 ? 30 : layer === 1 ? 20 : 15;
+    const rBase = layer === 0 ? 22 : layer === 1 ? 16 : 10;
+    items.push({
+      x: -130 + seededRandom(seed * 3 + 100) * 260,
+      z: chunkZ - seededRandom(seed * 7 + 100) * CHUNK_SIZE,
+      h: hBase + seededRandom(seed * 11 + 100) * 25,
+      r: rBase + seededRandom(seed * 13 + 100) * 20,
+      color: palette[Math.floor(seededRandom(seed * 17 + 100) * 5)],
     });
   }
   return items;
@@ -169,92 +204,34 @@ function IslandWide({ scale }: { scale: number }) {
 function IslandSmall({ scale }: { scale: number }) {
   return (
     <group scale={scale}>
-      <mesh position={[0, -1, 0]}>
-        <dodecahedronGeometry args={[2.5, 0]} />
-        <meshStandardMaterial color="#6889b0" roughness={0.75} />
+      <mesh position={[0, -1.2, 0]}>
+        <cylinderGeometry args={[3, 0.8, 3, 7]} />
+        <meshStandardMaterial color="#5e82a8" roughness={0.8} />
       </mesh>
-      <mesh position={[0, 1, 0]}>
-        <cylinderGeometry args={[2.8, 2.5, 0.4, 6]} />
-        <meshStandardMaterial color="#5cb85c" roughness={0.9} emissive="#2E7D32" emissiveIntensity={0.04} />
+      <mesh position={[0, 0.4, 0]}>
+        <cylinderGeometry args={[3.3, 3, 0.5, 7]} />
+        <meshStandardMaterial color="#4caf50" roughness={0.9} emissive="#2E7D32" emissiveIntensity={0.04} />
       </mesh>
-      <mesh position={[0.3, 1.8, 0]}>
-        <sphereGeometry args={[0.5, 5, 4]} />
-        <meshStandardMaterial color="#2E7D32" roughness={0.9} />
+      <mesh position={[0.2, 1.0, 0.1]}>
+        <cylinderGeometry args={[0.12, 0.22, 1.2, 6]} />
+        <meshStandardMaterial color="#6D4C41" roughness={0.9} />
       </mesh>
-      <Bush position={[-1, 1.1, 1]} scale={0.8} />
-      <Bush position={[1.5, 1.1, -0.5]} scale={0.7} color="#43A047" />
+      <mesh position={[0.2, 2.2, 0.1]}>
+        <coneGeometry args={[0.7, 1.2, 6]} />
+        <meshStandardMaterial color="#2E7D32" roughness={0.85} />
+      </mesh>
+      <Bush position={[-1.2, 0.6, 0.8]} scale={0.7} />
+      <Bush position={[1, 0.6, -0.8]} scale={0.6} color="#43A047" />
     </group>
   );
 }
 
 const ISLAND_COMPONENTS = [IslandClassic, IslandElongated, IslandTall, IslandWide, IslandSmall];
 
-function MountainRange() {
-  const data = useMemo(() => {
-    const items: { x: number; z: number; h: number; r: number; color: string }[] = [];
-    for (let i = 0; i < 30; i++) {
-      items.push({
-        x: -130 + seededRandom(i * 3 + 100) * 260,
-        z: 20 - seededRandom(i * 7 + 100) * 520,
-        h: 30 + seededRandom(i * 11 + 100) * 25,
-        r: 22 + seededRandom(i * 13 + 100) * 20,
-        color: ['#4DD0E1', '#26C6DA', '#80DEEA', '#00BCD4', '#0097A7'][Math.floor(seededRandom(i * 17 + 100) * 5)],
-      });
-    }
-    for (let i = 0; i < 25; i++) {
-      items.push({
-        x: -120 + seededRandom(i * 3 + 200) * 240,
-        z: 10 - seededRandom(i * 7 + 200) * 500,
-        h: 20 + seededRandom(i * 11 + 200) * 22,
-        r: 16 + seededRandom(i * 13 + 200) * 16,
-        color: ['#B2EBF2', '#80DEEA', '#4DD0E1', '#26C6DA', '#E0F7FA'][Math.floor(seededRandom(i * 17 + 200) * 5)],
-      });
-    }
-    for (let i = 0; i < 20; i++) {
-      items.push({
-        x: -100 + seededRandom(i * 3 + 300) * 200,
-        z: 30 - seededRandom(i * 7 + 300) * 480,
-        h: 15 + seededRandom(i * 11 + 300) * 15,
-        r: 10 + seededRandom(i * 13 + 300) * 12,
-        color: ['#E0F7FA', '#B2EBF2', '#80DEEA', '#4DD0E1', '#26C6DA'][Math.floor(seededRandom(i * 17 + 300) * 5)],
-      });
-    }
-    return items;
-  }, []);
-
+function MountainChunk({ mountains }: { mountains: MountainData[] }) {
   return (
     <group>
-      {/* Capas de "niebla" plana para cubrir bases sin bordes cortados */}
-      <mesh position={[0, -48, -220]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[600, 700]} />
-        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.85} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, -44, -220]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[500, 600]} />
-        <meshBasicMaterial color="#C8E6F5" transparent opacity={0.65} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, -40, -220]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[420, 520]} />
-        <meshBasicMaterial color="#D4EEFB" transparent opacity={0.45} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Barreras laterales para que no se vea el corte */}
-      <mesh position={[-250, -20, -220]}>
-        <planeGeometry args={[20, 80]} />
-        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[250, -20, -220]}>
-        <planeGeometry args={[20, 80]} />
-        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, -20, 250]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[20, 80]} />
-        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, -20, -700]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[20, 80]} />
-        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
-      </mesh>
-      {data.map((m, i) => (
+      {mountains.map((m, i) => (
         <group key={i} position={[m.x, -42, m.z]}>
           <mesh>
             <coneGeometry args={[m.r, m.h, 5]} />
@@ -271,11 +248,33 @@ function MountainRange() {
 }
 
 export function FloatingIslands() {
-  const islands = useMemo(() => makeIslands(), []);
+  const questions = useGameStore((s) => s.questions);
+  const START_Z = 12;
+  const SPACING = 25;
+
+  const { allIslands, allMountains, fogCenterZ, frontZ, backZ } = useMemo(() => {
+    const totalZ = questions.length > 0
+      ? START_Z - (questions.length - 1) * SPACING
+      : START_Z;
+    const frontZ = START_Z + EXTEND_CHUNKS * CHUNK_SIZE;
+    const backZ = totalZ - EXTEND_CHUNKS * CHUNK_SIZE;
+    const fogCenter = (frontZ + backZ) / 2;
+
+    const islands: IslandData[] = [];
+    const mountains: MountainData[] = [];
+
+    for (let z = frontZ; z >= backZ; z -= CHUNK_SIZE) {
+      const chunkIdx = Math.floor((frontZ - z) / CHUNK_SIZE);
+      islands.push(...generateChunkIslands(z, chunkIdx));
+      mountains.push(...generateChunkMountains(z, chunkIdx + 500));
+    }
+
+    return { allIslands: islands, allMountains: mountains, fogCenterZ: fogCenter, frontZ, backZ };
+  }, [questions.length]);
 
   return (
     <group>
-      {islands.map((island, i) => {
+      {allIslands.map((island, i) => {
         const Component = ISLAND_COMPONENTS[island.type];
         return (
           <group key={i} position={[island.x, island.y, island.z]} rotation={[0, island.rotation, 0]}>
@@ -283,7 +282,47 @@ export function FloatingIslands() {
           </group>
         );
       })}
-      <MountainRange />
+      <MountainChunk mountains={allMountains} />
+
+      {/* Fog planes centered on the level — sized to cover full path */}
+      {(() => {
+        const fogW = 800;
+        const fogD = (frontZ - backZ) + 200;
+        return (
+          <>
+            <mesh position={[0, -48, fogCenterZ]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[fogW, fogD]} />
+              <meshBasicMaterial color="#B3E5FC" transparent opacity={0.85} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh position={[0, -44, fogCenterZ]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[fogW - 100, fogD - 100]} />
+              <meshBasicMaterial color="#C8E6F5" transparent opacity={0.65} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh position={[0, -40, fogCenterZ]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[fogW - 200, fogD - 200]} />
+              <meshBasicMaterial color="#D4EEFB" transparent opacity={0.45} side={THREE.DoubleSide} />
+            </mesh>
+          </>
+        );
+      })()}
+
+      {/* Side barriers */}
+      <mesh position={[-250, -20, fogCenterZ]}>
+        <planeGeometry args={[20, 80]} />
+        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[250, -20, fogCenterZ]}>
+        <planeGeometry args={[20, 80]} />
+        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, -20, frontZ + 40]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[20, 80]} />
+        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, -20, backZ - 40]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[20, 80]} />
+        <meshBasicMaterial color="#B3E5FC" transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }

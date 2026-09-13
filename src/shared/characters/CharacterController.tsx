@@ -5,6 +5,7 @@ import { RigidBody, CapsuleCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useKeyboard } from '@/shared/hooks/useKeyboard';
+import { useGameStore } from '@/stores/game.store';
 import { CHARACTER } from '@/shared/config/game.config';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from './RobloxAvatar';
@@ -15,6 +16,7 @@ export function CharacterController() {
   const keysRef = useKeyboard();
   const grounded = useRef(false);
   const jumpRequested = useRef(false);
+  const completedAt = useRef(0);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); jumpRequested.current = true; } };
@@ -28,10 +30,14 @@ export function CharacterController() {
     const pos = rb.current.translation();
     const vel = rb.current.linvel();
     const keys = keysRef.current;
+    const phase = useGameStore.getState().phase;
+    if (phase === 'completed' && completedAt.current === 0) completedAt.current = performance.now();
+    if (phase !== 'completed' && phase !== 'results') completedAt.current = 0;
+    const blocked = (phase === 'completed' || phase === 'results') && completedAt.current > 0 && performance.now() - completedAt.current > 500;
 
     // Clamp position to stay on the path
     const HALF_W = 7;
-    const MAX_Z = 19;
+    const MAX_Z = 37;
     const MIN_Z = -500;
     let clampedX = Math.max(-HALF_W, Math.min(HALF_W, pos.x));
     let clampedZ = Math.max(MIN_Z, Math.min(MAX_Z, pos.z));
@@ -46,6 +52,10 @@ export function CharacterController() {
     }
 
     grounded.current = Math.abs(vel.y) < 0.05;
+    if (blocked) {
+      rb.current.setLinvel({ x: 0, y: vel.y, z: 0 }, true);
+      return;
+    }
     const cf = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); cf.y = 0; cf.normalize();
     const cr = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); cr.y = 0; cr.normalize();
     const dir = new THREE.Vector3();
@@ -67,7 +77,7 @@ export function CharacterController() {
   });
 
   return (
-    <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 18]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
+    <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 37]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
       <CapsuleCollider args={[0.9, 0.2]} position={[0, 1.1, 0]} restitution={0} />
       <group position={[0, 1.35, 0]}>
         <RobloxAvatar ref={avatarRef} />

@@ -40,10 +40,10 @@ void main(){
   vec3 col=mix(uDark,uBase,mid);
   col=mix(col,uHot,hot);
   float glowPulse=0.5+0.5*sin(uTime*0.8+vUv.x*3.14+vUv.y*2.0);
-  col=mix(col,uGlow,hot*glowPulse*0.25);
+  col=mix(col,uGlow,hot*glowPulse*0.45);
   float edge=smoothstep(0.0,0.12,vUv.x)*smoothstep(0.0,0.12,1.0-vUv.x)
             *smoothstep(0.0,0.12,vUv.y)*smoothstep(0.0,0.12,1.0-vUv.y);
-  col=mix(uGlow*0.8,col,edge);
+  col=mix(uGlow*0.9,col,edge);
   gl_FragColor=vec4(col,1.0);
 }`;
 
@@ -51,10 +51,10 @@ export function LavaSurface() {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uHot: { value: new THREE.Color('#FFDD00') },
-      uBase: { value: new THREE.Color('#FF5500') },
-      uDark: { value: new THREE.Color('#AA1100') },
-      uGlow: { value: new THREE.Color('#FF8800') },
+      uHot: { value: new THREE.Color('#FFEE44') },
+      uBase: { value: new THREE.Color('#FF6600') },
+      uDark: { value: new THREE.Color('#CC2200') },
+      uGlow: { value: new THREE.Color('#FFAA22') },
     },
     vertexShader: vert,
     fragmentShader: frag,
@@ -77,7 +77,7 @@ export function LavaSurface() {
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 0]}>
         <planeGeometry args={[48, 48]} />
-        <meshBasicMaterial color="#FF6600" transparent opacity={0.15} />
+        <meshBasicMaterial color="#FF8800" transparent opacity={0.3} />
       </mesh>
     </group>
   );

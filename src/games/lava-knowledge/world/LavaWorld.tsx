@@ -101,7 +101,7 @@ function AshParticles() {
 export function LavaWorld() {
   return (
     <group>
-      <ambientLight intensity={0.6} color="#ffe8d0" />
+      <ambientLight intensity={0.75} color="#ffe8d0" />
       <hemisphereLight args={['#87CEEB', '#FF6600', 0.8]} />
 
       <directionalLight
@@ -119,9 +119,9 @@ export function LavaWorld() {
         shadow-bias={-0.001}
       />
 
-      <pointLight position={[0, 0, 0]} intensity={2.0} color="#FF6600" distance={25} decay={2} />
-      <pointLight position={[-8, 1, -8]} intensity={1.2} color="#FF4400" distance={18} decay={2} />
-      <pointLight position={[8, 1, 8]} intensity={1.2} color="#FF4400" distance={18} decay={2} />
+      <pointLight position={[0, 0, 0]} intensity={3.0} color="#FF6600" distance={30} decay={2} />
+      <pointLight position={[-8, 1, -8]} intensity={1.8} color="#FF4400" distance={20} decay={2} />
+      <pointLight position={[8, 1, 8]} intensity={1.8} color="#FF4400" distance={20} decay={2} />
 
       <directionalLight position={[-15, 10, -8]} intensity={0.5} color="#b3d9ff" />
 

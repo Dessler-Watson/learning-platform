@@ -16,37 +16,39 @@ const SINK_SPEED = 1.5;
 function getPlatformY(blocks: number): number { return LAVA_Y + blocks * BLOCK_HEIGHT; }
 function getAvatarY(blocks: number): number { return getPlatformY(blocks) + AVATAR_FEET_OFFSET; }
 
-/* Platform lava glow shader — bottom glows orange, top stays stone */
+/* Platform lava glow shader — world-space, one gradient per platform */
 const platVert = `
-varying float vGradY;
+varying float vWorldY;
 void main(){
-  vGradY = position.y;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorldY = wp.y;
+  gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const platFrag = `
 uniform vec3 uBase;
-uniform float uHeight;
-varying float vGradY;
+uniform float uLavaY;
+uniform float uTotalH;
+varying float vWorldY;
 void main(){
-  float halfH = uHeight * 0.5;
-  float t = clamp((vGradY + halfH) / uHeight, 0.0, 1.0);
+  float t = clamp((vWorldY - uLavaY) / uTotalH, 0.0, 1.0);
   float glow = pow(1.0 - t, 2.0) * 0.7;
   vec3 lavaGlow = vec3(1.0, 0.35, 0.0);
   vec3 col = mix(uBase, lavaGlow, glow);
-  float pulse = 0.9 + 0.1 * sin(vGradY * 4.0);
+  float pulse = 0.9 + 0.1 * sin(vWorldY * 3.0);
   col *= pulse;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-function PlatformGlowMaterial({ baseColor, height }: { baseColor: string; height: number }) {
+function PlatformGlowMaterial({ baseColor, totalHeight }: { baseColor: string; totalHeight: number }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uBase: { value: new THREE.Color(baseColor) },
-      uHeight: { value: height },
+      uLavaY: { value: LAVA_Y },
+      uTotalH: { value: totalHeight },
     },
     vertexShader: platVert,
     fragmentShader: platFrag,
-  }), [baseColor, height]);
+  }), [baseColor, totalHeight]);
   return <primitive object={mat} attach="material" />;
 }
 
@@ -190,19 +192,19 @@ function RockPlatform({ player }: { player: LavaPlayer }) {
         {/* Main rock body — top at Y=0, extends 2.0 below (emerges from lava) */}
         <mesh castShadow receiveShadow position={[0, -1.0, 0]}>
           <cylinderGeometry args={[1.8, 2.4, 2.0, 12]} />
-          <PlatformGlowMaterial baseColor="#5B6E8A" height={2.0} />
+          <PlatformGlowMaterial baseColor="#354555" totalHeight={2.5} />
         </mesh>
 
         {/* Top surface — flat disc for standing */}
         <mesh position={[0, topSurfaceY + 0.04, 0]} castShadow>
           <cylinderGeometry args={[1.7, 1.8, 0.08, 12]} />
-          <PlatformGlowMaterial baseColor="#5B6E8A" height={0.08} />
+          <PlatformGlowMaterial baseColor="#354555" totalHeight={2.5} />
         </mesh>
 
         {/* Bottom widening — sits IN the lava */}
         <mesh position={[0, -1.9, 0]}>
           <cylinderGeometry args={[2.5, 2.0, 0.5, 12]} />
-          <PlatformGlowMaterial baseColor="#3D4E65" height={0.5} />
+          <PlatformGlowMaterial baseColor="#1E2A38" totalHeight={2.5} />
         </mesh>
 
         {/* Warm point light at base */}

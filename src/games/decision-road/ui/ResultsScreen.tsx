@@ -77,10 +77,6 @@ export function ResultsScreen() {
 
   useEffect(() => {
     if (!show) return;
-    if (isPractice) {
-      setTimeout(() => { window.location.href = '/practica/resultados'; }, 1500);
-      return;
-    }
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
     if (!raw) return;
     const user = JSON.parse(raw);
@@ -90,58 +86,9 @@ export function ResultsScreen() {
       .then((r) => r.json())
       .then((data: PerfilData) => setPerfil(data))
       .catch(() => {});
-  }, [show, isPractice]);
+  }, [show]);
 
   if (!show || !result) return null;
-
-  if (isPractice) {
-    return (
-      <AnimatePresence>
-        {show && (
-          <motion.div
-            key="results-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          className="absolute inset-0 z-30 flex items-center justify-center"
-          style={{ background: 'rgba(10,20,40,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-        >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-              className="relative max-h-[92vh] w-[95%] max-w-sm overflow-y-auto rounded-[32px] border-2 border-white/70 bg-edu-cream p-6 text-center shadow-game-lg"
-              style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)' }}
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 14 }}
-                className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-edu-green text-white shadow-glow-green"
-              >
-                <CheckCircle size={40} strokeWidth={3} />
-              </motion.div>
-              <h1 className="font-baloo text-3xl font-black text-surface-800">PRACTICA COMPLETADA</h1>
-              <div className="mx-auto mb-5 mt-3 h-1 w-28 rounded-full bg-edu-green" />
-              <p className="mb-6 text-sm font-bold text-surface-500">
-                {result.correctAnswers} correctas de {result.totalQuestions} preguntas
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97, y: 2 }}
-                onClick={() => { window.location.href = '/practica/resultados'; }}
-                className="btn-game inline-flex items-center gap-2 rounded-xl bg-edu-blue px-8 py-4 text-base text-white"
-                style={{ boxShadow: '0 6px 0 rgba(0, 138, 157, 0.4), 0 8px 24px rgba(0,160,181,0.35)' }}
-              >
-                VER RESULTADOS <ArrowRight size={20} />
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  }
 
   return (
     <AnimatePresence>
@@ -155,7 +102,7 @@ export function ResultsScreen() {
           style={{ background: 'rgba(10,20,40,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
         >
           <AnimatePresence mode="wait">
-            {view === 'simple' ? (
+            {view === 'simple' && !isPractice ? (
               <SimpleScreen key="simple" onContinue={() => setView('full')} />
             ) : (
               <FullResultsScreen
@@ -163,6 +110,7 @@ export function ResultsScreen() {
                 result={result}
                 perfil={perfil}
                 onBack={() => setView('simple')}
+                isPractice={isPractice}
               />
             )}
           </AnimatePresence>
@@ -243,10 +191,12 @@ function FullResultsScreen({
   result,
   perfil,
   onBack,
+  isPractice,
 }: {
   result: GameResult;
   perfil: PerfilData | null;
   onBack: () => void;
+  isPractice: boolean;
 }) {
   const rankColor = perfil?.rango.color || '#B87333';
   const progreso = Math.max(0, Math.min(100, perfil?.rango.progreso || 0));
@@ -328,55 +278,56 @@ function FullResultsScreen({
           <StatCard icon={<Trophy size={18} />} label="Puntos" value={result.score >= 0 ? `+${result.score}` : `${result.score}`} accent="#FFA000" bg="#FFF0D6" />
         </div>
 
-        {/* Ranking */}
-        <div className="card-game mb-4 p-3">
-          <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-surface-500">
-            <Trophy size={14} /> Ranking de la clase
-          </div>
-          <div className="flex flex-col gap-2">
-            {ranking.map((p, idx) => {
-              const isYo = 'esYo' in p && p.esYo;
-              return (
-                <motion.div
-                  key={p.id}
-                  initial={{ x: -10, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 + idx * 0.08 }}
-                  className="flex items-center gap-3 rounded-xl border-2 p-2"
-                  style={{
-                    background: isYo ? '#F1F8E3' : 'rgba(255,255,255,0.6)',
-                    borderColor: isYo ? 'rgba(152,197,78,0.4)' : 'transparent',
-                  }}
-                >
-                  <span className={`w-5 text-center text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-400'}`}>{idx + 1}</span>
-                  <img src={p.avatar} alt={p.nombre} draggable={false} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm font-black text-surface-800">
-                      {p.nombre}
-                      {isYo && <span className="rounded-full bg-edu-green px-2 py-0.5 text-[9px] font-black uppercase text-white">TU</span>}
+        {/* Ranking — hidden in practice mode */}
+        {!isPractice && (
+          <div className="card-game mb-4 p-3">
+            <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-surface-500">
+              <Trophy size={14} /> Ranking de la clase
+            </div>
+            <div className="flex flex-col gap-2">
+              {ranking.map((p, idx) => {
+                const isYo = 'esYo' in p && p.esYo;
+                return (
+                  <motion.div
+                    key={p.id}
+                    initial={{ x: -10, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 + idx * 0.08 }}
+                    className="flex items-center gap-3 rounded-xl border-2 p-2"
+                    style={{
+                      background: isYo ? '#F1F8E3' : 'rgba(255,255,255,0.6)',
+                      borderColor: isYo ? 'rgba(152,197,78,0.4)' : 'transparent',
+                    }}
+                  >
+                    <span className={`w-5 text-center text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-400'}`}>{idx + 1}</span>
+                    <img src={p.avatar} alt={p.nombre} draggable={false} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-sm font-black text-surface-800">
+                        {p.nombre}
+                        {isYo && <span className="rounded-full bg-edu-green px-2 py-0.5 text-[9px] font-black uppercase text-white">TU</span>}
+                      </div>
+                      <div className="text-[10px] font-black text-surface-400">{p.rango}</div>
                     </div>
-                    <div className="text-[10px] font-black text-surface-400">{p.rango}</div>
-                  </div>
-                  <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.puntos.toLocaleString('es-ES')}</span>
-                </motion.div>
-              );
-            })}
+                    <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.puntos.toLocaleString('es-ES')}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Botones */}
-        <div className="grid grid-cols-2 gap-3">
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { window.location.href = '/sala-espera'; }} className="card-game flex items-center justify-center gap-2 py-3 text-sm font-black text-surface-700">
-            <Users size={16} /> Ir a la sala
-          </motion.button>
+        <div className={`grid gap-3 ${isPractice ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {!isPractice && (
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { window.location.href = '/sala-espera'; }} className="card-game flex items-center justify-center gap-2 py-3 text-sm font-black text-surface-700">
+              <Users size={16} /> Ir a la sala
+            </motion.button>
+          )}
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { const isPractice = !!sessionStorage.getItem('eduplay_practice'); window.location.href = isPractice ? '/practica/resultados' : '/inicio'; }} className="btn-game flex items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white" style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}>
             <Home size={16} /> Salir al menu
           </motion.button>
         </div>
 
-        <button onClick={onBack} className="mx-auto mt-4 block text-xs font-black text-surface-400 transition-colors hover:text-surface-600">
-          &larr; Volver
-        </button>
       </div>
     </motion.div>
   );

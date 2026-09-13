@@ -39,7 +39,8 @@ function Station({ index, question, activeIndex, z, phase }: { index: number; qu
   }, [phase]);
 
   const isActive = index === activeIndex;
-  const isCompleted = index < activeIndex;
+  const isCompleted = index < activeIndex || (isActive && (phase === 'correctFeedback' || phase === 'incorrectFeedback' || phase === 'finishing'));
+  const showBackWall = index < activeIndex || (isActive && phase === 'finishing');
 
   useFrame(() => {
     if (!isActive || triggered.current || (phase !== 'playing' && phase !== 'question')) return;
@@ -62,7 +63,7 @@ function Station({ index, question, activeIndex, z, phase }: { index: number; qu
       <StationPanel side="A" option={question.optionA} state={isCompleted ? 'done' : isActive ? 'active' : 'locked'} phase={phase} isCorrect={isCompleted} />
       <StationPanel side="B" option={question.optionB} state={isCompleted ? 'done' : isActive ? 'active' : 'locked'} phase={phase} isCorrect={isCompleted} />
 
-      {isCompleted && (
+      {showBackWall && (
         <RigidBody type="fixed" colliders={false} position={[0, 0, BACK_WALL_OFFSET]}>
           <CuboidCollider args={[PW, PH / 2, 0.3]} />
         </RigidBody>
