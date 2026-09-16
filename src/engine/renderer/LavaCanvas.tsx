@@ -49,6 +49,11 @@ export function LavaCanvas() {
           0%, 100% { opacity: 0.6; }
           50% { opacity: 1; }
         }
+        @keyframes flash1 { 0%,100%{opacity:0} 30%{opacity:0.7} 60%{opacity:0.2} }
+        @keyframes flash2 { 0%,100%{opacity:0} 20%{opacity:0.5} 50%{opacity:0.8} 75%{opacity:0.1} }
+        @keyframes flash3 { 0%,100%{opacity:0} 40%{opacity:0.6} 70%{opacity:0.3} }
+        @keyframes flash4 { 0%,100%{opacity:0} 15%{opacity:0.4} 45%{opacity:0.7} 65%{opacity:0.1} }
+        @keyframes flash5 { 0%,100%{opacity:0} 25%{opacity:0.3} 55%{opacity:0.6} 80%{opacity:0.15} }
       `}</style>
       <Canvas
         shadows
@@ -89,6 +94,47 @@ export function LavaCanvas() {
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: '20%', zIndex: 4, pointerEvents: 'none',
         background: 'linear-gradient(to bottom, rgba(20,20,24,0.3) 0%, transparent 100%)',
+      }} />
+
+      {/* Sky orange ambient glow — subtle top corners */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '40%', height: '25%', zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 0% 0%, rgba(255,80,0,0.12) 0%, transparent 70%)',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0, width: '40%', height: '25%', zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 100% 0%, rgba(255,80,0,0.12) 0%, transparent 70%)',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '15%', zIndex: 3, pointerEvents: 'none',
+        background: 'linear-gradient(to bottom, rgba(255,60,0,0.08) 0%, transparent 100%)',
+      }} />
+
+      {/* Background flashes — independent timings */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 20% 80%, rgba(255,150,0,0.15) 0%, transparent 50%)',
+        animation: 'flash1 4.7s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 75% 85%, rgba(255,200,30,0.12) 0%, transparent 45%)',
+        animation: 'flash2 6.3s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 50% 75%, rgba(255,120,0,0.1) 0%, transparent 40%)',
+        animation: 'flash3 8.1s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 10% 90%, rgba(255,180,20,0.08) 0%, transparent 55%)',
+        animation: 'flash4 5.5s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 85% 70%, rgba(255,100,0,0.1) 0%, transparent 50%)',
+        animation: 'flash5 7.2s ease-in-out infinite',
       }} />
     </div>
   );

@@ -76,6 +76,11 @@ export function ResultsScreen() {
   const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
 
   useEffect(() => {
+    if (!show || !isPractice) return;
+    window.location.href = '/practica/resultados';
+  }, [show, isPractice]);
+
+  useEffect(() => {
     if (!show) return;
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
     if (!raw) return;
@@ -89,6 +94,7 @@ export function ResultsScreen() {
   }, [show]);
 
   if (!show || !result) return null;
+  if (isPractice) return null;
 
   return (
     <AnimatePresence>

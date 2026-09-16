@@ -8,41 +8,176 @@ import { LavaSurface } from './LavaSurface';
 const LAVA_Y = -1.0;
 const ARENA_HALF = 20;
 
-/* ═══ LAVA GLOW MATERIAL — one gradient per mountain ═══ */
+/* ═══ CRACKED LAVA MATERIAL — dark plates with glowing orange cracks ═══ */
 const glowVert = `
-varying float vWorldY;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying vec3 vLocalPos;
+varying float vDistToCam;
+uniform vec3 uCamPos;
 void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWorldY = wp.y;
+  vWorldPos = wp.xyz;
+  vLocalPos = position;
+  vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+  vDistToCam = length(wp.xyz - uCamPos);
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const glowFrag = `
-uniform vec3 uBase;
-uniform float uLavaY;
+uniform float uScale;
+uniform float uCrackWidth;
+uniform float uGlowStr;
+uniform float uTime;
 uniform float uTotalH;
-uniform float uGlowIntensity;
-varying float vWorldY;
+uniform vec3 uPlateColor;
+uniform vec3 uCrackColor;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying vec3 vLocalPos;
+varying float vDistToCam;
+
+vec2 hash2(vec2 p) {
+  p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+  return -1.0 + 2.0 * fract(sin(p) * 43758.5453);
+}
+
+vec2 voronoi(vec2 p) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = hash2(n + g);
+      o = 0.4 + 0.2 * sin(uTime * 0.15 + 6.2831 * o);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < d1) { d2 = d1; d1 = d; }
+      else if (d < d2) { d2 = d; }
+    }
+  }
+  return vec2(sqrt(d1), sqrt(d2));
+}
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1,0)), f.x),
+             mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+  return v;
+}
+
+vec2 triplanarUV(vec3 p, vec3 n) {
+  vec3 a = abs(n);
+  if (a.x >= a.y && a.x >= a.z) return p.yz;
+  else if (a.y >= a.x && a.y >= a.z) return p.xz;
+  else return p.xy;
+}
+
+float voronoiCrack(vec2 uv, out float cellId) {
+  vec2 n = floor(uv);
+  vec2 f = fract(uv);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  vec2 bestCell = vec2(0.0);
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = hash2(n + g);
+      o = 0.4 + 0.2 * sin(uTime * 0.15 + 6.2831 * o);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < d1) { d2 = d1; d1 = d; bestCell = n + g; }
+      else if (d < d2) { d2 = d; }
+    }
+  }
+  cellId = bestCell.x * 7.31 + bestCell.y * 13.79;
+  float edge = d2 - d1;
+  float crack = 1.0 - smoothstep(0.0, uCrackWidth, edge);
+  return pow(crack, 1.3);
+}
+
 void main(){
-  float t = clamp((vWorldY - uLavaY) / uTotalH, 0.0, 1.0);
-  float glow = pow(1.0 - t, 4.0) * uGlowIntensity;
-  vec3 lavaGlow = vec3(1.0, 0.35, 0.0);
-  vec3 col = mix(uBase, lavaGlow, glow);
+  vec2 uv = triplanarUV(vWorldPos, vNormal) * uScale;
+  vec2 distort = vec2(fbm(uv * 0.5 + 50.0), fbm(uv * 0.5 + 150.0));
+  uv += distort * 0.4;
+
+  float cellId;
+  float crack = voronoiCrack(uv, cellId) * uGlowStr;
+
+  // Per-cell individual glow: each crack has its own speed, phase, intensity
+  float cellRand = fract(sin(cellId * 43758.5453) * 43758.5453);
+  float cellRand2 = fract(sin(cellId * 12345.6789) * 98765.4321);
+
+  float slowPulse = sin(uTime * (0.6 + cellRand * 0.8) + cellRand2 * 6.2831) * 0.5 + 0.5;
+  float fastFlicker = sin(uTime * (2.0 + cellRand * 3.0) + cellRand2 * 10.0) * 0.5 + 0.5;
+
+  float cellBrightness = 0.3 + slowPulse * 0.5 + fastFlicker * 0.2;
+  cellBrightness *= 0.5 + cellRand * 0.5;
+
+  crack *= cellBrightness;
+
+  // Hot center color in cracks
+  vec3 hotColor = vec3(1.0, 0.85, 0.2);
+  vec3 crackCol = mix(uCrackColor, hotColor, crack * 0.6);
+
+  // Bottom-to-top lava glow
+  float lavaHeight = uTotalH + 2.0;
+  float fromBottom = clamp((lavaHeight - (vWorldPos.y - (-1.0))) / lavaHeight, 0.0, 1.0);
+  float verticalGlow = pow(fromBottom, 2.5) * 0.6;
+  vec3 lavaLight = vec3(1.0, 0.4, 0.02);
+
+  vec3 col = mix(uPlateColor, crackCol, crack);
+
+  float glowOnCrack = crack * 0.5 + 0.5;
+  col += lavaLight * verticalGlow * glowOnCrack;
+
+  // Per-block orange glow: bottom to top gradient on each cube
+  float blockHalfH = 0.5;
+  float localBottom = clamp((blockHalfH - vLocalPos.y) / (blockHalfH * 2.0), 0.0, 1.0);
+  float blockGlow = pow(localBottom, 1.8) * 0.2;
+  blockGlow *= 0.7 + 0.3 * sin(uTime * 0.9 + cellRand2 * 5.0);
+  vec3 blockGlowColor = vec3(1.0, 0.45, 0.03);
+  col += blockGlowColor * blockGlow;
+
+  // Distance fog: fade to black in the background
+  float fogStart = 22.0;
+  float fogEnd = 48.0;
+  float fogFactor = smoothstep(fogStart, fogEnd, vDistToCam);
+  col = mix(col, vec3(0.0), fogFactor);
+
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-function LavaGlowMaterial({ baseColor, totalHeight, glowIntensity = 0.7 }: {
-  baseColor: string; totalHeight: number; glowIntensity?: number;
+function LavaGlowMaterial({ baseColor, totalHeight }: {
+  baseColor: string; totalHeight: number;
 }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      uBase: { value: new THREE.Color(baseColor) },
-      uLavaY: { value: LAVA_Y },
+      uScale: { value: 1.2 },
+      uCrackWidth: { value: 0.18 },
+      uGlowStr: { value: 1.3 },
+      uTime: { value: 0 },
       uTotalH: { value: totalHeight },
-      uGlowIntensity: { value: glowIntensity },
+      uPlateColor: { value: new THREE.Color(baseColor) },
+      uCrackColor: { value: new THREE.Color('#FF6600') },
+      uCamPos: { value: new THREE.Vector3() },
     },
     vertexShader: glowVert,
     fragmentShader: glowFrag,
-  }), [baseColor, totalHeight, glowIntensity]);
+  }), [baseColor, totalHeight]);
+
+  useFrame(({ clock, camera }) => {
+    mat.uniforms.uTime.value = clock.elapsedTime;
+    mat.uniforms.uCamPos.value.copy(camera.position);
+  });
+
   return <primitive object={mat} attach="material" />;
 }
 
@@ -50,7 +185,7 @@ function RockWall({ x, z, rotY, scaleX, height }: {
   x: number; z: number; rotY: number; scaleX: number; height: number;
 }) {
   const wallColor = useMemo(() => {
-    const colors = ['#2A3848', '#354555', '#2E3D4D', '#333F50'];
+    const colors = ['#121215', '#16161A', '#0E0E11', '#131317'];
     return colors[Math.floor(Math.random() * colors.length)];
   }, []);
 
@@ -61,11 +196,11 @@ function RockWall({ x, z, rotY, scaleX, height }: {
       </RigidBody>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[scaleX * 6, height, 1.6]} />
-        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} glowIntensity={0.75} />
+        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} />
       </mesh>
       <mesh position={[0, height / 2, 0]} receiveShadow>
         <boxGeometry args={[scaleX * 6, height, 0.4]} />
-        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} glowIntensity={0.75} />
+        <LavaGlowMaterial baseColor={wallColor} totalHeight={height} />
       </mesh>
     </group>
   );
@@ -143,11 +278,11 @@ function VolcanoCliff({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i < 2 ? '#2A3848' : i < layers.length - 2 ? '#354555' : '#4A5D78';
+        const baseColor = i < 2 ? '#0E0E11' : i < layers.length - 2 ? '#121215' : '#16161A';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -185,11 +320,11 @@ function VolcanoShield({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i === 0 ? '#2E3D4D' : i === 1 ? '#354555' : '#4A5D78';
+        const baseColor = i === 0 ? '#0E0E11' : i === 1 ? '#121215' : '#16161A';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -221,11 +356,11 @@ function VolcanoSpike({ x, z, rotY, layers, cascades }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i % 3 === 0 ? '#2A3848' : i % 3 === 1 ? '#354555' : '#2E3D4D';
+        const baseColor = i % 3 === 0 ? '#0E0E11' : i % 3 === 1 ? '#121215' : '#0E0E11';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -367,11 +502,11 @@ function MoundSmall({ x, z, rotY, layers }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i === 0 ? '#354555' : '#4A5D78';
+        const baseColor = i === 0 ? '#121215' : '#16161A';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.85} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -389,11 +524,11 @@ function VolcanoSpire({ x, z, rotY, layers }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
       {layers.map((l, i) => {
-        const baseColor = i < layers.length * 0.4 ? '#2A3848' : '#354555';
+        const baseColor = i < layers.length * 0.4 ? '#0E0E11' : '#121215';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.75} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -437,11 +572,11 @@ function CrossingMountain({ x, z, rotY, layers, scale = 0.55 }: {
   return (
     <group position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]} scale={scale}>
       {layers.map((l, i) => {
-        const baseColor = i < 2 ? '#2A3848' : i < layers.length - 2 ? '#354555' : '#4A5D78';
+        const baseColor = i < 2 ? '#0E0E11' : i < layers.length - 2 ? '#121215' : '#16161A';
         return (
           <mesh key={i} position={[l.offsetX ?? 0, l.y, l.offsetZ ?? 0]} castShadow rotation={[0, l.rotY, 0]}>
             <boxGeometry args={[l.w, l.h, l.d]} />
-            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} glowIntensity={0.75} />
+            <LavaGlowMaterial baseColor={baseColor} totalHeight={totalH} />
           </mesh>
         );
       })}
@@ -462,7 +597,7 @@ function seededRandom(seed: number) {
 function getRockPlacements(): RockPlacement[] {
   const rand = seededRandom(42);
   const placements: RockPlacement[] = [];
-  const count = 25;
+  const count = 50;
   const minDist = 3.0;
   for (let i = 0; i < count; i++) {
     let x: number, z: number, valid: boolean;
@@ -480,37 +615,155 @@ function getRockPlacements(): RockPlacement[] {
   return placements;
 }
 
-/* Lava glow shader for rocks */
+/* ═══ CRACKED LAVA — floating rocks (smaller cells) ═══ */
 const rockGlowVert = `
-varying float vWorldY;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying vec3 vLocalPos;
 void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWorldY = wp.y;
+  vWorldPos = wp.xyz;
+  vLocalPos = position;
+  vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const rockGlowFrag = `
-uniform vec3 uBase;
-uniform float uLavaY;
+uniform float uScale;
+uniform float uCrackWidth;
+uniform float uGlowStr;
+uniform float uTime;
 uniform float uTotalH;
-varying float vWorldY;
+uniform vec3 uPlateColor;
+uniform vec3 uCrackColor;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying vec3 vLocalPos;
+
+vec2 hash2(vec2 p) {
+  p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+  return -1.0 + 2.0 * fract(sin(p) * 43758.5453);
+}
+
+vec2 voronoi(vec2 p) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = hash2(n + g);
+      o = 0.4 + 0.2 * sin(uTime * 0.15 + 6.2831 * o);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < d1) { d2 = d1; d1 = d; }
+      else if (d < d2) { d2 = d; }
+    }
+  }
+  return vec2(sqrt(d1), sqrt(d2));
+}
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1,0)), f.x),
+             mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+  return v;
+}
+
+vec2 triplanarUV(vec3 p, vec3 n) {
+  vec3 a = abs(n);
+  if (a.x >= a.y && a.x >= a.z) return p.yz;
+  else if (a.y >= a.x && a.y >= a.z) return p.xz;
+  else return p.xy;
+}
+
+float voronoiCrack(vec2 uv, out float cellId) {
+  vec2 n = floor(uv);
+  vec2 f = fract(uv);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  vec2 bestCell = vec2(0.0);
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = hash2(n + g);
+      o = 0.4 + 0.2 * sin(uTime * 0.15 + 6.2831 * o);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < d1) { d2 = d1; d1 = d; bestCell = n + g; }
+      else if (d < d2) { d2 = d; }
+    }
+  }
+  cellId = bestCell.x * 7.31 + bestCell.y * 13.79;
+  float edge = d2 - d1;
+  float crack = 1.0 - smoothstep(0.0, uCrackWidth, edge);
+  return pow(crack, 1.3);
+}
+
 void main(){
-  float t = clamp((vWorldY - uLavaY) / uTotalH, 0.0, 1.0);
-  float glow = pow(1.0 - t, 2.0) * 0.85;
-  vec3 lavaGlow = vec3(1.0, 0.4, 0.05);
-  vec3 col = mix(uBase, lavaGlow, glow);
+  vec2 uv = triplanarUV(vLocalPos, vNormal) * uScale;
+  vec2 distort = vec2(fbm(uv * 0.5 + 50.0), fbm(uv * 0.5 + 150.0));
+  uv += distort * 0.4;
+
+  float cellId;
+  float crack = voronoiCrack(uv, cellId) * uGlowStr;
+
+  float cellRand = fract(sin(cellId * 43758.5453) * 43758.5453);
+  float cellRand2 = fract(sin(cellId * 12345.6789) * 98765.4321);
+  float slowPulse = sin(uTime * (0.6 + cellRand * 0.8) + cellRand2 * 6.2831) * 0.5 + 0.5;
+  float fastFlicker = sin(uTime * (2.0 + cellRand * 3.0) + cellRand2 * 10.0) * 0.5 + 0.5;
+  float cellBrightness = 0.3 + slowPulse * 0.5 + fastFlicker * 0.2;
+  cellBrightness *= 0.5 + cellRand * 0.5;
+  crack *= cellBrightness;
+
+  vec3 hotColor = vec3(1.0, 0.85, 0.2);
+  vec3 crackCol = mix(uCrackColor, hotColor, crack * 0.6);
+
+  float lavaHeight = uTotalH + 2.0;
+  float fromBottom = clamp((lavaHeight - (vWorldPos.y - (-1.0))) / lavaHeight, 0.0, 1.0);
+  float verticalGlow = pow(fromBottom, 2.5) * 0.6;
+  vec3 lavaLight = vec3(1.0, 0.4, 0.02);
+
+  vec3 col = mix(uPlateColor, crackCol, crack);
+  float glowOnCrack = crack * 0.5 + 0.5;
+  col += lavaLight * verticalGlow * glowOnCrack;
+
+  // Per-block glow: bottom to top
+  float blockHalfH = 0.5;
+  float localBottom = clamp((blockHalfH - vLocalPos.y) / (blockHalfH * 2.0), 0.0, 1.0);
+  float blockGlow = pow(localBottom, 1.8) * 0.2;
+  blockGlow *= 0.7 + 0.3 * sin(uTime * 0.9 + cellRand2 * 5.0);
+  vec3 blockGlowColor = vec3(1.0, 0.45, 0.03);
+  col += blockGlowColor * blockGlow;
+
   gl_FragColor = vec4(col, 1.0);
 }`;
 
 function LavaRockGlowMaterial({ baseColor, totalHeight }: { baseColor: string; totalHeight: number }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
-      uBase: { value: new THREE.Color(baseColor) },
-      uLavaY: { value: LAVA_Y },
+      uScale: { value: 3.5 },
+      uCrackWidth: { value: 0.14 },
+      uGlowStr: { value: 1.3 },
+      uTime: { value: 0 },
       uTotalH: { value: totalHeight },
+      uPlateColor: { value: new THREE.Color(baseColor) },
+      uCrackColor: { value: new THREE.Color('#FF6600') },
     },
     vertexShader: rockGlowVert,
     fragmentShader: rockGlowFrag,
   }), [baseColor, totalHeight]);
+
+  useFrame(({ clock }) => {
+    mat.uniforms.uTime.value = clock.elapsedTime;
+  });
+
   return <primitive object={mat} attach="material" />;
 }
 
@@ -527,7 +780,7 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   });
 
   const color = useMemo(() => {
-    const palette = [['#3A4D60', '#2E4050'], ['#2A3848', '#1E2A38'], ['#4A5D70', '#3A4D60'], ['#1E2A38', '#15202E'], ['#354555', '#2A3848']];
+    const palette = [['#121215', '#0E0E11'], ['#16161A', '#0E0E11'], ['#121215', '#16161A'], ['#0E0E11', '#121215'], ['#16161A', '#0E0E11']];
     return palette[type][Math.floor(Math.random() * 2)];
   }, [type]);
   const sizeY = useMemo(() => {

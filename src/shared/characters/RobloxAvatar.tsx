@@ -14,7 +14,12 @@ const LW = 0.42, LH = 1.15;
 const SW = 0.38, SH = 1.05;
 const FTW = 0.42, FTD = 0.55, FTH = 0.22;
 
-const RobloxAvatar = forwardRef<THREE.Group>((_, ref) => {
+interface RobloxAvatarProps {
+  envTint?: string;
+  envTintIntensity?: number;
+}
+
+const RobloxAvatar = forwardRef<THREE.Group, RobloxAvatarProps>(({ envTint = '#ffffff', envTintIntensity = 0 }, ref) => {
   const lArm = useRef<THREE.Group>(null);
   const rArm = useRef<THREE.Group>(null);
   const lLeg = useRef<THREE.Group>(null);
@@ -24,6 +29,9 @@ const RobloxAvatar = forwardRef<THREE.Group>((_, ref) => {
   const curLegAmp = useRef(0);
   const curArmAmp = useRef(0);
   const curBounce = useRef(0);
+
+  const tint = new THREE.Color(envTint);
+  const tintEmissive = tint.clone().multiplyScalar(envTintIntensity);
 
   const top = TH / 2;
   const bot = -TH / 2;
@@ -64,33 +72,87 @@ const RobloxAvatar = forwardRef<THREE.Group>((_, ref) => {
     <group ref={ref}>
       <group scale={0.42}>
         <group ref={bodyG}>
-          <mesh castShadow><boxGeometry args={[TW, TH, TD]} /><meshLambertMaterial color={SHIRT} /></mesh>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[TW, TH, TD]} />
+            <meshStandardMaterial color={SHIRT} roughness={0.7} emissive={tintEmissive} emissiveIntensity={0.5} />
+          </mesh>
           <group position={[0, top, 0]}>
-            <mesh castShadow position={[0, HEAD / 2, 0]}><boxGeometry args={[HEAD, HEAD, HEAD - 0.1]} /><meshLambertMaterial color={S} /></mesh>
-            <mesh position={[-0.28, HEAD / 2 + 0.1, HEAD / 2 - 0.05]}><boxGeometry args={[0.1, 0.1, 0.02]} /><meshLambertMaterial color={EYE} /></mesh>
-            <mesh position={[0.28, HEAD / 2 + 0.1, HEAD / 2 - 0.05]}><boxGeometry args={[0.1, 0.1, 0.02]} /><meshLambertMaterial color={EYE} /></mesh>
-            <mesh position={[0, HEAD / 2 - 0.2, HEAD / 2 - 0.05]}><boxGeometry args={[0.4, 0.06, 0.02]} /><meshLambertMaterial color={EYE} /></mesh>
-            <mesh position={[0, HEAD - 0.05, 0]}><boxGeometry args={[HEAD + 0.02, 0.18, HEAD + 0.02]} /><meshLambertMaterial color={HAIR} /></mesh>
+            <mesh castShadow receiveShadow position={[0, HEAD / 2, 0]}>
+              <boxGeometry args={[HEAD, HEAD, HEAD - 0.1]} />
+              <meshStandardMaterial color={S} roughness={0.6} emissive={tintEmissive} emissiveIntensity={0.4} />
+            </mesh>
+            <mesh position={[-0.28, HEAD / 2 + 0.1, HEAD / 2 - 0.05]}>
+              <boxGeometry args={[0.1, 0.1, 0.02]} />
+              <meshStandardMaterial color={EYE} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.28, HEAD / 2 + 0.1, HEAD / 2 - 0.05]}>
+              <boxGeometry args={[0.1, 0.1, 0.02]} />
+              <meshStandardMaterial color={EYE} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, HEAD / 2 - 0.2, HEAD / 2 - 0.05]}>
+              <boxGeometry args={[0.4, 0.06, 0.02]} />
+              <meshStandardMaterial color={EYE} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, HEAD - 0.05, 0]}>
+              <boxGeometry args={[HEAD + 0.02, 0.18, HEAD + 0.02]} />
+              <meshStandardMaterial color={HAIR} roughness={0.8} emissive={tintEmissive} emissiveIntensity={0.3} />
+            </mesh>
           </group>
           <group ref={lArm} position={[sx, sy, 0]}>
-            <mesh position={[0, -AH / 2, 0]}><boxGeometry args={[AW, AH, AW]} /><meshLambertMaterial color={SHIRT} /></mesh>
-            <mesh position={[0, -AH - FH / 2, 0]}><boxGeometry args={[FW, FH, FW]} /><meshLambertMaterial color={S} /></mesh>
-            <mesh position={[0, -AH - FH - HW / 2, 0]}><boxGeometry args={[HW, HW, HW]} /><meshLambertMaterial color={S} /></mesh>
+            <mesh position={[0, -AH / 2, 0]}>
+              <boxGeometry args={[AW, AH, AW]} />
+              <meshStandardMaterial color={SHIRT} roughness={0.7} emissive={tintEmissive} emissiveIntensity={0.5} />
+            </mesh>
+            <mesh position={[0, -AH - FH / 2, 0]}>
+              <boxGeometry args={[FW, FH, FW]} />
+              <meshStandardMaterial color={S} roughness={0.6} emissive={tintEmissive} emissiveIntensity={0.4} />
+            </mesh>
+            <mesh position={[0, -AH - FH - HW / 2, 0]}>
+              <boxGeometry args={[HW, HW, HW]} />
+              <meshStandardMaterial color={S} roughness={0.6} emissive={tintEmissive} emissiveIntensity={0.4} />
+            </mesh>
           </group>
           <group ref={rArm} position={[-sx, sy, 0]}>
-            <mesh position={[0, -AH / 2, 0]}><boxGeometry args={[AW, AH, AW]} /><meshLambertMaterial color={SHIRT} /></mesh>
-            <mesh position={[0, -AH - FH / 2, 0]}><boxGeometry args={[FW, FH, FW]} /><meshLambertMaterial color={S} /></mesh>
-            <mesh position={[0, -AH - FH - HW / 2, 0]}><boxGeometry args={[HW, HW, HW]} /><meshLambertMaterial color={S} /></mesh>
+            <mesh position={[0, -AH / 2, 0]}>
+              <boxGeometry args={[AW, AH, AW]} />
+              <meshStandardMaterial color={SHIRT} roughness={0.7} emissive={tintEmissive} emissiveIntensity={0.5} />
+            </mesh>
+            <mesh position={[0, -AH - FH / 2, 0]}>
+              <boxGeometry args={[FW, FH, FW]} />
+              <meshStandardMaterial color={S} roughness={0.6} emissive={tintEmissive} emissiveIntensity={0.4} />
+            </mesh>
+            <mesh position={[0, -AH - FH - HW / 2, 0]}>
+              <boxGeometry args={[HW, HW, HW]} />
+              <meshStandardMaterial color={S} roughness={0.6} emissive={tintEmissive} emissiveIntensity={0.4} />
+            </mesh>
           </group>
           <group ref={lLeg} position={[hx, hy, 0]}>
-            <mesh position={[0, -LH / 2, 0]}><boxGeometry args={[LW, LH, LW]} /><meshLambertMaterial color={PANTS} /></mesh>
-            <mesh position={[0, -LH - SH / 2, 0]}><boxGeometry args={[SW, SH, SW]} /><meshLambertMaterial color={PANTS} /></mesh>
-            <mesh position={[0, -LH - SH - FTH / 2, FTD / 2 - SW / 2]}><boxGeometry args={[FTW, FTH, FTD]} /><meshLambertMaterial color={SHOE} /></mesh>
+            <mesh position={[0, -LH / 2, 0]}>
+              <boxGeometry args={[LW, LH, LW]} />
+              <meshStandardMaterial color={PANTS} roughness={0.8} emissive={tintEmissive} emissiveIntensity={0.25} />
+            </mesh>
+            <mesh position={[0, -LH - SH / 2, 0]}>
+              <boxGeometry args={[SW, SH, SW]} />
+              <meshStandardMaterial color={PANTS} roughness={0.8} emissive={tintEmissive} emissiveIntensity={0.25} />
+            </mesh>
+            <mesh position={[0, -LH - SH - FTH / 2, FTD / 2 - SW / 2]}>
+              <boxGeometry args={[FTW, FTH, FTD]} />
+              <meshStandardMaterial color={SHOE} roughness={0.5} />
+            </mesh>
           </group>
           <group ref={rLeg} position={[-hx, hy, 0]}>
-            <mesh position={[0, -LH / 2, 0]}><boxGeometry args={[LW, LH, LW]} /><meshLambertMaterial color={PANTS} /></mesh>
-            <mesh position={[0, -LH - SH / 2, 0]}><boxGeometry args={[SW, SH, SW]} /><meshLambertMaterial color={PANTS} /></mesh>
-            <mesh position={[0, -LH - SH - FTH / 2, FTD / 2 - SW / 2]}><boxGeometry args={[FTW, FTH, FTD]} /><meshLambertMaterial color={SHOE} /></mesh>
+            <mesh position={[0, -LH / 2, 0]}>
+              <boxGeometry args={[LW, LH, LW]} />
+              <meshStandardMaterial color={PANTS} roughness={0.8} emissive={tintEmissive} emissiveIntensity={0.25} />
+            </mesh>
+            <mesh position={[0, -LH - SH / 2, 0]}>
+              <boxGeometry args={[SW, SH, SW]} />
+              <meshStandardMaterial color={PANTS} roughness={0.8} emissive={tintEmissive} emissiveIntensity={0.25} />
+            </mesh>
+            <mesh position={[0, -LH - SH - FTH / 2, FTD / 2 - SW / 2]}>
+              <boxGeometry args={[FTW, FTH, FTD]} />
+              <meshStandardMaterial color={SHOE} roughness={0.5} />
+            </mesh>
           </group>
         </group>
       </group>

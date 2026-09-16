@@ -80,7 +80,7 @@ export function CharacterController() {
     <RigidBody ref={rb} type="dynamic" position={[0, 1.5, 37]} enabledRotations={[false, false, false]} colliders={false} gravityScale={1} friction={0.05}>
       <CapsuleCollider args={[0.9, 0.2]} position={[0, 1.1, 0]} restitution={0} />
       <group position={[0, 1.35, 0]}>
-        <RobloxAvatar ref={avatarRef} />
+        <RobloxAvatar ref={avatarRef} envTint="#B3E5FC" envTintIntensity={0.15} />
       </group>
     </RigidBody>
   );

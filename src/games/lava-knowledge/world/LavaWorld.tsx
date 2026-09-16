@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Arena } from './Arena';
 import { PlayerTowers } from './PlayerTowers';
+import { FloatingDiamonds } from './FloatingDiamonds';
 
 const ASH_COUNT = 600;
 
@@ -126,6 +127,8 @@ export function LavaWorld() {
       <directionalLight position={[-15, 10, -8]} intensity={0.5} color="#b3d9ff" />
 
       <AshParticles />
+
+      <FloatingDiamonds />
 
       <Arena>
         <PlayerTowers />
