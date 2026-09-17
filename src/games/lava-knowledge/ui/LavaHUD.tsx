@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLavaStore } from '@/stores/lava.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
-import { Check, X, Flame } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { gameAudio } from '@/shared/lib/gameAudio';
+
+const MAX_TICKS = 3;
 
 type FeedbackStage = 'idle' | 'text' | 'done';
 
@@ -64,7 +67,11 @@ export function LavaHUD() {
   useEffect(() => {
     if (!showFeedback) { setFeedbackStage('idle'); return; }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    timers.push(setTimeout(() => setFeedbackStage('text'), 0));
+    timers.push(setTimeout(() => {
+      setFeedbackStage('text');
+      if (isCorrectAnswer) gameAudio.lavaCorrect();
+      else if (isIncorrectAnswer) gameAudio.lavaIncorrect();
+    }, 0));
     timers.push(setTimeout(() => setFeedbackStage('done'), 1800));
     return () => timers.forEach(clearTimeout);
   }, [showFeedback, qIndex]);
@@ -155,48 +162,94 @@ export function LavaHUD() {
         <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 50, pointerEvents: 'none' }}>
           <motion.div initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 20 }}>
             <div style={{
-              background: 'linear-gradient(160deg, rgba(60,20,10,0.88) 0%, rgba(80,30,15,0.82) 100%)',
+              background: 'linear-gradient(160deg, rgba(60,20,10,0.92) 0%, rgba(80,30,15,0.88) 100%)',
               backdropFilter: 'blur(20px)',
-              borderRadius: 18,
-              padding: isMobile ? '10px 8px' : '14px 10px',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,120,0,0.2)',
+              borderRadius: 20,
+              padding: isMobile ? '12px 10px' : '16px 12px',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,120,0,0.25)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              minWidth: isMobile ? 44 : 52,
+              minWidth: isMobile ? 48 : 56,
             }}>
-              <Flame size={isMobile ? 18 : 22} color={ticks <= 1 ? '#E94930' : '#FFA000'} />
+              {/* Animated fire icon header */}
+              <motion.div
+                animate={{ scale: [1, 1.1, 1], rotate: [0, 3, -3, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ lineHeight: 0 }}
+              >
+                <svg width={isMobile ? 22 : 26} height={isMobile ? 26 : 30} viewBox="0 0 24 28" fill="none">
+                  <path d="M12 2C12 2 5 10 5 16C5 20 8 24 12 24C16 24 19 20 19 16C19 10 12 2 12 2Z" fill="url(#fireGrad)" />
+                  <path d="M12 10C12 10 9 14 9 17C9 19 10.5 21 12 21C13.5 21 15 19 15 17C15 14 12 10 12 10Z" fill="url(#fireInner)" />
+                  <defs>
+                    <linearGradient id="fireGrad" x1="12" y1="2" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#FF6B00" />
+                      <stop offset="0.5" stopColor="#FF9800" />
+                      <stop offset="1" stopColor="#FFD54F" />
+                    </linearGradient>
+                    <linearGradient id="fireInner" x1="12" y1="10" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#FFAB40" />
+                      <stop offset="1" stopColor="#FFF176" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </motion.div>
+
               <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Ticks
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
-                {Array.from({ length: 3 }, (_, i) => {
-                  const tickLevel = 3 - i;
+
+              {/* Fire icons for each tick */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                {Array.from({ length: MAX_TICKS }, (_, i) => {
+                  const tickLevel = MAX_TICKS - i;
                   const active = ticks >= tickLevel;
                   const isCurrent = ticks === tickLevel;
                   return (
                     <motion.div
                       key={tickLevel}
-                      animate={isCurrent ? { scale: [1, 1.15, 1] } : { scale: 1 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                      style={{
-                        width: isMobile ? 28 : 32, height: isMobile ? 8 : 10, borderRadius: 4,
-                        background: active
-                          ? tickLevel <= 1 ? 'linear-gradient(90deg, #E94930, #FF6B6B)'
-                            : 'linear-gradient(90deg, #FF8F00, #FFB74D)'
-                          : 'rgba(255,255,255,0.1)',
-                        border: isCurrent ? '1px solid rgba(255,255,255,0.4)' : '1px solid transparent',
-                        boxShadow: active ? `0 0 8px ${tickLevel <= 1 ? 'rgba(233,73,48,0.5)' : 'rgba(255,143,0,0.5)'}` : 'none',
-                        transition: 'background 0.3s, box-shadow 0.3s',
-                      }}
-                    />
+                      animate={active && isCurrent ? { scale: [1, 1.2, 1], y: [0, -2, 0] } : { scale: 1, y: 0 }}
+                      transition={{ duration: 0.6, repeat: active ? Infinity : 0, ease: 'easeInOut' }}
+                      style={{ lineHeight: 0 }}
+                    >
+                      <svg width={isMobile ? 20 : 24} height={isMobile ? 24 : 28} viewBox="0 0 24 28" fill="none" style={{ opacity: active ? 1 : 0.2, filter: active ? `drop-shadow(0 0 6px ${tickLevel <= 1 ? 'rgba(233,73,48,0.6)' : 'rgba(255,152,0,0.5)'})` : 'none' }}>
+                        <path
+                          d="M12 2C12 2 5 10 5 16C5 20 8 24 12 24C16 24 19 20 19 16C19 10 12 2 12 2Z"
+                          fill={active
+                            ? tickLevel <= 1 ? 'url(#fireDanger)' : 'url(#fireActive)'
+                            : 'rgba(255,255,255,0.15)'}
+                        />
+                        {active && (
+                          <path
+                            d="M12 10C12 10 9 14 9 17C9 19 10.5 21 12 21C13.5 21 15 19 15 17C15 14 12 10 12 10Z"
+                            fill={tickLevel <= 1 ? 'url(#fireInnerDanger)' : 'url(#fireInnerActive)'}
+                          />
+                        )}
+                        <defs>
+                          <linearGradient id="fireActive" x1="12" y1="2" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#FF6B00" /><stop offset="1" stopColor="#FFD54F" />
+                          </linearGradient>
+                          <linearGradient id="fireInnerActive" x1="12" y1="10" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#FFAB40" /><stop offset="1" stopColor="#FFF176" />
+                          </linearGradient>
+                          <linearGradient id="fireDanger" x1="12" y1="2" x2="12" y2="24" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#D32F2F" /><stop offset="1" stopColor="#FF5252" />
+                          </linearGradient>
+                          <linearGradient id="fireInnerDanger" x1="12" y1="10" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#FF5252" /><stop offset="1" stopColor="#FFCDD2" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </motion.div>
                   );
                 })}
               </div>
+
+              {/* Tick number */}
               <motion.span
                 key={ticks}
                 initial={{ scale: 1.4, color: ticks <= 1 ? '#E94930' : '#FFCC00' }}
                 animate={{ scale: 1 }}
-                style={{ color: ticks <= 1 ? '#E94930' : ticks <= 2 ? '#FFA000' : '#FFCC00', fontSize: isMobile ? 18 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', lineHeight: 1 }}
+                style={{ color: ticks <= 1 ? '#E94930' : ticks <= 2 ? '#FFA000' : '#FFCC00', fontSize: isMobile ? 20 : 24, fontWeight: 900, fontFamily: 'var(--font-baloo)', lineHeight: 1 }}
               >
                 {ticks}
               </motion.span>
@@ -343,7 +396,7 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
       animate={shake ? { x: [0, -7, 7, -5, 5, 0], transition: { duration: 0.4 } } : { x: 0 }}
       whileHover={!disabled && !revealed ? { scale: 1.03, y: -2 } : {}}
       whileTap={!disabled && !revealed ? { scale: 0.97 } : {}}
-      onClick={() => { if (!disabled && !revealed) useLavaStore.getState().setLocalAnswer(side); }}
+      onClick={() => { if (!disabled && !revealed) { gameAudio.lavaSelect(); useLavaStore.getState().setLocalAnswer(side); } }}
       disabled={disabled}
       style={{
         flex: 1, padding: isMobile ? '10px 8px' : '14px 12px', borderRadius: 18,

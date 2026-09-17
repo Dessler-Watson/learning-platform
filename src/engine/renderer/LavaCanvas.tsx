@@ -1,5 +1,5 @@
 'use client';
-import { Suspense } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { LavaCamera } from '@/games/lava-knowledge/world/LavaCamera';
@@ -8,8 +8,12 @@ import { LavaGameFlow } from '@/games/lava-knowledge/logic/LavaGameFlow';
 import { RoundManager } from '@/games/lava-knowledge/logic/RoundManager';
 import { LavaHUD } from '@/games/lava-knowledge/ui/LavaHUD';
 import { useLavaStore } from '@/stores/lava.store';
+import { LavaLoadingScreen } from './LavaLoadingScreen';
+import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
+import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
+import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 
-function Scene() {
+function Scene({ onReady }: { onReady: () => void }) {
   return (
     <>
       <LavaGameFlow />
@@ -18,8 +22,25 @@ function Scene() {
         <LavaWorld />
       </Physics>
       <LavaCamera />
+      <ReadyNotifier onReady={onReady} />
     </>
   );
+}
+
+function ReadyNotifier({ onReady }: { onReady: () => void }) {
+  useState(() => { setTimeout(onReady, 300); });
+  return null;
+}
+
+function HeartbeatMonitor() {
+  const ticks = useLavaStore((s) => s.ticks);
+  const phase = useLavaStore((s) => s.phase);
+  useEffect(() => {
+    if (phase === 'completed' || phase === 'loading') { gameAudio.stopHeartbeat(); return; }
+    if (ticks === 1) { gameAudio.startHeartbeat(); }
+    else { gameAudio.stopHeartbeat(); }
+  }, [ticks, phase]);
+  return null;
 }
 
 function DangerOverlay() {
@@ -42,8 +63,25 @@ function DangerOverlay() {
 }
 
 export function LavaCanvas() {
+  const [phase, setPhase] = useState<'loading' | 'completing' | 'done'>('loading');
+  const handleReady = useCallback(() => setPhase('completing'), []);
+  const handleComplete = useCallback(() => setPhase('done'), []);
+  const lavaPhase = useLavaStore((s) => s.phase);
+  const lavaDefeated = useLavaStore((s) => s.defeated);
+
+  useEffect(() => {
+    gameAudio.startLavaMusic();
+    const init = () => { initAudio(); window.removeEventListener('keydown', init); window.removeEventListener('click', init); };
+    window.addEventListener('keydown', init);
+    window.addEventListener('click', init);
+    return () => { gameAudio.stopAll(); window.removeEventListener('keydown', init); window.removeEventListener('click', init); };
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      {phase !== 'done' && (
+        <LavaLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
+      )}
       <style>{`
         @keyframes dangerPulse {
           0%, 100% { opacity: 0.6; }
@@ -70,12 +108,33 @@ export function LavaCanvas() {
         <color attach="background" args={['#2A2A2E']} />
         <fog attach="fog" args={['#3A3A3E', 30, 80]} />
         <Suspense fallback={null}>
-          <Scene />
+          <Scene onReady={handleReady} />
         </Suspense>
       </Canvas>
 
       <LavaHUD />
 
+      <CompletionOverlay
+        show={lavaPhase === 'completed' && !lavaDefeated}
+        onDone={() => {
+          const isPractice = !!sessionStorage.getItem('eduplay_practice');
+          if (isPractice) window.location.href = '/practica/resultados';
+          else window.location.href = '/sala/resultados';
+        }}
+        duration={4000}
+      />
+
+      <DefeatOverlay
+        show={lavaPhase === 'completed' && lavaDefeated}
+        onDone={() => {
+          const isPractice = !!sessionStorage.getItem('eduplay_practice');
+          if (isPractice) window.location.href = '/practica/resultados';
+          else window.location.href = '/sala/resultados';
+        }}
+        duration={4000}
+      />
+
+      <HeartbeatMonitor />
       <DangerOverlay />
 
       {/* CSS vignette overlay */}

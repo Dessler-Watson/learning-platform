@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import { useGameStore } from '@/stores/game.store';
 import type { DoorChoice, GameQuestion } from '@/games/decision-road/types';
+import { gameAudio } from '@/shared/lib/gameAudio';
 
 const PW = 7.5;
 const PH = 5.5;
@@ -51,10 +52,12 @@ function Station({ index, question, activeIndex, z, phase }: { index: number; qu
     triggered.current = true;
     const side: DoorChoice = rb.translation().x < 0 ? 'A' : 'B';
     const store = useGameStore.getState();
+    gameAudio.decisionSelect();
     store.setPhase('question');
     store.submitAnswer(side);
     const correct = side === question.correctAnswer;
     store.setPhase(correct ? 'correctFeedback' : 'incorrectFeedback');
+    if (correct) { gameAudio.decisionCorrect(); } else { gameAudio.decisionIncorrect(); }
     if (!correct) store.setExplanation(question.explanation);
   });
 
@@ -161,13 +164,26 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
       )}
 
       {showContent && (
-        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" fontWeight="900" outlineColor="#000000" outlineWidth={0.05}>
+        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" fontWeight="900" outlineColor="#000000" outlineWidth={0.06} letterSpacing={0.05}>
           {side}
         </Text>
       )}
 
       {showContent && (
-        <Text position={[0, -0.3, 0.1]} fontSize={isDone ? 0.22 : 0.26} maxWidth={PW - 1.5} color="#ffffff" anchorX="center" anchorY="middle" textAlign="center" fontWeight="700" outlineColor="#000000" outlineWidth={0.02}>
+        <Text
+          position={[0, -0.3, 0.1]}
+          fontSize={isDone ? 0.24 : 0.3}
+          maxWidth={PW - 1.2}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+          textAlign="center"
+          fontWeight="800"
+          outlineColor="#000000"
+          outlineWidth={0.035}
+          letterSpacing={0.03}
+          lineHeight={1.2}
+        >
           {isDone ? '\u2714 COMPLETADO' : option.toUpperCase()}
         </Text>
       )}

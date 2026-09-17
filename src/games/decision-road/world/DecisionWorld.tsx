@@ -24,7 +24,7 @@ export function DecisionWorld({ children }: { children: React.ReactNode }) {
       <ParticleField count={80} spread={50} color="#fff8e1" size={0.045} speed={0.12} />
       <FloatingIslands />
       <FloatingDiamonds />
-      <Path length={pathLength} centerZ={pathCenterZ} />
+      <Path key={`${pathLength}-${pathCenterZ}`} length={pathLength} centerZ={pathCenterZ} />
       <DoorSystem />
       <FinishLine lastStationZ={lastStationZ} />
       {children}

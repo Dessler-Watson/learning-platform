@@ -9,6 +9,7 @@ import { useGameStore } from '@/stores/game.store';
 import { CHARACTER } from '@/shared/config/game.config';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from './RobloxAvatar';
+import { gameAudio } from '@/shared/lib/gameAudio';
 
 export function CharacterController() {
   const rb = useRef<RapierRigidBody>(null);
@@ -39,16 +40,20 @@ export function CharacterController() {
     const HALF_W = 7;
     const MAX_Z = 37;
     const MIN_Z = -500;
+    const MIN_Y = -3;
     let clampedX = Math.max(-HALF_W, Math.min(HALF_W, pos.x));
     let clampedZ = Math.max(MIN_Z, Math.min(MAX_Z, pos.z));
+    let clampedY = pos.y;
     let blockedX = false;
     let blockedZ = false;
+    let blockedY = false;
     if (pos.x !== clampedX) blockedX = true;
     if (pos.z !== clampedZ) blockedZ = true;
-    if (blockedX || blockedZ) {
-      rb.current.setTranslation({ x: clampedX, y: pos.y, z: clampedZ }, true);
+    if (pos.y < MIN_Y) { clampedY = MIN_Y; blockedY = true; }
+    if (blockedX || blockedZ || blockedY) {
+      rb.current.setTranslation({ x: clampedX, y: clampedY, z: clampedZ }, true);
       const bv = rb.current.linvel();
-      rb.current.setLinvel({ x: blockedX ? 0 : bv.x, y: bv.y, z: blockedZ ? 0 : bv.z }, true);
+      rb.current.setLinvel({ x: blockedX ? 0 : bv.x, y: blockedY ? 0 : bv.y, z: blockedZ ? 0 : bv.z }, true);
     }
 
     grounded.current = Math.abs(vel.y) < 0.05;
@@ -67,12 +72,13 @@ export function CharacterController() {
     const t = Math.min(acc * delta, 1);
     const nx = THREE.MathUtils.lerp(vel.x, tgtX, t); const nz = THREE.MathUtils.lerp(vel.z, tgtZ, t);
     let yv = vel.y;
-    if (jumpRequested.current && grounded.current) { yv = CHARACTER.jumpForce; jumpRequested.current = false; }
+    if (jumpRequested.current && grounded.current) { yv = CHARACTER.jumpForce; jumpRequested.current = false; gameAudio.decisionJump(); }
     rb.current.setLinvel({ x: nx, y: yv, z: nz }, true);
     if (hasInput && avatarRef.current) {
       const ta = Math.atan2(dir.x, dir.z); const ca = avatarRef.current.rotation.y;
       const d = ta - ca; const s = Math.atan2(Math.sin(d), Math.cos(d));
       avatarRef.current.rotation.y += s * Math.min(CHARACTER.rotationSpeed * delta, 1);
+      if (grounded.current) gameAudio.decisionFootstep();
     }
   });
 

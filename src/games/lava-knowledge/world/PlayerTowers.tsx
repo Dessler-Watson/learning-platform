@@ -7,11 +7,19 @@ import { useLavaStore } from '@/stores/lava.store';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import type { LavaPlayer } from '@/games/lava-knowledge/types';
 import RobloxAvatar from '@/shared/characters/RobloxAvatar';
+import { createDarkStoneTexture } from './DarkStoneTexture';
 
 const BLOCK_HEIGHT = 0.8;
 const LAVA_Y = -1.0;
 const AVATAR_FEET_OFFSET = 1.6;
 const SINK_SPEED = 1.5;
+
+/* ── Cached dark stone texture — created once ── */
+let _darkStoneTex: THREE.CanvasTexture | null = null;
+function getDarkStoneTex() {
+  if (!_darkStoneTex) _darkStoneTex = createDarkStoneTexture(512);
+  return _darkStoneTex;
+}
 
 function getPlatformY(blocks: number): number { return LAVA_Y + blocks * BLOCK_HEIGHT; }
 function getAvatarY(blocks: number): number { return getPlatformY(blocks) + AVATAR_FEET_OFFSET; }
@@ -280,6 +288,50 @@ function RockPlatform({ player }: { player: LavaPlayer }) {
   const sinkY = useRef(getPlatformY(player.blocks));
   const [sinkingDone, setSinkingDone] = useState(false);
 
+  const platformMat = useMemo(() => {
+    const t = getDarkStoneTex().clone();
+    t.repeat.set(3, 1);
+    return new THREE.MeshStandardMaterial({
+      map: t,
+      roughness: 0.85,
+      metalness: 0.04,
+      emissive: new THREE.Color('#FF5500'),
+      emissiveIntensity: 0.06,
+    });
+  }, []);
+
+  const sideMat = useMemo(() => {
+    const t = getDarkStoneTex().clone();
+    t.repeat.set(4, 2);
+    return new THREE.MeshStandardMaterial({
+      map: t,
+      roughness: 0.85,
+      metalness: 0.04,
+      emissive: new THREE.Color('#FF5500'),
+      emissiveIntensity: 0.06,
+    });
+  }, []);
+
+  const topMat = useMemo(() => {
+    const t = getDarkStoneTex().clone();
+    t.repeat.set(2, 2);
+    return new THREE.MeshStandardMaterial({
+      map: t,
+      roughness: 0.8,
+      metalness: 0.03,
+      emissive: new THREE.Color('#FF6600'),
+      emissiveIntensity: 0.08,
+    });
+  }, []);
+
+  const glowMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#FF5500'),
+    transparent: true,
+    opacity: 0.04,
+    side: THREE.BackSide,
+    depthWrite: false,
+  }), []);
+
   useFrame((_, dt) => {
     const targetY = player.eliminated ? LAVA_Y - 3 : getPlatformY(player.blocks);
 
@@ -305,31 +357,34 @@ function RockPlatform({ player }: { player: LavaPlayer }) {
       </RigidBody>
 
       <group ref={groupRef} position={[0, smoothY.current, 0]}>
-        {/* Main rock body — top at Y=0, extends 2.0 below (emerges from lava) */}
+        {/* Main rock body */}
         <mesh castShadow receiveShadow position={[0, -1.0, 0]}>
           <cylinderGeometry args={[1.8, 2.4, 2.0, 12]} />
-          <PlatformGlowMaterial baseColor="#121215" totalHeight={2.5} />
+          <primitive object={sideMat} attach="material" />
         </mesh>
 
-        {/* Top surface — flat disc for standing */}
+        {/* Glow halo */}
+        <mesh position={[0, -1.0, 0]} scale={[1.15, 1.05, 1.15]}>
+          <cylinderGeometry args={[1.8, 2.4, 2.0, 12]} />
+          <primitive object={glowMat} attach="material" />
+        </mesh>
+
+        {/* Top surface */}
         <mesh position={[0, topSurfaceY + 0.04, 0]} castShadow>
           <cylinderGeometry args={[1.7, 1.8, 0.08, 12]} />
-          <PlatformGlowMaterial baseColor="#121215" totalHeight={2.5} />
+          <primitive object={topMat} attach="material" />
         </mesh>
 
-        {/* Bottom widening — sits IN the lava */}
+        {/* Bottom widening */}
         <mesh position={[0, -1.9, 0]}>
           <cylinderGeometry args={[2.5, 2.0, 0.5, 12]} />
-          <PlatformGlowMaterial baseColor="#0E0E11" totalHeight={2.5} />
+          <primitive object={sideMat} attach="material" />
         </mesh>
 
-        {/* Warm point light at base */}
         <pointLight position={[0, -0.5, 0]} intensity={3} color="#FF6600" distance={6} decay={2} />
 
-        {/* Lava embers */}
         <LavaEmbers />
 
-        {/* Player avatar */}
         {!sinkingDone && (
           <group position={[0, topSurfaceY + AVATAR_FEET_OFFSET, 0]} frustumCulled={false}>
             <RobloxAvatar envTint="#FF6600" envTintIntensity={0.25} />

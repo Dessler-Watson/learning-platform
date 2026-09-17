@@ -201,7 +201,7 @@ function inicializarSimulacion(sala: Sala) {
   const estados: Record<string, SimulacionEstado> = {};
   sala.participantes.forEach((p) => {
     const perfil = perfiles[Math.floor(Math.random() * perfiles.length)];
-    estados[p.estudianteId] = { secuencia: generarSecuencia(sala.totalPreguntas, perfil), respuestas: [], distanciaLava: 5, eliminado: false, preguntaActual: 0 };
+    estados[p.estudianteId] = { secuencia: generarSecuencia(sala.totalPreguntas, perfil), respuestas: [], distanciaLava: 2, eliminado: false, preguntaActual: 0 };
   });
   simulacionEstados[sala.id] = estados;
 }
@@ -214,7 +214,7 @@ function calcularPuntos(correcta: boolean, modo: ModoJuego): { ganados: number; 
 function aplicarRespuesta(estado: SimulacionEstado, correcta: boolean, modo: ModoJuego): { distanciaLava: number; eliminado: boolean } {
   const puntos = calcularPuntos(correcta, modo);
   let distanciaLava = estado.distanciaLava;
-  if (modo === 'lava') { distanciaLava = correcta ? Math.min(distanciaLava + 1, 5) : distanciaLava - 1; }
+  if (modo === 'lava') { distanciaLava = correcta ? Math.min(distanciaLava + 1, 3) : distanciaLava - 1; }
   estado.respuestas.push({ correcta, puntosGanados: puntos.ganados, puntosPerdidos: puntos.perdidos, distanciaLava });
   estado.distanciaLava = distanciaLava;
   if (modo === 'lava' && distanciaLava <= 0) { estado.eliminado = true; return { distanciaLava, eliminado: true }; }
@@ -274,7 +274,7 @@ export const salasService = {
     if (disponibles.length === 0) return undefined;
     const estudiante = disponibles[Math.floor(Math.random() * disponibles.length)];
     const esLava = sala.juegoId === 'juego-2';
-    sala.participantes.push({ estudianteId: estudiante.id, nombre: estudiante.nombre, progreso: 0, correctas: 0, incorrectas: 0, estado: 'esperando', puntosNetos: 0, distanciaLava: 5 });
+    sala.participantes.push({ estudianteId: estudiante.id, nombre: estudiante.nombre, progreso: 0, correctas: 0, incorrectas: 0, estado: 'esperando', puntosNetos: 0, distanciaLava: 2 });
     return { sala, estudiante };
   },
   async obtenerDetalleEstudianteSala(salaId: string, estudianteId: string): Promise<DetalleEstudianteSala | undefined> {
@@ -289,7 +289,7 @@ export const salasService = {
     const totalQuestions = Math.min(preguntasSala.length, sala.totalPreguntas);
     const preguntasUsar = preguntasSala.slice(0, totalQuestions);
     const answers: RespuestaDetalleSala[] = [];
-    let distanciaLavaActual = 5;
+    let distanciaLavaActual = 2;
     let eliminado = false;
     for (let idx = 0; idx < totalQuestions; idx++) {
       const pregunta = preguntasUsar[idx];
@@ -302,7 +302,7 @@ export const salasService = {
       else if (idx < participante.correctas + participante.incorrectas) { esCorrecta = false; status = 'incorrect'; selectedAnswer = pregunta.opciones.filter((o) => o !== pregunta.respuestaCorrecta)[0] || 'Opción incorrecta'; }
       else { esCorrecta = false; status = 'timeout'; selectedAnswer = null; }
       const puntos = calcularPuntos(esCorrecta, modo);
-      if (esLava && !eliminado) { distanciaLavaActual = esCorrecta ? Math.min(distanciaLavaActual + 1, 5) : distanciaLavaActual - 1; if (distanciaLavaActual <= 0) eliminado = true; }
+      if (esLava && !eliminado) { distanciaLavaActual = esCorrecta ? Math.min(distanciaLavaActual + 1, 3) : distanciaLavaActual - 1; if (distanciaLavaActual <= 0) eliminado = true; }
       const responseTime = status === 'timeout' ? maxTime : status === 'correct' ? Math.floor(Math.random() * (maxTime * 0.7)) + 3 : Math.floor(Math.random() * (maxTime * 0.6)) + Math.floor(maxTime * 0.4);
       answers.push({ questionId: pregunta.id, questionText: pregunta.enunciado, selectedAnswer, correctAnswer: pregunta.respuestaCorrecta, status, responseTime, maxTime, puntosGanados: puntos.ganados, puntosPerdidos: puntos.perdidos, puntosNetos: puntos.ganados - puntos.perdidos, distanciaLava: distanciaLavaActual });
     }

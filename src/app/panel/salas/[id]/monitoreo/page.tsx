@@ -246,7 +246,7 @@ export default function MonitoreoPage() {
                     <span className="flex items-center gap-1 text-rose-500"><Shield className="h-3 w-3" /> {p.incorrectas} incorrectas</span>
                     {esLava && (
                       <span className="flex items-center gap-1 text-orange-500">
-                        <Flame className="h-3 w-3" /> {p.distanciaLava}/5
+                        <Flame className="h-3 w-3" /> {p.distanciaLava}/3
                       </span>
                     )}
                   </div>

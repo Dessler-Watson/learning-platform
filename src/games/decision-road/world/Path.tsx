@@ -265,7 +265,8 @@ export function Path({ length = 480, centerZ }: { length?: number; centerZ?: num
 
   return (
     <group>
-      <RigidBody type="fixed" position={[0, Y, cz]} friction={0.8}>
+      <RigidBody type="fixed" position={[0, Y, cz]} friction={0.8} colliders={false}>
+        <CuboidCollider args={[WIDTH / 2, 0.2, length / 2]} />
         <mesh receiveShadow castShadow>
           <boxGeometry args={[WIDTH, 0.4, length]} />
           <primitive object={btmMat} attach="material" />

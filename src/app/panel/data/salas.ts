@@ -2,24 +2,24 @@ import { Sala, ParticipanteSala } from '../types';
 
 const participantesSimulados: Record<string, ParticipanteSala[]> = {
   'sala-002': [
-    { estudianteId: 'est-11', nombre: 'Andrés Vega', progreso: 9, correctas: 7, incorrectas: 2, estado: 'jugando', puntosNetos: 60, distanciaLava: 5 },
-    { estudianteId: 'est-14', nombre: 'Isabella Cruz', progreso: 12, correctas: 11, incorrectas: 1, estado: 'finalizado', puntosNetos: 105, distanciaLava: 5 },
-    { estudianteId: 'est-19', nombre: 'Nicolás Aguilar', progreso: 6, correctas: 4, incorrectas: 2, estado: 'jugando', puntosNetos: 30, distanciaLava: 5 },
-    { estudianteId: 'est-1', nombre: 'Carlos López', progreso: 4, correctas: 3, incorrectas: 1, estado: 'jugando', puntosNetos: 25, distanciaLava: 5 },
-    { estudianteId: 'est-6', nombre: 'Ana Martínez', progreso: 10, correctas: 9, incorrectas: 1, estado: 'jugando', puntosNetos: 85, distanciaLava: 5 },
+    { estudianteId: 'est-11', nombre: 'Andrés Vega', progreso: 9, correctas: 7, incorrectas: 2, estado: 'jugando', puntosNetos: 60, distanciaLava: 3 },
+    { estudianteId: 'est-14', nombre: 'Isabella Cruz', progreso: 12, correctas: 11, incorrectas: 1, estado: 'finalizado', puntosNetos: 105, distanciaLava: 3 },
+    { estudianteId: 'est-19', nombre: 'Nicolás Aguilar', progreso: 6, correctas: 4, incorrectas: 2, estado: 'jugando', puntosNetos: 30, distanciaLava: 2 },
+    { estudianteId: 'est-1', nombre: 'Carlos López', progreso: 4, correctas: 3, incorrectas: 1, estado: 'jugando', puntosNetos: 25, distanciaLava: 2 },
+    { estudianteId: 'est-6', nombre: 'Ana Martínez', progreso: 10, correctas: 9, incorrectas: 1, estado: 'jugando', puntosNetos: 85, distanciaLava: 3 },
   ],
   'sala-003': [
-    { estudianteId: 'est-5', nombre: 'Pedro Sánchez', progreso: 5, correctas: 3, incorrectas: 2, estado: 'jugando', puntosNetos: 35, distanciaLava: 4 },
-    { estudianteId: 'est-13', nombre: 'Fernando Morales', progreso: 3, correctas: 1, incorrectas: 2, estado: 'jugando', puntosNetos: 5, distanciaLava: 2 },
-    { estudianteId: 'est-16', nombre: 'Gabriela Navarro', progreso: 7, correctas: 5, incorrectas: 2, estado: 'jugando', puntosNetos: 65, distanciaLava: 5 },
+    { estudianteId: 'est-5', nombre: 'Pedro Sánchez', progreso: 5, correctas: 3, incorrectas: 2, estado: 'jugando', puntosNetos: 35, distanciaLava: 2 },
+    { estudianteId: 'est-13', nombre: 'Fernando Morales', progreso: 3, correctas: 1, incorrectas: 2, estado: 'jugando', puntosNetos: 5, distanciaLava: 1 },
+    { estudianteId: 'est-16', nombre: 'Gabriela Navarro', progreso: 7, correctas: 5, incorrectas: 2, estado: 'jugando', puntosNetos: 65, distanciaLava: 3 },
   ],
   'sala-004': [
-    { estudianteId: 'est-1', nombre: 'Carlos López', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 5 },
-    { estudianteId: 'est-2', nombre: 'María Pérez', progreso: 4, correctas: 3, incorrectas: 1, estado: 'finalizado', puntosNetos: 25, distanciaLava: 5 },
-    { estudianteId: 'est-3', nombre: 'José Martínez', progreso: 4, correctas: 2, incorrectas: 2, estado: 'finalizado', puntosNetos: 10, distanciaLava: 5 },
-    { estudianteId: 'est-6', nombre: 'Ana Martínez', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 5 },
-    { estudianteId: 'est-7', nombre: 'Luis Hernández', progreso: 4, correctas: 3, incorrectas: 1, estado: 'finalizado', puntosNetos: 25, distanciaLava: 5 },
-    { estudianteId: 'est-10', nombre: 'Valentina Torres', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 5 },
+    { estudianteId: 'est-1', nombre: 'Carlos López', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 3 },
+    { estudianteId: 'est-2', nombre: 'María Pérez', progreso: 4, correctas: 3, incorrectas: 1, estado: 'finalizado', puntosNetos: 25, distanciaLava: 2 },
+    { estudianteId: 'est-3', nombre: 'José Martínez', progreso: 4, correctas: 2, incorrectas: 2, estado: 'finalizado', puntosNetos: 10, distanciaLava: 2 },
+    { estudianteId: 'est-6', nombre: 'Ana Martínez', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 3 },
+    { estudianteId: 'est-7', nombre: 'Luis Hernández', progreso: 4, correctas: 3, incorrectas: 1, estado: 'finalizado', puntosNetos: 25, distanciaLava: 2 },
+    { estudianteId: 'est-10', nombre: 'Valentina Torres', progreso: 4, correctas: 4, incorrectas: 0, estado: 'finalizado', puntosNetos: 40, distanciaLava: 3 },
   ],
 };
 

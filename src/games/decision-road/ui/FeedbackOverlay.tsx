@@ -5,6 +5,7 @@ import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Check, X } from 'lucide-react';
 import { getTargetCenter, hudTargets } from '@/shared/refs/hudRefs';
+import { gameAudio } from '@/shared/lib/gameAudio';
 
 type Stage = 'idle' | 'impact' | 'text' | 'fly' | 'land' | 'done';
 
@@ -67,8 +68,8 @@ export function FeedbackOverlay() {
     const t = setTimeout(() => {
       const store = useGameStore.getState();
       const next = store.currentQuestionIndex + 1;
-      if (next >= store.questions.length) { store.setPhase('finishing'); }
-      else { store.advanceQuestion(); store.setPhase('playing'); }
+      if (next >= store.questions.length) { gameAudio.decisionVictory(); store.setPhase('finishing'); }
+      else { gameAudio.decisionAdvance(); store.advanceQuestion(); store.setPhase('playing'); }
     }, 250);
     return () => clearTimeout(t);
   }, [stage]);

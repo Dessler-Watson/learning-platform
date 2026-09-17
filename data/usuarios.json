@@ -150,5 +150,17 @@
     "fecha_registro": "2026-09-06T01:47:55.471Z",
     "fecha_nacimiento": "2019-11-16",
     "sexo": "masculino"
+  },
+  {
+    "id_usuario": 15,
+    "avatar_id": 5,
+    "nombre": "Rina",
+    "apellido": "Lara",
+    "correo": "fddfdf@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-12T04:45:17.354Z",
+    "fecha_nacimiento": "2013-02-09",
+    "sexo": "femenino"
   }
 ]

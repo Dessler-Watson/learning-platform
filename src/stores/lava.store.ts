@@ -8,10 +8,11 @@ interface LavaStore {
   players: LavaPlayer[];
   localAnswer: 'A' | 'B' | null; roundResults: { playerId: number; correct: boolean }[];
   ticks: number; correctCount: number; incorrectCount: number; score: number; countTick: number;
+  defeated: boolean;
   setPhase: (p: LavaPhase) => void; setQuestions: (q: GameQuestion[]) => void;
   setLocalAnswer: (a: 'A' | 'B') => void;
   applyResults: (results: { playerId: number; correct: boolean }[]) => void;
-  advanceQuestion: () => void; startRound: () => void; completeGame: () => void;
+  advanceQuestion: () => void; startRound: () => void; completeGame: (defeated?: boolean) => void;
   reset: () => void;
 }
 
@@ -33,7 +34,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
   phase: 'loading', questions: [], currentQuestionIndex: 0,
   players: createPlayers(),
   localAnswer: null, roundResults: [],
-  ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0,
+  ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false,
 
   setPhase: (p) => set({ phase: p }),
 
@@ -42,7 +43,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     players: createPlayers(),
     localAnswer: null, roundResults: [],
     ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0,
-    phase: 'playing'
+    phase: 'playing', defeated: false,
   }),
 
   setLocalAnswer: (a) => set({ localAnswer: a }),
@@ -82,12 +83,12 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
 
   startRound: () => set({ roundResults: [], phase: 'roundActive' }),
 
-  completeGame: () => set({ phase: 'completed' }),
+  completeGame: (defeated = false) => set({ phase: 'completed', defeated }),
 
   reset: () => set({
     phase: 'loading', questions: [], currentQuestionIndex: 0,
     players: createPlayers(),
     localAnswer: null, roundResults: [],
-    ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0,
+    ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false,
   }),
 }));
