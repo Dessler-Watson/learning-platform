@@ -14,6 +14,7 @@ import { salasService } from '../../../services';
 import { Sala } from '../../../types';
 import { useClickLock } from '../../../hooks/useClickLock';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
+import { StudentAvatar } from '../../../components/shared/StudentAvatar';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -135,9 +136,7 @@ export default function LobbyPage() {
                       transition={{ duration: 0.3, delay: i * 0.05 }}
                       className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
                     >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${esLava ? 'bg-[#FFA000]/10 text-[#FFA000]' : 'bg-[#00A0B5]/10 text-[#00A0B5]'}`}>
-                        {p.nombre.charAt(0)}
-                      </div>
+                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" esLava={esLava} />
                       <span className="text-sm font-semibold text-foreground">{p.nombre}</span>
                     </motion.div>
                   ))

@@ -2,18 +2,11 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createDarkStoneTexture } from './DarkStoneTexture';
+import { createProceduralStoneMaterial } from './ProceduralStoneMaterial';
 
 function sr(seed: number) {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
-}
-
-/* ═══════════ SHARED TEXTURE ═══════════ */
-let _sharedTex: THREE.CanvasTexture | null = null;
-function getSharedTex() {
-  if (!_sharedTex) _sharedTex = createDarkStoneTexture(512);
-  return _sharedTex;
 }
 
 /* ═══════════ DIAMOND DATA ═══════════ */
@@ -80,25 +73,7 @@ function generateDiamonds(): DiamondData[] {
 function LavaDiamond({ data }: { data: DiamondData }) {
   const ref = useRef<THREE.Group>(null);
 
-  const rockMat = useMemo(() => {
-    const t = getSharedTex().clone();
-    t.repeat.set(1.5, 1.5);
-    return new THREE.MeshStandardMaterial({
-      map: t,
-      roughness: 0.82,
-      metalness: 0.04,
-      emissive: new THREE.Color('#FF5500'),
-      emissiveIntensity: data.isMountain ? 0.06 : 0.1,
-    });
-  }, [data.isMountain]);
-
-  const glowMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: new THREE.Color('#FF6600'),
-    transparent: true,
-    opacity: data.isMountain ? 0.08 : 0.12,
-    side: THREE.BackSide,
-    depthWrite: false,
-  }), [data.isMountain]);
+  const rockMat = useMemo(() => createProceduralStoneMaterial({ scale: 1.2, brightness: 0.14 }), []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
@@ -118,10 +93,6 @@ function LavaDiamond({ data }: { data: DiamondData }) {
       <mesh castShadow>
         <octahedronGeometry args={[1, 0]} />
         <primitive object={rockMat} attach="material" />
-      </mesh>
-      <mesh scale={[1.25, 1.25, 1.25]}>
-        <octahedronGeometry args={[1, 0]} />
-        <primitive object={glowMat} attach="material" />
       </mesh>
     </group>
   );

@@ -48,16 +48,15 @@ function savePracticeResults(mode: string, questions: GameQuestion[]) {
     const wasEliminated = localPlayer?.eliminated ?? false;
     const deathIdx = wasEliminated ? state.currentQuestionIndex : -1;
     answered = questions.map((q, i) => {
-      const wasAnswered = i < state.currentQuestionIndex || (i === state.currentQuestionIndex && state.roundResults.length > 0);
-      const roundResult = state.roundResults.find((r) => r.playerId === 0);
-      const isCorrect = wasAnswered ? (roundResult?.correct ?? false) : false;
+      const historyEntry = state.answerHistory.find((h) => h.questionIndex === i);
+      const wasAnswered = !!historyEntry;
       return {
         question: q.statement || (q as GameQuestion & { question?: string }).question || '',
         optionA: q.optionA,
         optionB: q.optionB,
         correctAnswer: q.correctAnswer,
-        playerChoice: wasAnswered ? (localPlayer?.answer ?? null) : null,
-        isCorrect: wasAnswered && isCorrect,
+        playerChoice: wasAnswered ? (historyEntry!.choice ?? null) : null,
+        isCorrect: wasAnswered && historyEntry!.correct,
         deathQuestion: i === deathIdx,
       };
     });

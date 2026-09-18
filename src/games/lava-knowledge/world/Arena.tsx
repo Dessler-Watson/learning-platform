@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { LavaSurface } from './LavaSurface';
+import { createProceduralStoneMaterial } from './ProceduralStoneMaterial';
 
 const LAVA_Y = -1.0;
 const ARENA_HALF = 20;
@@ -773,27 +774,14 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   const speed = useMemo(() => 0.3 + Math.random() * 0.5, []);
   const bobAmount = useMemo(() => 0.08 + Math.random() * 0.15, []);
 
+  const stoneMat = useMemo(() => createProceduralStoneMaterial({ scale: 1.2, brightness: 0.14 }), []);
+
   useFrame(({ clock }) => {
     if (groupRef.current) {
       groupRef.current.position.y = LAVA_Y + Math.sin(clock.elapsedTime * speed + phase) * bobAmount;
     }
   });
 
-  const color = useMemo(() => {
-    const palette = [['#121215', '#0E0E11'], ['#16161A', '#0E0E11'], ['#121215', '#16161A'], ['#0E0E11', '#121215'], ['#16161A', '#0E0E11']];
-    return palette[type][Math.floor(Math.random() * 2)];
-  }, [type]);
-  const sizeY = useMemo(() => {
-    const s = scale;
-    switch (type) {
-      case 0: return s * 2;
-      case 1: return s * 2;
-      case 2: return s * 0.6;
-      case 3: return s * 2.5;
-      case 4: return s * 2;
-      default: return s * 2;
-    }
-  }, [type, scale]);
   const geometry = useMemo(() => {
     const s = scale;
     switch (type) {
@@ -807,7 +795,7 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   }, [type, scale]);
   return (
     <group ref={groupRef} position={[x, LAVA_Y, z]} rotation={[0, rotY, 0]}>
-      <mesh castShadow>{geometry}<LavaRockGlowMaterial baseColor={color} totalHeight={sizeY} /></mesh>
+      <mesh castShadow>{geometry}<primitive object={stoneMat} attach="material" /></mesh>
     </group>
   );
 }

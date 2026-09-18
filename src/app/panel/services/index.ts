@@ -161,12 +161,12 @@ export const inicioService = {
 export { salas };
 
 const estudiantesSimulacion = [
-  { id: 'sim-1', nombre: 'Carlos López' },
-  { id: 'sim-2', nombre: 'María Pérez' },
-  { id: 'sim-3', nombre: 'José Martínez' },
-  { id: 'sim-4', nombre: 'Laura Rodríguez' },
-  { id: 'sim-5', nombre: 'Pedro Sánchez' },
-  { id: 'sim-6', nombre: 'Ana Martínez' },
+  { id: 'sim-1', nombre: 'Carlos López', avatar_id: 2, estrellas: 1800 },
+  { id: 'sim-2', nombre: 'María Pérez', avatar_id: 4, estrellas: 5400 },
+  { id: 'sim-3', nombre: 'José Martínez', avatar_id: 1, estrellas: 50 },
+  { id: 'sim-4', nombre: 'Laura Rodríguez', avatar_id: 3, estrellas: 3500 },
+  { id: 'sim-5', nombre: 'Pedro Sánchez', avatar_id: 5, estrellas: 300 },
+  { id: 'sim-6', nombre: 'Ana Martínez', avatar_id: 6, estrellas: 9800 },
 ];
 
 function generarCodigoSalas(existentes: string[]): string {
@@ -274,7 +274,7 @@ export const salasService = {
     if (disponibles.length === 0) return undefined;
     const estudiante = disponibles[Math.floor(Math.random() * disponibles.length)];
     const esLava = sala.juegoId === 'juego-2';
-    sala.participantes.push({ estudianteId: estudiante.id, nombre: estudiante.nombre, progreso: 0, correctas: 0, incorrectas: 0, estado: 'esperando', puntosNetos: 0, distanciaLava: 2 });
+    sala.participantes.push({ estudianteId: estudiante.id, nombre: estudiante.nombre, avatar_id: estudiante.avatar_id, estrellas: estudiante.estrellas, progreso: 0, correctas: 0, incorrectas: 0, estado: 'esperando', puntosNetos: 0, distanciaLava: 2 });
     return { sala, estudiante };
   },
   async obtenerDetalleEstudianteSala(salaId: string, estudianteId: string): Promise<DetalleEstudianteSala | undefined> {

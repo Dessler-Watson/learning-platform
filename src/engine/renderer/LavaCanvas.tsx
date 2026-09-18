@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useCallback, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { LavaCamera } from '@/games/lava-knowledge/world/LavaCamera';
@@ -8,6 +8,7 @@ import { LavaGameFlow } from '@/games/lava-knowledge/logic/LavaGameFlow';
 import { RoundManager } from '@/games/lava-knowledge/logic/RoundManager';
 import { LavaHUD } from '@/games/lava-knowledge/ui/LavaHUD';
 import { useLavaStore } from '@/stores/lava.store';
+import { useLeagueStore } from '@/stores/league.store';
 import { LavaLoadingScreen } from './LavaLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
@@ -68,6 +69,18 @@ export function LavaCanvas() {
   const handleComplete = useCallback(() => setPhase('done'), []);
   const lavaPhase = useLavaStore((s) => s.phase);
   const lavaDefeated = useLavaStore((s) => s.defeated);
+  const starsEarned = useLavaStore((s) => s.starsEarned);
+  const starsPersisted = useRef(false);
+
+  // Persist stars when lava game completes (sala mode only)
+  useEffect(() => {
+    if (lavaPhase !== 'completed' || starsPersisted.current) return;
+    const isPractice = !!sessionStorage.getItem('eduplay_practice');
+    if (!isPractice && starsEarned > 0) {
+      useLeagueStore.getState().addStars(starsEarned);
+    }
+    starsPersisted.current = true;
+  }, [lavaPhase, starsEarned]);
 
   useEffect(() => {
     gameAudio.startLavaMusic();

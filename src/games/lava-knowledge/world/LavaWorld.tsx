@@ -102,12 +102,12 @@ function AshParticles() {
 export function LavaWorld() {
   return (
     <group>
-      <ambientLight intensity={0.75} color="#ffe8d0" />
-      <hemisphereLight args={['#87CEEB', '#FF6600', 0.8]} />
+      <ambientLight intensity={0.35} color="#ffe0c0" />
+      <hemisphereLight args={['#87CEEB', '#FF6600', 0.5]} />
 
       <directionalLight
         position={[20, 30, 15]}
-        intensity={3.0}
+        intensity={1.8}
         color="#fff5e0"
         castShadow
         shadow-mapSize-width={2048}

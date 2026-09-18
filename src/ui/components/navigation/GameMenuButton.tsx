@@ -1,17 +1,44 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Home, X } from 'lucide-react';
+import { Menu, Home, X, HelpCircle } from 'lucide-react';
+import { HowToPlayModal } from './HowToPlayModal';
+
+function detectMode(): 'lava' | 'decisiones' {
+  if (typeof window === 'undefined') return 'lava';
+  const path = window.location.pathname;
+  if (path.includes('lava-conocimiento')) return 'lava';
+  if (path.includes('camino-decisiones')) return 'decisiones';
+  if (path.includes('practica')) {
+    try {
+      const raw = sessionStorage.getItem('eduplay_practice');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.mode === 'lava') return 'lava';
+      }
+    } catch {}
+    return 'decisiones';
+  }
+  return 'lava';
+}
 
 export function GameMenuButton() {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [howToPlay, setHowToPlay] = useState(false);
+  const [mode, setMode] = useState<'lava' | 'decisiones'>('lava');
+
+  const handleOpenMenu = () => {
+    setMode(detectMode());
+    setOpen(true);
+  };
+
   return (
     <>
       <motion.button
         whileHover={{ scale: 1.08, backgroundColor: 'rgba(255,255,255,0.25)' }}
         whileTap={{ scale: 0.94 }}
-        onClick={() => setOpen(true)}
+        onClick={handleOpenMenu}
         className="fixed right-3.5 top-3.5 z-[100] flex h-11 w-11 items-center justify-center rounded-xl border-none bg-white/10 text-white backdrop-blur-md"
         style={{ fontSize: 20 }}
       >
@@ -35,6 +62,13 @@ export function GameMenuButton() {
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
               className="fixed bottom-0 right-0 top-0 z-[100] flex w-64 flex-col gap-3 border-l border-white/5 bg-surface-900/95 p-5 pt-16 backdrop-blur-xl"
             >
+              <button
+                onClick={() => { setOpen(false); setHowToPlay(true); }}
+                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+              >
+                <HelpCircle size={18} /> Como se juega
+              </button>
+
               <button
                 onClick={() => setConfirm(true)}
                 className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
@@ -82,6 +116,8 @@ export function GameMenuButton() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <HowToPlayModal open={howToPlay} onClose={() => setHowToPlay(false)} mode={mode} />
     </>
   );
 }

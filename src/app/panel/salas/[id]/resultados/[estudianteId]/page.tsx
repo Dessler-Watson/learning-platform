@@ -13,6 +13,7 @@ import { audioManager } from '../../../../lib/audio';
 import { salasService } from '../../../../services';
 import { Sala, DetalleEstudianteSala } from '../../../../types';
 import { AnimatedBackground } from '../../../../components/shared/AnimatedBackground';
+import { StudentAvatar } from '../../../../components/shared/StudentAvatar';
 
 export default function EstudianteDetallePage() {
   const router = useRouter();
@@ -54,6 +55,9 @@ export default function EstudianteDetallePage() {
 
   const esLava = sala.juegoId === 'juego-2';
   const esEliminado = detalle.estadoFinal === 'eliminado';
+  const participante = sala.participantes.find((p) => p.estudianteId === estudianteId);
+  const avatarId = participante?.avatar_id;
+  const estrellas = participante?.estrellas ?? 0;
 
   return (
     <div className="relative z-10 space-y-6">
@@ -68,13 +72,7 @@ export default function EstudianteDetallePage() {
           <Card variant={esEliminado ? 'rose' : 'cyan'}>
             <CardContent className="p-5">
               <div className="flex items-center gap-4 mb-5">
-                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-sm ${
-                  esEliminado
-                    ? 'bg-gradient-to-br from-red-400 to-red-500'
-                     : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-[#00A0B5] to-[#98C54E]'
-                }`}>
-                  {esEliminado ? <Skull className="h-7 w-7" /> : detalle.nombre.charAt(0)}
-                </div>
+                <StudentAvatar nombre={detalle.nombre} avatar_id={avatarId} estrellas={estrellas} size="lg" eliminado={esEliminado} esLava={esLava} />
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground">{detalle.nombre}</h2>
                   <div className="flex items-center gap-2 mt-1">

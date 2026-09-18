@@ -43,6 +43,8 @@ export interface Estudiante {
   ultimoAcceso: string;
   nivel: number;
   puntos: number;
+  estrellas: number;
+  avatar_id: number;
 }
 
 export interface JuegoConfig {
@@ -165,6 +167,8 @@ export interface ParticipanteSala {
   estudianteId: string;
   nombre: string;
   avatar?: string;
+  avatar_id?: number;
+  estrellas?: number;
   progreso: number;
   correctas: number;
   incorrectas: number;

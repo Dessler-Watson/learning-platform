@@ -20,6 +20,11 @@ function fbm(x: number, y: number, oct = 6) {
   return v;
 }
 
+/**
+ * Creates a very dark, near-black volcanic rock texture.
+ * Output is grayscale 0-30 — essentially black with fine grain.
+ * The material's `color` tint should be used to control final brightness.
+ */
 export function createDarkStoneTexture(size = 512): THREE.CanvasTexture {
   const S = size;
   const canvas = document.createElement('canvas');
@@ -27,122 +32,40 @@ export function createDarkStoneTexture(size = 512): THREE.CanvasTexture {
   canvas.height = S;
   const ctx = canvas.getContext('2d')!;
 
-  /* ═══ STEP 1: Voronoi cell map ═══ */
-  const CS = 34;
-  const cols = Math.ceil(S / CS);
-  const rows = Math.ceil(S / CS);
-  const seeds: { x: number; y: number; sid: number }[] = [];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const jx = (sr(c * 3.1 + r * 7.3) - 0.5) * CS * 0.55;
-      const jy = (sr(c * 11.7 + r * 13.9) - 0.5) * CS * 0.55;
-      seeds.push({
-        x: c * CS + CS * 0.5 + jx,
-        y: r * CS + CS * 0.5 + jy,
-        sid: c * 1000 + r,
-      });
-    }
-  }
-
-  /* ═══ STEP 2: Pixel rendering ═══ */
   const imgData = ctx.createImageData(S, S);
   const px = imgData.data;
 
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const idx = y * S + x;
-      let d1 = 1e9, d2 = 1e9, best = 0;
-      const gc = Math.floor(x / CS), gr = Math.floor(y / CS);
+      const gx = x * 0.035, gy = y * 0.035;
 
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const rr = gr + dr, cc = gc + dc;
-          if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
-          const si = rr * cols + cc;
-          if (si >= seeds.length) continue;
-          const s = seeds[si];
-          const dx = x - s.x, dy = y - s.y;
-          const d = dx * dx + dy * dy;
-          if (d < d1) { d2 = d1; d1 = d; best = si; }
-          else if (d < d2) { d2 = d; }
-        }
-      }
+      // Start near-black
+      let v = 6;
 
-      const edge = d2 - d1;
-      const sid = seeds[best].sid;
+      // Multi-scale granular noise — small amplitude, stays dark
+      v += (fbm(gx, gy, 5) - 0.5) * 5;          // ±2.5 broad
+      v += (fbm(gx * 4 + 50, gy * 4 + 50, 4) - 0.5) * 3; // ±1.5 medium
+      v += (fbm(gx * 10 + 100, gy * 10 + 100, 3) - 0.5) * 2; // ±1 fine
 
-      /* ── Mortar — pure black ── */
-      const groutW = 3;
-      if (edge < groutW) {
-        const gv = 2 + Math.floor(fbm(x * 0.1, y * 0.1, 2) * 3);
-        px[idx * 4] = gv;
-        px[idx * 4 + 1] = gv;
-        px[idx * 4 + 2] = gv;
-        px[idx * 4 + 3] = 255;
-        continue;
-      }
+      // Sharp bright mineral speckles
+      const speck = fbm(gx * 15 + 200, gy * 15 + 200, 2);
+      if (speck > 0.7) v += (speck - 0.7) * 60;
 
-      /* ── Stone — black volcanic base ── */
-      const sidHash = sr(sid * 7.1);
-      const stoneBase = 5 + sidHash * 10;
+      // Individual bright grains
+      const grain = sr(x * 1.73 + y * 2.91);
+      if (grain > 0.988) v += 18 + grain * 12;
 
-      const sx2 = x * 0.006 + sid * 4.1;
-      const sy2 = y * 0.006 + sid * 6.3;
+      // Small dark pits
+      const pit = fbm(gx * 7 + 300, gy * 7 + 300, 3);
+      if (pit < 0.35) v -= (0.35 - pit) * 12;
 
-      /* multi-layer surface detail */
-      const n1 = fbm(sx2, sy2, 6);
-      const n2 = fbm(sx2 * 2.5 + 7, sy2 * 2.5 + 7, 5);
-      const n3 = fbm(sx2 * 5 + 13, sy2 * 5 + 13, 4);
-      const n4 = fbm(sx2 * 10 + 20, sy2 * 10 + 20, 3);
+      // Clamp: keep everything very dark (0-28)
+      v = Math.max(2, Math.min(28, Math.round(v)));
 
-      /* base value — near black */
-      let v = stoneBase + (n1 - 0.5) * 10 + (n2 - 0.5) * 7 + (n3 - 0.5) * 4;
-
-      /* angular facets — rough volcanic surface */
-      const facet = n4;
-      if (facet > 0.6) v += (facet - 0.6) * 12;
-      else if (facet < 0.4) v -= (0.4 - facet) * 8;
-
-      /* glossy obsidian patches */
-      const gloss = fbm(sx2 * 1.5 + 30, sy2 * 1.5 + 30, 4);
-      if (gloss > 0.6) {
-        v += (gloss - 0.6) * 18;
-      }
-
-      /* dark veins / cooling cracks */
-      const vein = Math.abs(fbm(sx2 * 3 + 40, sy2 * 3 + 40, 5) - 0.5) * 2;
-      if (vein < 0.05) {
-        v -= (0.05 - vein) * 80;
-      }
-
-      /* raised highlights */
-      const highlight = fbm(sx2 * 2 + 50, sy2 * 2 + 50, 4);
-      if (highlight > 0.65) {
-        v += (highlight - 0.65) * 14;
-      }
-
-      /* fine grain */
-      const grain = (sr(x * 0.31 + y * 0.27 + sid * 100) - 0.5) * 3;
-      v += grain;
-
-      /* edge bevel */
-      const bevelW = 6;
-      if (edge < groutW + bevelW) {
-        const t = (edge - groutW) / bevelW;
-        const s = seeds[best];
-        const dx = x - s.x, dy = y - s.y;
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const lightDot = (-dx / len * 0.5 + -dy / len * 0.6);
-        const str = (1 - t) * 0.25;
-        if (lightDot > 0) v += lightDot * str * 10;
-        else v += lightDot * str * 7;
-      }
-
-      const cv = Math.max(0, Math.min(255, Math.round(v)));
-      px[idx * 4]     = cv;
-      px[idx * 4 + 1] = cv;
-      px[idx * 4 + 2] = cv;
+      px[idx * 4]     = v;
+      px[idx * 4 + 1] = v;
+      px[idx * 4 + 2] = v;
       px[idx * 4 + 3] = 255;
     }
   }

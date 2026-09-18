@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pencil, Check, Settings, Calendar } from 'lucide-react';
+import { X, Pencil, Check, Settings, Calendar, Star } from 'lucide-react';
 import { audioManager } from '@/shared/lib/audio';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
+import { LeagueBadge } from '@/ui/components/LeagueBadge';
+import { useLeagueStore } from '@/stores/league.store';
+import { getLeagueByStars, getLeagueProgress, getNextLeague, getStarsToNextLeague } from '@/lib/leagues';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
 
 interface ProfileModalProps {
@@ -33,13 +36,6 @@ interface ProfileModalProps {
   isGuest?: boolean;
   onAvatarChange?: (id_avatar: number, imagen: string, nombre: string) => void;
 }
-
-const RANGO_IMAGEN: Record<string, string> = {
-  Bronce: '/images/rangos/bronce.png',
-  Plata: '/images/rangos/plata.png',
-  Oro: '/images/rangos/oro.png',
-  Diamante: '/images/rangos/diamante.png',
-};
 
 const container = {
   hidden: {},
@@ -80,12 +76,16 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaved, setAvatarSaved] = useState(false);
 
+  const stars = useLeagueStore((s) => s.stars);
+
   const avatarImagen = `/images/avatares/${perfil.usuario.avatar.imagen}`;
-  const rangoImagen = RANGO_IMAGEN[perfil.rango.nombre] || '/images/rangos/bronce.png';
+  const currentLeague = getLeagueByStars(stars);
+  const progress = getLeagueProgress(stars);
+  const nextLeague = getNextLeague(stars);
+  const starsToNext = getStarsToNextLeague(stars);
   const fullName = [perfil.usuario.nombre, perfil.usuario.apellido || ''].filter(Boolean).join(' ').trim() || 'Jugador';
-  const rankColor = perfil.rango.color;
-  const progreso = Math.max(0, Math.min(100, perfil.rango.progreso));
-  const maxRango = perfil.rango.esMaximo;
+  const rankColor = currentLeague.color;
+  const maxRango = !nextLeague;
 
   useEffect(() => {
     setSelectedAvatarId(perfil.usuario.avatar.id_avatar);
@@ -265,24 +265,19 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                 }}
               >
                 <p className="mb-2 text-center text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: rankColor }}>
-                  Tu rango
+                  Tu liga
                 </p>
 
                 <div className="flex items-center justify-center gap-4">
-                  <img
-                    src={rangoImagen}
-                    alt={perfil.rango.nombre}
-                    draggable={false}
-                    className="h-20 w-20 flex-shrink-0 object-contain"
-                  />
+                  <LeagueBadge league={currentLeague} size="lg" circular />
                   <div className="text-left">
                     <div className="flex items-center gap-1.5 text-lg font-black text-surface-800">
-                      <img src="/images/puntos.png" alt="Puntos" draggable={false} className="h-5 w-5 object-contain" />
-                      {perfil.puntos.toLocaleString('es-ES')}
-                      <span className="text-xs font-bold text-surface-500">puntos</span>
+                      <Star size={18} fill="#F9A825" stroke="#F9A825" />
+                      {stars.toLocaleString('es-ES')}
+                      <span className="text-xs font-bold text-surface-500">estrellas</span>
                     </div>
                     <div className="text-sm font-black" style={{ color: rankColor }}>
-                      {perfil.rango.nombre}
+                      {currentLeague.fullName}
                     </div>
                   </div>
                 </div>
@@ -292,7 +287,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                   <div className="h-3 overflow-hidden rounded-full border border-black/5 bg-black/5">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${maxRango ? 100 : progreso}%` }}
+                      animate={{ width: `${maxRango ? 100 : progress}%` }}
                       transition={{ duration: 1, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
                       className="h-full rounded-full"
                       style={{ background: `linear-gradient(90deg, ${rankColor}, ${withAlpha(rankColor, 0.55)})` }}
@@ -300,9 +295,9 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                   </div>
                   <p className="mt-2 text-center text-xs font-black text-surface-500">
                     {maxRango ? (
-                      <>Has alcanzado el rango maximo!</>
+                      <>Has alcanzado la liga maxima!</>
                     ) : (
-                      <>Proximo rango: <span style={{ color: rankColor }}>{perfil.rango.siguiente}</span> — faltan <span style={{ color: rankColor }}>{perfil.rango.puntosParaSiguiente.toLocaleString('es-ES')}</span> puntos</>
+                      <>Proxima liga: <span style={{ color: rankColor }}>{nextLeague?.fullName}</span> — faltan <span style={{ color: rankColor }}>{starsToNext.toLocaleString('es-ES')}</span> estrellas</>
                     )}
                   </p>
                 </div>
@@ -322,7 +317,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                 </div>
               </motion.div>
 
-              {/* Creditos de puntos estilo recompensa */}
+              {/* Creditos de estrellas estilo recompensa */}
               <motion.div
                 variants={item}
                 className="mt-4 flex items-center justify-center gap-3 rounded-2xl border-2 border-edu-yellow/40 bg-gradient-to-r from-edu-yellow-light to-[#FFE9BC] p-3"
@@ -330,8 +325,8 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
               >
                 <StarBadge />
                 <div className="text-center">
-                  <div className="text-2xl font-black leading-none text-surface-800">{perfil.puntos.toLocaleString('es-ES')}</div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#B0770A]">Puntos totales</div>
+                  <div className="text-2xl font-black leading-none text-surface-800">{stars.toLocaleString('es-ES')}</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#B0770A]">Estrellas totales</div>
                 </div>
                 <StarBadge />
               </motion.div>

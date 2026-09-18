@@ -15,6 +15,7 @@ import { salasService } from '../../../services';
 import { Sala, ParticipanteSala } from '../../../types';
 import { useClickLock } from '../../../hooks/useClickLock';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
+import { StudentAvatar } from '../../../components/shared/StudentAvatar';
 
 const ESTADO_COLOR: Record<string, string> = {
   esperando: 'bg-amber-50 text-amber-600 border border-amber-200',
@@ -150,11 +151,7 @@ export default function MonitoreoPage() {
                       }`}>
                         {i + 1}
                       </span>
-                      <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                         eliminadoLava ? 'bg-red-100 text-red-500' : esLava ? 'bg-orange-100 text-orange-600' : 'bg-[#00A0B5]/10 text-[#00A0B5]'
-                      }`}>
-                        {eliminadoLava ? <Skull className="h-3.5 w-3.5" /> : p.nombre.charAt(0)}
-                      </div>
+                      <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="sm" eliminado={eliminadoLava} esLava={esLava} />
                       <span className="flex-1 text-sm font-medium text-foreground truncate">{p.nombre}</span>
                       {eliminadoLava && <span className="text-xs text-red-400 font-medium">Eliminado</span>}
                        <span className={`text-sm font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
@@ -210,13 +207,7 @@ export default function MonitoreoPage() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ${
-                      eliminadoLava
-                        ? 'bg-gradient-to-br from-red-400 to-red-500'
-                         : esLava ? 'bg-gradient-to-br from-orange-400 to-red-500' : 'bg-gradient-to-br from-[#00A0B5] to-[#98C54E]'
-                    }`}>
-                      {eliminadoLava ? <Skull className="h-5 w-5" /> : p.nombre.charAt(0)}
-                    </div>
+                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminadoLava} esLava={esLava} />
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.nombre}</p>
                       <StatusBadge label={p.estado} className={esLava && p.estado === 'jugando' ? 'bg-orange-50 text-orange-600 border border-orange-200' : ESTADO_COLOR[p.estado]} />

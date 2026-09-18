@@ -123,12 +123,11 @@ function sfxCorrect() {
 }
 
 function sfxIncorrect() {
-  // Soft thud with hollow resonance — sympathetic, not punishing
-  playTone(180, 0.25, 0.12, 'triangle', 120);
-  playTone(150, 0.3, 0.08, 'sine', 100, 0.02);
-  playNoise(0.12, 0.04, 600, 0.02);
-  // Hollow echo
-  playTone(120, 0.35, 0.04, 'sine', 80, 0.1);
+  // Descending buzz — audible on any speaker
+  playTone(440, 0.15, 0.18, 'sawtooth', 220);
+  playTone(330, 0.2, 0.12, 'square', 165, 0.05);
+  // Low thud — felt more than heard
+  playTone(110, 0.12, 0.15, 'sine');
 }
 
 function sfxAdvance() {

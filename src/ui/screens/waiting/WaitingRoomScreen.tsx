@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { LeagueBadge } from '@/ui/components/LeagueBadge';
+import { getLeagueByStars } from '@/lib/leagues';
 import { getMockRoom, MOCK_PLAYER_NAMES, type RoomData } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
 
@@ -13,18 +15,21 @@ interface Player {
   nombre: string;
   avatar: string;
   esYo: boolean;
+  stars: number;
 }
 
 type Phase = 'filling' | 'full' | 'countdown' | 'go';
 
-function loadCurrentUser(): { nombre: string; avatar: string } | null {
+function loadCurrentUser(): { nombre: string; avatar: string; stars: number } | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('eduplay_user');
   if (!raw) return null;
   try {
     const u = JSON.parse(raw);
     const avatarId = u.avatar_id || 1;
-    return { nombre: u.nombre || 'Jugador', avatar: avatarUrl(avatarId) };
+    const starsRaw = localStorage.getItem('eduplay_stars');
+    const stars = starsRaw ? parseInt(starsRaw, 10) || 0 : 0;
+    return { nombre: u.nombre || 'Jugador', avatar: avatarUrl(avatarId), stars };
   } catch {
     return null;
   }
@@ -52,6 +57,7 @@ export function WaitingRoomScreen() {
       nombre: current?.nombre || 'Jugador',
       avatar: current?.avatar || avatarUrl(1),
       esYo: true,
+      stars: current?.stars || 0,
     };
     setPlayers([yo]);
     mostrarYo.current = true;
@@ -69,11 +75,14 @@ export function WaitingRoomScreen() {
       const t = setTimeout(() => {
         setPlayers(prev => {
           if (prev.length >= max) return prev;
+          // Assign random stars to mock players for visual testing
+          const mockStars = [0, 50, 150, 300, 500, 800, 1200, 2000, 3500, 5000, 7000, 10000, 15000, 20000][idx % 14];
           return [...prev, {
             id: `guest-${idx}`,
             nombre,
             avatar: avatarUrl(idx + 2),
             esYo: false,
+            stars: mockStars,
           }];
         });
         setAnnouncement(`${nombre} se ha unido`);
@@ -229,6 +238,7 @@ export function WaitingRoomScreen() {
                   <div className="h-12 w-12 overflow-hidden rounded-full" style={{ background: '#fff7ef' }}>
                     <img src={p.avatar} alt={p.nombre} draggable={false} className="h-full w-full object-cover" />
                   </div>
+                  <LeagueBadge stars={p.stars} size="xs" circular />
                   <span className={`text-center text-[11px] font-black leading-tight ${p.esYo ? 'text-edu-pink' : 'text-surface-500'}`}>
                     {p.nombre}
                   </span>

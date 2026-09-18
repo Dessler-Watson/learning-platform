@@ -7,8 +7,10 @@ interface LavaStore {
   phase: LavaPhase; questions: GameQuestion[]; currentQuestionIndex: number;
   players: LavaPlayer[];
   localAnswer: 'A' | 'B' | null; roundResults: { playerId: number; correct: boolean }[];
+  answerHistory: { questionIndex: number; correct: boolean; choice: 'A' | 'B' }[];
   ticks: number; correctCount: number; incorrectCount: number; score: number; countTick: number;
   defeated: boolean;
+  starsEarned: number;
   setPhase: (p: LavaPhase) => void; setQuestions: (q: GameQuestion[]) => void;
   setLocalAnswer: (a: 'A' | 'B') => void;
   applyResults: (results: { playerId: number; correct: boolean }[]) => void;
@@ -33,17 +35,17 @@ function createPlayers(): LavaPlayer[] {
 export const useLavaStore = create<LavaStore>((set, get) => ({
   phase: 'loading', questions: [], currentQuestionIndex: 0,
   players: createPlayers(),
-  localAnswer: null, roundResults: [],
-  ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false,
+  localAnswer: null, roundResults: [], answerHistory: [],
+  ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false, starsEarned: 0,
 
   setPhase: (p) => set({ phase: p }),
 
   setQuestions: (q) => set({
     questions: q, currentQuestionIndex: 0,
     players: createPlayers(),
-    localAnswer: null, roundResults: [],
+    localAnswer: null, roundResults: [], answerHistory: [],
     ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0,
-    phase: 'playing', defeated: false,
+    phase: 'playing', defeated: false, starsEarned: 0,
   }),
 
   setLocalAnswer: (a) => set({ localAnswer: a }),
@@ -64,14 +66,18 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     const eliminated = newTicks <= 0;
     const ty = eliminated ? -0.5 : getPlayerY(newTicks);
     const nextPlayer = { ...s.players[0], correct: isCorrect, targetY: ty, blocks: newTicks, eliminated };
+    const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
+    const starsNow = isCorrect && !isPractice ? 15 : 0;
     return {
       players: [nextPlayer],
       roundResults: results,
+      answerHistory: [...s.answerHistory, { questionIndex: s.currentQuestionIndex, correct: isCorrect, choice: s.localAnswer as 'A' | 'B' }],
       ticks: newTicks,
       correctCount: newCorrect,
       incorrectCount: newIncorrect,
       score: newScore,
       countTick: s.countTick + (isCorrect ? 1 : 0),
+      starsEarned: s.starsEarned + starsNow,
     };
   }),
 
@@ -88,7 +94,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
   reset: () => set({
     phase: 'loading', questions: [], currentQuestionIndex: 0,
     players: createPlayers(),
-    localAnswer: null, roundResults: [],
-    ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false,
+    localAnswer: null, roundResults: [], answerHistory: [],
+    ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false, starsEarned: 0,
   }),
 }));

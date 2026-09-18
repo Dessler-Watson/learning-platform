@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Clock, CheckCircle, XCircle, Star, ArrowRight, Home, Users, Medal } from 'lucide-react';
 import { useGameStore } from '@/stores/game.store';
+import { useLeagueStore } from '@/stores/league.store';
+import { LeagueBadge } from '@/ui/components/LeagueBadge';
+import { getLeagueByStars, getLeagueProgress, getStarsToNextLeague, getNextLeague } from '@/lib/leagues';
 import type { GameResult } from '@/games/decision-road/types';
 
 /* ------------------------------------------------------------------ */
@@ -11,10 +14,10 @@ import type { GameResult } from '@/games/decision-road/types';
 /* ------------------------------------------------------------------ */
 
 const MOCK_CLASSMATES = [
-  { id: 1, nombre: 'Sofia M.', avatar: '/images/avatares/leon.png', puntos: 3450, rango: 'Oro' },
-  { id: 2, nombre: 'Carlos R.', avatar: '/images/avatares/mariposa.png', puntos: 3120, rango: 'Plata' },
-  { id: 4, nombre: 'Ana L.', avatar: '/images/avatares/guardabarranco.png', puntos: 2650, rango: 'Plata' },
-  { id: 5, nombre: 'Diego P.', avatar: '/images/avatares/madrono.png', puntos: 2400, rango: 'Bronce' },
+  { id: 1, nombre: 'Sofia M.', avatar: '/images/avatares/leon.png', puntos: 3450, rango: 'Oro', stars: 5200 },
+  { id: 2, nombre: 'Carlos R.', avatar: '/images/avatares/mariposa.png', puntos: 3120, rango: 'Plata', stars: 3800 },
+  { id: 4, nombre: 'Ana L.', avatar: '/images/avatares/guardabarranco.png', puntos: 2650, rango: 'Plata', stars: 2900 },
+  { id: 5, nombre: 'Diego P.', avatar: '/images/avatares/madrono.png', puntos: 2400, rango: 'Bronce', stars: 800 },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -30,16 +33,6 @@ function formatTimeMs(ms: number): string {
 
 function avatarUrl(imagen: string): string {
   return `/images/avatares/${imagen}`;
-}
-
-function rangoImagen(nombre: string): string {
-  const map: Record<string, string> = {
-    Bronce: '/images/rangos/bronce.png',
-    Plata: '/images/rangos/plata.png',
-    Oro: '/images/rangos/oro.png',
-    Diamante: '/images/rangos/diamante.png',
-  };
-  return map[nombre] || '/images/rangos/bronce.png';
 }
 
 /* ------------------------------------------------------------------ */
@@ -68,12 +61,21 @@ interface PerfilData {
 export function ResultsScreen() {
   const phase = useGameStore((s) => s.phase);
   const result = useGameStore((s) => s.result);
+  const starsEarned = useGameStore((s) => s.starsEarned);
   const show = phase === 'results' && result !== null;
 
   const [view, setView] = useState<'simple' | 'full'>('simple');
   const [perfil, setPerfil] = useState<PerfilData | null>(null);
+  const [starsPersisted, setStarsPersisted] = useState(false);
 
   const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
+
+  // Persist stars to league store when results show (sala mode only)
+  useEffect(() => {
+    if (!show || isPractice || starsPersisted || starsEarned <= 0) return;
+    useLeagueStore.getState().addStars(starsEarned);
+    setStarsPersisted(true);
+  }, [show, isPractice, starsPersisted, starsEarned]);
 
   useEffect(() => {
     if (!show || !isPractice) return;
@@ -204,9 +206,18 @@ function FullResultsScreen({
   onBack: () => void;
   isPractice: boolean;
 }) {
-  const rankColor = perfil?.rango.color || '#B87333';
-  const progreso = Math.max(0, Math.min(100, perfil?.rango.progreso || 0));
-  const esMaximo = perfil?.rango.esMaximo ?? false;
+  const starsEarned = useGameStore((s) => s.starsEarned);
+  const stars = useLeagueStore((s) => s.stars);
+
+  // Stars are already persisted by the parent ResultsScreen.
+  // The store `stars` already includes earned stars.
+  const displayStars = stars;
+  const currentLeague = getLeagueByStars(displayStars);
+  const nextLeague = getNextLeague(displayStars);
+  const progress = getLeagueProgress(displayStars);
+  const starsToNext = getStarsToNextLeague(displayStars);
+  const isMax = !nextLeague;
+  const rankColor = currentLeague.color;
 
   const estimatedTimeMs = result.totalQuestions * 12_000;
 
@@ -214,7 +225,6 @@ function FullResultsScreen({
   const yoAvatar = perfil?.usuario.avatar.imagen
     ? avatarUrl(perfil.usuario.avatar.imagen)
     : '/images/avatares/gueguense.png';
-  const yoPuntosTotal = (perfil?.puntos || 0) + result.score;
 
   const ranking = [
     ...MOCK_CLASSMATES,
@@ -222,11 +232,12 @@ function FullResultsScreen({
       id: 99,
       nombre: yoNombre,
       avatar: yoAvatar,
-      puntos: yoPuntosTotal,
+      puntos: (perfil?.puntos || 0) + result.score,
       rango: perfil?.rango.nombre || 'Bronce',
       esYo: true,
+      stars: displayStars,
     },
-  ].sort((a, b) => b.puntos - a.puntos);
+  ].sort((a, b) => b.stars - a.stars);
 
   return (
     <motion.div
@@ -249,7 +260,7 @@ function FullResultsScreen({
           <h2 className="text-xl font-black text-surface-800">Has superado el desafio!</h2>
         </div>
 
-        {/* Rango + barra */}
+        {/* Liga + barra */}
         <div
           className="mb-4 rounded-2xl border-2 p-4"
           style={{
@@ -258,21 +269,24 @@ function FullResultsScreen({
           }}
         >
           <div className="mb-3 flex items-center gap-3">
-            <img src={rangoImagen(perfil?.rango.nombre || 'Bronce')} alt={perfil?.rango.nombre || 'Bronce'} draggable={false} className="h-12 w-12 flex-shrink-0 object-contain" />
+            <LeagueBadge league={currentLeague} size="md" circular />
             <div className="flex-1">
               <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: rankColor }}>
-                Rango: {perfil?.rango.nombre || 'Bronce'}
+                {currentLeague.fullName}
               </div>
-              <div className="text-sm font-black text-surface-800">
-                {perfil?.puntos?.toLocaleString('es-ES') || 0} / {esMaximo ? 'Maximo' : `${((perfil?.puntos || 0) + (perfil?.rango.puntosParaSiguiente || 0)).toLocaleString('es-ES')} pts`}
+              <div className="flex items-center gap-1.5 text-sm font-black text-surface-800">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#F9A825">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                {displayStars.toLocaleString('es-ES')} estrellas
               </div>
             </div>
           </div>
           <div className="h-3 overflow-hidden rounded-full border border-black/5 bg-black/5">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${esMaximo ? 100 : progreso}%` }} transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }} className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${rankColor}, ${hexToRgba(rankColor, 0.55)})` }} />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${isMax ? 100 : progress}%` }} transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }} className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${rankColor}, ${hexToRgba(rankColor, 0.55)})` }} />
           </div>
           <p className="mt-2 text-center text-xs font-black text-surface-500">
-            {esMaximo ? 'Has alcanzado el rango maximo!' : `Faltan ${perfil?.rango.puntosParaSiguiente?.toLocaleString('es-ES') || 0} pts para ${perfil?.rango.siguiente || 'siguiente rango'}`}
+            {isMax ? 'Has alcanzado la liga maxima!' : `Faltan ${starsToNext.toLocaleString('es-ES')} estrellas para ${nextLeague.fullName}`}
           </p>
         </div>
 
@@ -283,6 +297,21 @@ function FullResultsScreen({
           <StatCard icon={<Clock size={18} />} label="Tiempo" value={`~${formatTimeMs(estimatedTimeMs)}`} accent="#00A0B5" bg="#E8F7FE" />
           <StatCard icon={<Trophy size={18} />} label="Puntos" value={result.score >= 0 ? `+${result.score}` : `${result.score}`} accent="#FFA000" bg="#FFF0D6" />
         </div>
+
+        {/* Stars earned */}
+        {!isPractice && starsEarned > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mb-4 flex items-center justify-center gap-2 rounded-xl border-2 border-yellow-300/40 bg-gradient-to-r from-yellow-50 to-amber-50 p-3"
+          >
+            <Star size={18} fill="#F9A825" stroke="#F9A825" />
+            <span className="text-sm font-black text-yellow-700">
+              +{starsEarned} estrellas ganadas
+            </span>
+          </motion.div>
+        )}
 
         {/* Ranking — hidden in practice mode */}
         {!isPractice && (
@@ -312,9 +341,12 @@ function FullResultsScreen({
                         {p.nombre}
                         {isYo && <span className="rounded-full bg-edu-green px-2 py-0.5 text-[9px] font-black uppercase text-white">TU</span>}
                       </div>
-                      <div className="text-[10px] font-black text-surface-400">{p.rango}</div>
+                      <div className="flex items-center gap-1.5">
+                        <LeagueBadge stars={p.stars} size="xs" circular />
+                        <span className="text-[10px] font-black text-surface-400">{getLeagueByStars(p.stars).fullName}</span>
+                      </div>
                     </div>
-                    <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.puntos.toLocaleString('es-ES')}</span>
+                    <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.stars.toLocaleString('es-ES')} <span className="text-[10px] font-bold text-surface-400">estrellas</span></span>
                   </motion.div>
                 );
               })}

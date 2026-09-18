@@ -5,6 +5,9 @@ import { motion } from 'framer-motion';
 import { Settings, Bell, Sparkles, Gamepad2, Trophy, Brain } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
+import { LeagueBadge } from '@/ui/components/LeagueBadge';
+import { useLeagueStore } from '@/stores/league.store';
+import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
 import { audioManager } from '@/shared/lib/audio';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
 
@@ -42,13 +45,6 @@ interface Perfil {
   };
 }
 
-const RANGO_IMAGEN: Record<string, string> = {
-  Bronce: '/images/rangos/bronce.png',
-  Plata: '/images/rangos/plata.png',
-  Oro: '/images/rangos/oro.png',
-  Diamante: '/images/rangos/diamante.png',
-};
-
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -59,6 +55,14 @@ function hexToRgb(hex: string): [number, number, number] {
 function withAlpha(hex: string, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function StarIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#F9A825">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
 }
 
 const DEFAULT_PERFIL: Perfil = {
@@ -91,6 +95,13 @@ export function DashboardScreen() {
   const [salaCode, setSalaCode] = useState('');
   const [salaLoading, setSalaLoading] = useState(false);
   const [salaError, setSalaError] = useState<string | null>(null);
+
+  const stars = useLeagueStore((s) => s.stars);
+  const initStars = useLeagueStore((s) => s.initStars);
+
+  useEffect(() => {
+    initStars();
+  }, [initStars]);
 
   useEffect(() => {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
@@ -148,8 +159,12 @@ export function DashboardScreen() {
   };
 
   const avatarImagen = `/images/avatares/${perfil.usuario.avatar.imagen}`;
-  const rangoImagen = RANGO_IMAGEN[perfil.rango.nombre] || '/images/rangos/bronce.png';
   const rankColor = perfil.rango.color;
+
+  const currentLeague = getLeagueByStars(stars);
+  const nextLeague = getNextLeague(stars);
+  const progress = getLeagueProgress(stars);
+  const starsToNext = getStarsToNextLeague(stars);
 
   if (loading) {
     return (
@@ -171,7 +186,7 @@ export function DashboardScreen() {
         className="relative z-10 mx-auto max-w-md"
       >
         {/* Encabezado */}
-        <header className="mb-6 flex items-center justify-between">
+        <header className="relative z-20 mb-6 flex items-center justify-between">
           <button
             onClick={() => { audioManager.play('click'); setProfileOpen(true); }}
             onFocus={() => setAvatarFocused(true)}
@@ -213,49 +228,53 @@ export function DashboardScreen() {
           </div>
         </header>
 
-        {/* Tarjeta de rango principal */}
+        {/* Tarjeta de liga principal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="card-game card-game-hover mb-5 overflow-hidden"
-          style={{ border: `2px solid ${withAlpha(rankColor, 0.18)}` }}
+          className="card-game card-game-hover mb-5 overflow-hidden cursor-pointer"
+          style={{ border: `2px solid ${withAlpha(currentLeague.color, 0.18)}` }}
+          onClick={() => { audioManager.play('click'); window.location.href = '/ligas'; }}
         >
-          {/* Franja de color superior segun rango */}
+          {/* Fondo espacial preparado */}
           <div
-            className="h-3 w-full"
-            style={{ background: rankColor }}
+            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(30,40,80,0.9) 0%, rgba(10,10,30,0.95) 100%)',
+            }}
           />
 
-          <div className="px-5 pb-5 pt-4 text-center">
+          {/* Franja de color superior segun liga */}
+          <div
+            className="h-3 w-full"
+            style={{ background: currentLeague.color }}
+          />
+
+          <div className="relative px-5 pb-5 pt-4 text-center">
             <span
               className="mb-3 inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.15em]"
-              style={{ background: withAlpha(rankColor, 0.12), color: rankColor }}
+              style={{ background: withAlpha(currentLeague.color, 0.12), color: currentLeague.color }}
             >
-              Tu rango actual
+              Tu liga actual
             </span>
 
-            <div className="mx-auto mb-2 flex h-40 w-40 items-center justify-center">
-              <img
-                src={rangoImagen}
-                alt={perfil.rango.nombre}
-                draggable={false}
-                className="h-full w-full object-contain drop-shadow-lg"
-              />
+            <div className="mx-auto mb-2 flex h-36 w-36 items-center justify-center">
+              <LeagueBadge league={currentLeague} size="xl" circular />
             </div>
 
             <h2 className="mb-1 text-2xl font-black text-surface-800">
-              {perfil.rango.nombre}
+              {currentLeague.fullName}
             </h2>
 
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5"
-              style={{ background: withAlpha(rankColor, 0.1) }}
+              style={{ background: withAlpha(currentLeague.color, 0.1) }}
             >
-              <img src="/images/puntos.png" alt="Puntos" draggable={false} className="h-5 w-5 object-contain" />
+              <StarIcon size={18} />
               <span className="text-lg font-black text-surface-800">
-                {perfil.puntos.toLocaleString('es-ES')}
+                {stars.toLocaleString('es-ES')}
               </span>
-              <span className="text-xs font-bold text-surface-500">puntos</span>
+              <span className="text-xs font-bold text-surface-500">estrellas</span>
             </div>
 
             {/* Barra de progreso */}
@@ -265,17 +284,17 @@ export function DashboardScreen() {
             >
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${perfil.rango.progreso}%` }}
+                animate={{ width: `${progress}%` }}
                 transition={{ duration: 1, delay: 0.4 }}
                 className="h-full rounded-full"
-                style={{ background: `linear-gradient(90deg, ${rankColor}, ${withAlpha(rankColor, 0.7)})` }}
+                style={{ background: `linear-gradient(90deg, ${currentLeague.color}, ${withAlpha(currentLeague.color, 0.7)})` }}
               />
             </div>
 
             <p className="text-xs font-bold text-surface-500">
-              {perfil.rango.esMaximo
-                ? 'Has alcanzado el rango maximo!'
-                : `Proximo rango: ${perfil.rango.siguiente} — faltan ${perfil.rango.puntosParaSiguiente} puntos`}
+              {nextLeague
+                ? `Proxima liga: ${nextLeague.fullName} — faltan ${starsToNext.toLocaleString('es-ES')} estrellas`
+                : 'Has alcanzado la liga maxima!'}
             </p>
           </div>
         </motion.div>

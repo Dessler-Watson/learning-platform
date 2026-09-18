@@ -13,6 +13,7 @@ import { audioManager } from '../../../lib/audio';
 import { salasService } from '../../../services';
 import { Sala, PreguntaDificil } from '../../../types';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
+import { StudentAvatar } from '../../../components/shared/StudentAvatar';
 
 export default function ResultadosPage() {
   const router = useRouter();
@@ -111,13 +112,7 @@ export default function ResultadosPage() {
                   <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-gray-300 text-white' : i === 2 ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {i + 1}
                   </span>
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                    eliminadoLava
-                      ? 'bg-red-100 text-red-500'
-                       : esLava ? 'bg-orange-100 text-orange-600' : 'bg-[#00A0B5]/10 text-[#00A0B5]'
-                  }`}>
-                    {eliminadoLava ? <Skull className="h-4 w-4" /> : p.nombre.charAt(0)}
-                  </div>
+                  <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminadoLava} esLava={esLava} />
                   <span className="flex-1 text-sm font-semibold text-foreground">{p.nombre}</span>
                   <StatusBadge label={p.estado === 'eliminado' ? 'Eliminado' : 'Completado'} className={p.estado === 'eliminado' ? (esLava ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-rose-50 text-rose-600 border border-rose-200') : 'bg-emerald-50 text-emerald-600 border border-emerald-200'} />
                    <span className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</span>

@@ -2,11 +2,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLavaStore } from '@/stores/lava.store';
-import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Check, X } from 'lucide-react';
 import { gameAudio } from '@/shared/lib/gameAudio';
 
 const MAX_TICKS = 3;
+
+function useScreenSize() {
+  const [size, setSize] = useState<'phone' | 'tablet' | 'desktop'>('desktop');
+  useEffect(() => {
+    const check = () => {
+      const w = window.innerWidth;
+      if (w <= 640) setSize('phone');
+      else if (w <= 1024) setSize('tablet');
+      else setSize('desktop');
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return size;
+}
 
 type FeedbackStage = 'idle' | 'text' | 'done';
 
@@ -47,7 +62,9 @@ export function LavaHUD() {
   const incorrectCount = useLavaStore((s) => s.incorrectCount);
   const score = useLavaStore((s) => s.score);
   const countTick = useLavaStore((s) => s.countTick);
-  const isMobile = useIsMobile();
+  const screen = useScreenSize();
+  const isPhone = screen === 'phone';
+  const isTablet = screen === 'tablet';
 
   const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
   const animatedScore = useAnimatedNumber(score, countTick);
@@ -80,74 +97,68 @@ export function LavaHUD() {
 
   return (
     <>
-      {/* === HUD BAR (bottom center) - matches DecisionRoad style === */}
+      {/* === HUD BAR (bottom center) === */}
       {show && (
-        <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', bottom: isPhone ? 12 : 20, left: 0, right: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
           <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 20 }}>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 18,
+              display: 'flex', alignItems: 'center', gap: isPhone ? 8 : isTablet ? 14 : 18,
               background: 'linear-gradient(160deg, rgba(60,20,10,0.88) 0%, rgba(80,30,15,0.82) 100%)',
               backdropFilter: 'blur(20px)',
               borderRadius: 999,
-              padding: isMobile ? '10px 16px 10px 14px' : '14px 28px 14px 22px',
+              padding: isPhone ? '8px 12px 8px 10px' : isTablet ? '10px 18px 10px 14px' : '14px 28px 14px 22px',
               boxShadow: '0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,120,0,0.2)',
             }}>
-              {/* Question counter */}
               <span style={{
-                color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 13 : 16, fontWeight: 900,
+                color: 'rgba(255,255,255,0.6)', fontSize: isPhone ? 11 : isTablet ? 14 : 16, fontWeight: 900,
                 fontFamily: 'var(--font-baloo)', whiteSpace: 'nowrap',
               }}>
                 {correctCount + incorrectCount}/{total}
               </span>
 
-              {/* Divider */}
-              <div style={{ width: 1, height: isMobile ? 20 : 28, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ width: 1, height: isPhone ? 16 : isTablet ? 22 : 28, background: 'rgba(255,255,255,0.1)' }} />
 
-              {/* Correct count */}
-              <motion.div key={`correct-${correctCount}`} animate={correctCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
+              <motion.div key={`correct-${correctCount}`} animate={correctCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isPhone ? 3 : 6 }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: isMobile ? 24 : 30, height: isMobile ? 24 : 30,
+                  width: isPhone ? 20 : isTablet ? 26 : 30, height: isPhone ? 20 : isTablet ? 26 : 30,
                   borderRadius: 999,
                   background: 'linear-gradient(135deg, rgba(76,175,80,0.35) 0%, rgba(102,187,106,0.2) 100%)',
                   border: '1.5px solid rgba(76,175,80,0.4)',
                 }}>
-                  <Check size={isMobile ? 13 : 16} color="#66BB6A" strokeWidth={3} />
+                  <Check size={isPhone ? 11 : isTablet ? 14 : 16} color="#66BB6A" strokeWidth={3} />
                 </div>
-                <span style={{ color: '#66BB6A', fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{correctCount}</span>
+                <span style={{ color: '#66BB6A', fontSize: isPhone ? 12 : isTablet ? 16 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{correctCount}</span>
               </motion.div>
 
-              {/* Incorrect count */}
-              <motion.div key={`incorrect-${incorrectCount}`} animate={incorrectCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
+              <motion.div key={`incorrect-${incorrectCount}`} animate={incorrectCount > 0 ? { scale: [1, 1.15, 1] } : {}} transition={{ duration: 0.3 }} style={{ display: 'flex', alignItems: 'center', gap: isPhone ? 3 : 6 }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: isMobile ? 24 : 30, height: isMobile ? 24 : 30,
+                  width: isPhone ? 20 : isTablet ? 26 : 30, height: isPhone ? 20 : isTablet ? 26 : 30,
                   borderRadius: 999,
                   background: 'linear-gradient(135deg, rgba(239,83,80,0.35) 0%, rgba(239,83,80,0.15) 100%)',
                   border: '1.5px solid rgba(239,83,80,0.4)',
                 }}>
-                  <X size={isMobile ? 13 : 16} color="#EF5350" strokeWidth={3} />
+                  <X size={isPhone ? 11 : isTablet ? 14 : 16} color="#EF5350" strokeWidth={3} />
                 </div>
-                <span style={{ color: '#EF5350', fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{incorrectCount}</span>
+                <span style={{ color: '#EF5350', fontSize: isPhone ? 12 : isTablet ? 16 : 18, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{incorrectCount}</span>
               </motion.div>
 
-              {/* Divider */}
-              {!isPractice && <div style={{ width: 1, height: isMobile ? 20 : 28, background: 'rgba(255,255,255,0.1)' }} />}
+              {!isPractice && <div style={{ width: 1, height: isPhone ? 16 : isTablet ? 22 : 28, background: 'rgba(255,255,255,0.1)' }} />}
 
-              {/* Score */}
               {!isPractice && (
                 <motion.div key={countTick} animate={scoreArrived && countTick > 0 ? { scale: [1, 1.3, 0.95, 1.05, 1] } : { scale: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}
-                  style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 5 : 8, minWidth: isMobile ? 44 : 60, justifyContent: 'center', position: 'relative', padding: '4px 10px', borderRadius: 999 }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: isPhone ? 4 : 8, minWidth: isPhone ? 36 : isTablet ? 50 : 60, justifyContent: 'center', position: 'relative', padding: '4px 8px', borderRadius: 999 }}>
                   <AnimatePresence>
                     {countTick > 0 && scoreArrived && (
                       <motion.div key={`flash-${countTick}`} initial={{ opacity: 0.8, scale: 0.5 }} animate={{ opacity: 0, scale: 2 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}
-                        style={{ position: 'absolute', inset: -10, borderRadius: 999, background: 'radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0.2) 50%, transparent 70%)', pointerEvents: 'none' }} />
+                        style={{ position: 'absolute', inset: -8, borderRadius: 999, background: 'radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0.2) 50%, transparent 70%)', pointerEvents: 'none' }} />
                     )}
                   </AnimatePresence>
-                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isMobile ? 18 : 24, height: isMobile ? 18 : 24, objectFit: 'contain', filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
+                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isPhone ? 14 : isTablet ? 20 : 24, height: isPhone ? 14 : isTablet ? 20 : 24, objectFit: 'contain', filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
                   <motion.span animate={scoreArrived && countTick > 0 ? { color: ['#66BB6A', '#FFD54F', '#66BB6A'] } : {}} transition={{ duration: 0.6 }}
-                    style={{ fontSize: isMobile ? 16 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#FFD54F', textShadow: '0 0 12px rgba(255,213,79,0.3)' }}>
+                    style={{ fontSize: isPhone ? 14 : isTablet ? 18 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#FFD54F', textShadow: '0 0 12px rgba(255,213,79,0.3)' }}>
                     {animatedScore}
                   </motion.span>
                 </motion.div>
@@ -159,25 +170,31 @@ export function LavaHUD() {
 
       {/* === TICKS INDICATOR (left side) === */}
       {show && (
-        <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 50, pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute',
+          left: isPhone ? 6 : 12,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 50,
+          pointerEvents: 'none',
+        }}>
           <motion.div initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 180, damping: 20 }}>
             <div style={{
               background: 'linear-gradient(160deg, rgba(60,20,10,0.92) 0%, rgba(80,30,15,0.88) 100%)',
               backdropFilter: 'blur(20px)',
-              borderRadius: 20,
-              padding: isMobile ? '12px 10px' : '16px 12px',
+              borderRadius: isPhone ? 14 : 20,
+              padding: isPhone ? '8px 6px' : isTablet ? '12px 10px' : '16px 12px',
               boxShadow: '0 8px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,120,0,0.25)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-              minWidth: isMobile ? 48 : 56,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isPhone ? 3 : 6,
+              minWidth: isPhone ? 38 : isTablet ? 48 : 56,
             }}>
-              {/* Animated fire icon header */}
               <motion.div
                 animate={{ scale: [1, 1.1, 1], rotate: [0, 3, -3, 0] }}
                 transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                 style={{ lineHeight: 0 }}
               >
-                <svg width={isMobile ? 22 : 26} height={isMobile ? 26 : 30} viewBox="0 0 24 28" fill="none">
+                <svg width={isPhone ? 18 : isTablet ? 22 : 26} height={isPhone ? 22 : isTablet ? 26 : 30} viewBox="0 0 24 28" fill="none">
                   <path d="M12 2C12 2 5 10 5 16C5 20 8 24 12 24C16 24 19 20 19 16C19 10 12 2 12 2Z" fill="url(#fireGrad)" />
                   <path d="M12 10C12 10 9 14 9 17C9 19 10.5 21 12 21C13.5 21 15 19 15 17C15 14 12 10 12 10Z" fill="url(#fireInner)" />
                   <defs>
@@ -194,12 +211,11 @@ export function LavaHUD() {
                 </svg>
               </motion.div>
 
-              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: isPhone ? 6 : isTablet ? 8 : 9, fontWeight: 800, fontFamily: 'var(--font-baloo)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Ticks
               </span>
 
-              {/* Fire icons for each tick */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isPhone ? 2 : 4 }}>
                 {Array.from({ length: MAX_TICKS }, (_, i) => {
                   const tickLevel = MAX_TICKS - i;
                   const active = ticks >= tickLevel;
@@ -211,7 +227,7 @@ export function LavaHUD() {
                       transition={{ duration: 0.6, repeat: active ? Infinity : 0, ease: 'easeInOut' }}
                       style={{ lineHeight: 0 }}
                     >
-                      <svg width={isMobile ? 20 : 24} height={isMobile ? 24 : 28} viewBox="0 0 24 28" fill="none" style={{ opacity: active ? 1 : 0.2, filter: active ? `drop-shadow(0 0 6px ${tickLevel <= 1 ? 'rgba(233,73,48,0.6)' : 'rgba(255,152,0,0.5)'})` : 'none' }}>
+                      <svg width={isPhone ? 16 : isTablet ? 20 : 24} height={isPhone ? 20 : isTablet ? 24 : 28} viewBox="0 0 24 28" fill="none" style={{ opacity: active ? 1 : 0.2, filter: active ? `drop-shadow(0 0 6px ${tickLevel <= 1 ? 'rgba(233,73,48,0.6)' : 'rgba(255,152,0,0.5)'})` : 'none' }}>
                         <path
                           d="M12 2C12 2 5 10 5 16C5 20 8 24 12 24C16 24 19 20 19 16C19 10 12 2 12 2Z"
                           fill={active
@@ -244,12 +260,11 @@ export function LavaHUD() {
                 })}
               </div>
 
-              {/* Tick number */}
               <motion.span
                 key={ticks}
                 initial={{ scale: 1.4, color: ticks <= 1 ? '#E94930' : '#FFCC00' }}
                 animate={{ scale: 1 }}
-                style={{ color: ticks <= 1 ? '#E94930' : ticks <= 2 ? '#FFA000' : '#FFCC00', fontSize: isMobile ? 20 : 24, fontWeight: 900, fontFamily: 'var(--font-baloo)', lineHeight: 1 }}
+                style={{ color: ticks <= 1 ? '#E94930' : ticks <= 2 ? '#FFA000' : '#FFCC00', fontSize: isPhone ? 16 : isTablet ? 20 : 24, fontWeight: 900, fontFamily: 'var(--font-baloo)', lineHeight: 1 }}
               >
                 {ticks}
               </motion.span>
@@ -263,20 +278,22 @@ export function LavaHUD() {
         {show && question && (
           <motion.div
             key={qIndex}
-            initial={{ y: -70, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -70, opacity: 0 }}
+            initial={{ x: '-50%', y: -70, opacity: 0 }}
+            animate={{ x: '-50%', y: 0, opacity: 1 }}
+            exit={{ x: '-50%', y: -70, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             style={{
-              position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)',
-              zIndex: 50, maxWidth: 560, width: '92%',
+              position: 'fixed', top: isPhone ? 8 : 12, left: '50%',
+              zIndex: 50,
+              maxWidth: isPhone ? 340 : isTablet ? 480 : 560,
+              width: isPhone ? '88%' : isTablet ? '85%' : '92%',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: isMobile ? 6 : 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: isPhone ? 4 : isTablet ? 7 : 10 }}>
               <span style={{
                 background: 'linear-gradient(135deg, #E94930, #EB5D70)',
-                color: '#fff', padding: isMobile ? '4px 12px' : '6px 18px', borderRadius: 999,
-                fontSize: isMobile ? 10 : 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
+                color: '#fff', padding: isPhone ? '3px 10px' : isTablet ? '4px 14px' : '6px 18px', borderRadius: 999,
+                fontSize: isPhone ? 8 : isTablet ? 10 : 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
                 boxShadow: '0 4px 12px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
                 whiteSpace: 'nowrap',
               }}>
@@ -286,16 +303,21 @@ export function LavaHUD() {
 
             <div style={{
               background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)',
-              borderRadius: isMobile ? 18 : 26, padding: isMobile ? '12px 16px' : '18px 28px',
+              borderRadius: isPhone ? 14 : isTablet ? 20 : 26,
+              padding: isPhone ? '10px 12px' : isTablet ? '14px 20px' : '18px 28px',
               border: '2px solid rgba(240,135,169,0.2)',
               boxShadow: '0 12px 40px rgba(30,42,58,0.18), 0 2px 8px rgba(0,0,0,0.06)',
             }}>
-              <p style={{ color: '#2A1E0E', fontSize: isMobile ? 14 : 18, fontWeight: 700, textAlign: 'center', margin: '0 0 16px', lineHeight: 1.35 }}>
+              <p style={{
+                color: '#2A1E0E',
+                fontSize: isPhone ? 12 : isTablet ? 15 : 18,
+                fontWeight: 700, textAlign: 'center', margin: `0 0 ${isPhone ? 10 : 16}px`, lineHeight: 1.35,
+              }}>
                 {question.statement}
               </p>
-              <div style={{ display: 'flex', gap: isMobile ? 8 : 12 }}>
-                <ABtn label="A" text={question.optionA} color="#E94930" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isMobile={isMobile} />
-                <ABtn label="B" text={question.optionB} color="#4CAF50" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isMobile={isMobile} />
+              <div style={{ display: 'flex', gap: isPhone ? 6 : isTablet ? 9 : 12 }}>
+                <ABtn label="A" text={question.optionA} color="#E94930" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
+                <ABtn label="B" text={question.optionB} color="#4CAF50" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
               </div>
             </div>
           </motion.div>
@@ -307,19 +329,23 @@ export function LavaHUD() {
         {showFeedback && feedbackStage !== 'idle' && (
           <>
             {feedbackStage === 'text' && (
+              <div
+                style={{
+                  position: 'absolute', zIndex: 60, left: '50%', top: '40%',
+                  transform: 'translateX(-50%)',
+                }}
+              >
               <motion.div
                 key="feedback-text"
-                initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)', x: 0 }}
+                initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)' }}
                 animate={isIncorrectAnswer
-                  ? { scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1, filter: 'blur(0px)', x: [0, -10, 10, -7, 7, -4, 4, 0] }
-                  : { scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1, filter: 'blur(0px)', x: 0 }
+                  ? { scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1, filter: 'blur(0px)' }
+                  : { scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1, filter: 'blur(0px)' }
                 }
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }}
                 style={{
-                  position: 'absolute', zIndex: 60, left: '50%', top: '40%',
-                  transform: 'translateX(-50%)',
-                  fontSize: isMobile ? 48 : 90, fontWeight: 900,
+                  fontSize: isPhone ? 36 : isTablet ? 60 : 90, fontWeight: 900,
                   fontFamily: 'var(--font-baloo)', lineHeight: 1,
                   letterSpacing: '-2px', whiteSpace: 'nowrap',
                   ...(isCorrectAnswer ? {
@@ -333,6 +359,7 @@ export function LavaHUD() {
               >
                 {isCorrectAnswer ? '¡CORRECTO!' : '¡INCORRECTO!'}
               </motion.div>
+              </div>
             )}
 
             {isIncorrectAnswer && feedbackStage === 'text' && question && (
@@ -344,19 +371,20 @@ export function LavaHUD() {
                 transition={{ duration: 0.4, delay: 0.3 }}
                 style={{
                   position: 'absolute', zIndex: 61, left: '50%', top: '55%',
-                  transform: 'translateX(-50%)',
+                  x: '-50%',
                   background: 'rgba(255,255,255,0.95)',
                   border: '2px solid rgba(46,158,79,0.4)',
-                  borderRadius: 16, padding: isMobile ? '10px 14px' : '14px 22px',
-                  maxWidth: isMobile ? 300 : 420,
+                  borderRadius: isPhone ? 12 : 16,
+                  padding: isPhone ? '8px 12px' : isTablet ? '10px 16px' : '14px 22px',
+                  maxWidth: isPhone ? 260 : isTablet ? 360 : 420,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
                   pointerEvents: 'none',
                 }}
               >
-                <p style={{ margin: 0, fontSize: isMobile ? 12 : 15, fontWeight: 800, color: '#2E9E4F', fontFamily: 'var(--font-baloo)', lineHeight: 1.4 }}>
+                <p style={{ margin: 0, fontSize: isPhone ? 10 : isTablet ? 13 : 15, fontWeight: 800, color: '#2E9E4F', fontFamily: 'var(--font-baloo)', lineHeight: 1.4 }}>
                   Respuesta correcta:
                 </p>
-                <p style={{ margin: '4px 0 0', fontSize: isMobile ? 13 : 16, fontWeight: 700, color: '#2A1E0E', fontFamily: 'var(--font-baloo)', lineHeight: 1.3 }}>
+                <p style={{ margin: '4px 0 0', fontSize: isPhone ? 11 : isTablet ? 14 : 16, fontWeight: 700, color: '#2A1E0E', fontFamily: 'var(--font-baloo)', lineHeight: 1.3 }}>
                   {question.correctAnswer === 'A' ? question.optionA : question.optionB}
                 </p>
               </motion.div>
@@ -368,9 +396,9 @@ export function LavaHUD() {
   );
 }
 
-function ABtn({ label, text, color, disabled, selected, myCorrect, side, revealed, actualCorrect, isMobile }: {
+function ABtn({ label, text, color, disabled, selected, myCorrect, side, revealed, actualCorrect, isPhone, isTablet }: {
   label: string; text: string; color: string; disabled: boolean; selected: boolean;
-  myCorrect: boolean | undefined; side: 'A' | 'B'; revealed: boolean; actualCorrect: 'A' | 'B'; isMobile: boolean;
+  myCorrect: boolean | undefined; side: 'A' | 'B'; revealed: boolean; actualCorrect: 'A' | 'B'; isPhone: boolean; isTablet: boolean;
 }) {
   const isActualCorrect = actualCorrect === side;
   const dimmed = revealed && !isActualCorrect;
@@ -399,27 +427,31 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
       onClick={() => { if (!disabled && !revealed) { gameAudio.lavaSelect(); useLavaStore.getState().setLocalAnswer(side); } }}
       disabled={disabled}
       style={{
-        flex: 1, padding: isMobile ? '10px 8px' : '14px 12px', borderRadius: 18,
+        flex: 1,
+        padding: isPhone ? '8px 6px' : isTablet ? '10px 8px' : '14px 12px',
+        borderRadius: isPhone ? 12 : 18,
         cursor: disabled && !selected ? 'default' : 'pointer',
-        background: bg, color: tx, fontSize: isMobile ? 12 : 14, fontWeight: 700,
+        background: bg, color: tx,
+        fontSize: isPhone ? 10 : isTablet ? 12 : 14,
+        fontWeight: 700,
         border, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', textAlign: 'left',
-        display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12,
+        display: 'flex', alignItems: 'center', gap: isPhone ? 6 : isTablet ? 9 : 12,
         transition: 'background 0.2s, border-color 0.2s',
         opacity: dimmed ? 0.5 : 1,
       }}
     >
       <span style={{
-        width: isMobile ? 34 : 42, height: isMobile ? 34 : 42, borderRadius: '50%', flexShrink: 0,
+        width: isPhone ? 28 : isTablet ? 34 : 42, height: isPhone ? 28 : isTablet ? 34 : 42, borderRadius: '50%', flexShrink: 0,
         background: circleBg, color: circleTx,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: isMobile ? 16 : 20, fontWeight: 900, fontFamily: 'var(--font-baloo)',
+        fontSize: isPhone ? 13 : isTablet ? 16 : 20, fontWeight: 900, fontFamily: 'var(--font-baloo)',
         boxShadow: 'inset 0 -2px 0 rgba(0,0,0,0.15)',
       }}>
         {label}
       </span>
       <span style={{ lineHeight: 1.3 }}>{text}</span>
-      {celebrate && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>&#10003;</motion.span>}
-      {shake && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isMobile ? 20 : 24 }}>&#10007;</motion.span>}
+      {celebrate && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isPhone ? 16 : isTablet ? 20 : 24 }}>&#10003;</motion.span>}
+      {shake && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} style={{ marginLeft: 'auto', fontSize: isPhone ? 16 : isTablet ? 20 : 24 }}>&#10007;</motion.span>}
     </motion.button>
   );
 }
