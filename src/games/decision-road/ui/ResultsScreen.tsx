@@ -67,8 +67,11 @@ export function ResultsScreen() {
   const [view, setView] = useState<'simple' | 'full'>('simple');
   const [perfil, setPerfil] = useState<PerfilData | null>(null);
   const [starsPersisted, setStarsPersisted] = useState(false);
+  const [isPractice, setIsPractice] = useState(false);
 
-  const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
+  useEffect(() => {
+    setIsPractice(!!sessionStorage.getItem('eduplay_practice'));
+  }, []);
 
   // Persist stars to league store when results show (sala mode only)
   useEffect(() => {

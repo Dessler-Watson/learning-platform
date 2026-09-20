@@ -1,24 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Route, Flame, Sparkles, ArrowLeft, CheckCircle2, AlertTriangle, History, Trash2, Play } from 'lucide-react';
+import {
+  Brain, Route, Flame, Sparkles, ArrowLeft, CheckCircle2, AlertTriangle,
+  History, Trash2, Play, Globe, Search, Filter, Lock, LogIn, UserPlus,
+  Eye, EyeOff, Users, BookOpen, X
+} from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 import { generateQuestions, GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
+import { usePracticeStore } from '@/stores/practice.store';
+import { initSimulatedPractices } from '@/app/panel/lib/publicPractices';
+import type { Practice, PracticeMode, StoredUser } from '@/shared/types/practice';
 
 type GameMode = 'decisiones' | 'lava' | null;
+type TabView = 'create' | 'public' | 'history';
 
-interface HistoryEntry {
-  id: string;
-  topic: string;
-  amount: number;
-  questions: GeneratedQuestion[];
-  mode: 'decisiones' | 'lava';
-  createdAt: number;
-}
-
-const HISTORY_KEY = 'eduplay_practice_history';
+const USER_KEY = 'eduplay_user';
 const LOADING_MESSAGES = [
   'Analizando el tema...',
   'Creando preguntas...',
@@ -26,18 +25,15 @@ const LOADING_MESSAGES = [
   'Preparando tu practica...',
 ];
 
-function loadHistory(): HistoryEntry[] {
-  if (typeof window === 'undefined') return [];
+function getUser(): StoredUser | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch {
-    return [];
+    return null;
   }
-}
-
-function saveHistory(entries: HistoryEntry[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
 }
 
 function formatDate(ts: number): string {
@@ -50,7 +46,15 @@ function formatDate(ts: number): string {
   return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
+function formatDateShort(ts: number): string {
+  const d = new Date(ts);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}/${month}`;
+}
+
 export function PracticeScreen() {
+  const [tab, setTab] = useState<TabView>('create');
   const [selectedMode, setSelectedMode] = useState<GameMode>(null);
   const [topic, setTopic] = useState('');
   const [amount, setAmount] = useState(10);
@@ -58,13 +62,46 @@ export function PracticeScreen() {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [messageIndex, setMessageIndex] = useState(0);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<PracticeMode | 'all'>('all');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalContext, setAuthModalContext] = useState<'history' | 'publish'>('history');
+  const [publishTargetId, setPublishTargetId] = useState<string | null>(null);
+
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const isRegistered = user !== null && user.modo === 'registrado';
+
+  const store = usePracticeStore();
+
   useEffect(() => {
-    setHistory(loadHistory());
+    setUser(getUser());
   }, []);
+
+  useEffect(() => {
+    store.init();
+  }, []);
+
+  useEffect(() => {
+    if (store.initialized && tab === 'public') {
+      const practices = store.getPublicPractices();
+      const merged = initSimulatedPractices(practices);
+      if (merged.length !== practices.length) {
+        localStorage.setItem('eduplay_practices', JSON.stringify(merged));
+        store.init();
+      }
+    }
+  }, [store.initialized, tab]);
+
+  const userPractices = useMemo(() => {
+    if (!user) return [];
+    return store.getUserPractices();
+  }, [store.practices, user]);
+
+  const publicPractices = useMemo(() => {
+    return store.searchPublicPractices(searchQuery, filterMode);
+  }, [store.practices, searchQuery, filterMode]);
 
   const startLoadingAnimation = () => {
     setMessageIndex(0);
@@ -78,37 +115,6 @@ export function PracticeScreen() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
-
-  const addToHistory = (topicText: string, amountNum: number, generated: GeneratedQuestion[], mode: 'decisiones' | 'lava') => {
-    const entry: HistoryEntry = {
-      id: Date.now().toString(),
-      topic: topicText,
-      amount: amountNum,
-      questions: generated,
-      mode,
-      createdAt: Date.now(),
-    };
-    const updated = [entry, ...history].slice(0, 20);
-    setHistory(updated);
-    saveHistory(updated);
-  };
-
-  const deleteHistoryEntry = (id: string) => {
-    audioManager.play('delete');
-    const updated = history.filter((e) => e.id !== id);
-    setHistory(updated);
-    saveHistory(updated);
-  };
-
-  const loadFromHistory = (entry: HistoryEntry) => {
-    audioManager.play('select');
-    setTopic(entry.topic);
-    setAmount(entry.amount);
-    setQuestions(entry.questions);
-    setShowHistory(false);
-    setSelectedMode(entry.mode || 'decisiones');
-    setStep('ready');
   };
 
   const handleGenerate = async () => {
@@ -139,7 +145,7 @@ export function PracticeScreen() {
         throw new Error('Gemini devolvio un formato inesperado. Intenta generar nuevamente.');
       }
       setQuestions(result);
-      addToHistory(topic.trim(), amount, result, selectedMode!);
+      store.addPractice(topic.trim(), topic.trim(), selectedMode!, result);
       setStep('ready');
       audioManager.play('success');
     } catch (err) {
@@ -155,17 +161,62 @@ export function PracticeScreen() {
     }
   };
 
-  const handleStartPractice = () => {
-    if (questions.length === 0 || !selectedMode) return;
+  const handleStartPractice = (practice: Practice) => {
+    if (practice.questions.length === 0 || !practice.mode) return;
     audioManager.play('start');
-    const data = { mode: selectedMode, questions, topic: topic.trim() };
+    const data = { mode: practice.mode, questions: practice.questions, topic: practice.topic, practiceId: practice.id };
     sessionStorage.setItem('eduplay_practice', JSON.stringify(data));
     window.location.href = '/practica/jugar';
+  };
+
+  const handleStartPracticeFromConfig = () => {
+    if (questions.length === 0 || !selectedMode) return;
+    audioManager.play('start');
+    const latestPractice = store.getUserPractices()[0];
+    if (latestPractice) {
+      handleStartPractice(latestPractice);
+    }
   };
 
   const handleBack = () => {
     audioManager.play('back');
     window.location.href = '/inicio';
+  };
+
+  const handleTabChange = (newTab: TabView) => {
+    audioManager.play('click');
+    if (newTab === 'history' && !isRegistered) {
+      setAuthModalContext('history');
+      setShowAuthModal(true);
+      return;
+    }
+    setTab(newTab);
+    if (newTab === 'create') {
+      setStep('config');
+      setQuestions([]);
+      setTopic('');
+      setSelectedMode(null);
+    }
+  };
+
+  const handlePublish = (practiceId: string) => {
+    if (!isRegistered) {
+      setAuthModalContext('publish');
+      setShowAuthModal(true);
+      return;
+    }
+    audioManager.play('confirm');
+    store.publishPractice(practiceId);
+  };
+
+  const handleUnpublish = (practiceId: string) => {
+    audioManager.play('click');
+    store.unpublishPractice(practiceId);
+  };
+
+  const handleDeletePractice = (practiceId: string) => {
+    audioManager.play('delete');
+    store.deletePractice(practiceId);
   };
 
   return (
@@ -190,34 +241,45 @@ export function PracticeScreen() {
             <ArrowLeft size={20} />
           </motion.button>
           <div className="flex-1">
-            <h1 className="text-2xl font-black text-surface-800">Modo práctica</h1>
+            <h1 className="text-2xl font-black text-surface-800">Modo practica</h1>
             <p className="text-xs font-bold text-surface-500">Practica por tu cuenta</p>
           </div>
-          {history.length > 0 && step === 'config' && !showHistory && (
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => { audioManager.play('click'); setShowHistory(true); }}
-              className="flex h-11 items-center gap-2 rounded-xl bg-[#B2E0EF] px-4 text-[#006A7A] shadow-card"
-              style={{ boxShadow: '0 4px 0 rgba(0, 106, 122, 0.2), 0 6px 20px rgba(178, 224, 239, 0.25)' }}
-            >
-              <History size={18} />
-              <span className="text-xs font-black">{history.length}</span>
-            </motion.button>
-          )}
         </header>
 
+        {/* Tab Navigation */}
+        <div className="mb-5 grid grid-cols-3 gap-2">
+          <TabButton
+            icon={<Brain size={16} />}
+            label="Crear"
+            active={tab === 'create'}
+            onClick={() => handleTabChange('create')}
+          />
+          <TabButton
+            icon={<Globe size={16} />}
+            label="Publicas"
+            active={tab === 'public'}
+            onClick={() => handleTabChange('public')}
+          />
+          <TabButton
+            icon={isRegistered ? <History size={16} /> : <Lock size={16} />}
+            label={isRegistered ? 'Mi historial' : 'Historial'}
+            active={tab === 'history'}
+            onClick={() => handleTabChange('history')}
+            locked={!isRegistered}
+          />
+        </div>
+
         <AnimatePresence mode="wait">
-          {step === 'config' && !showHistory && (
+          {/* CREATE TAB */}
+          {tab === 'create' && step === 'config' && (
             <motion.div
-              key="config"
+              key="create-config"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.25 }}
               className="space-y-5"
             >
-              {/* Selección de modo */}
               <div>
                 <h3 className="mb-3 text-sm font-black text-surface-700">Selecciona el modo de juego</h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -242,19 +304,17 @@ export function PracticeScreen() {
                 </div>
               </div>
 
-              {/* Tema */}
               <div className="card-game p-5">
                 <h3 className="mb-3 text-sm font-black text-surface-700">Genera tus preguntas</h3>
                 <label className="mb-1 block text-xs font-bold text-surface-500">Tema</label>
                 <input
                   value={topic}
                   onChange={(e) => { setTopic(e.target.value); setError(null); }}
-                  placeholder="¿Sobre qué quieres practicar?"
+                  placeholder="¿Sobre que quieres practicar?"
                   className="input-game w-full rounded-xl px-4 py-3 text-sm font-bold"
                 />
               </div>
 
-              {/* Cantidad */}
               <div className="card-game p-5">
                 <label className="mb-3 block text-xs font-bold text-surface-500">Cantidad de preguntas</label>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -277,7 +337,6 @@ export function PracticeScreen() {
                 </div>
               </div>
 
-              {/* Error */}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -5 }}
@@ -289,7 +348,6 @@ export function PracticeScreen() {
                 </motion.div>
               )}
 
-              {/* Botón generar */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98, y: 2 }}
@@ -308,82 +366,7 @@ export function PracticeScreen() {
             </motion.div>
           )}
 
-          {step === 'config' && showHistory && (
-            <motion.div
-              key="history"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              transition={{ duration: 0.25 }}
-              className="space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black text-surface-700">Mis preguntas guardadas</h3>
-                <button
-                  onClick={() => { audioManager.play('click'); setShowHistory(false); }}
-                  className="text-xs font-bold text-[#00A0B5]"
-                >
-                  Volver a generar
-                </button>
-              </div>
-
-              {history.length === 0 ? (
-                <div className="card-game p-8 text-center">
-                  <History size={32} className="mx-auto mb-3 text-surface-300" />
-                  <p className="text-sm font-bold text-surface-500">Aun no tienes preguntas guardadas.</p>
-                  <p className="text-xs text-surface-400">Genera preguntas y se guardaran automaticamente.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {history.map((entry) => (
-                    <motion.div
-                      key={entry.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="card-game p-4"
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-[#00A0B5]/15 text-[#00A0B5]">
-                              <Sparkles size={12} />
-                            </span>
-                            <span className="text-xs font-black text-surface-800 truncate">{entry.topic}</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] font-bold text-surface-400">
-                            <span>{entry.questions.length} preguntas</span>
-                            <span>{formatDate(entry.createdAt)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => loadFromHistory(entry)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#98C54E]/15 text-[#98C54E]"
-                            title="Usar estas preguntas"
-                          >
-                            <Play size={14} />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => deleteHistoryEntry(entry.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EB5D70]/10 text-[#EB5D70]"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={14} />
-                          </motion.button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {step === 'loading' && (
+          {tab === 'create' && step === 'loading' && (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -402,7 +385,7 @@ export function PracticeScreen() {
             </motion.div>
           )}
 
-          {step === 'ready' && (
+          {tab === 'create' && step === 'ready' && (
             <motion.div
               key="ready"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -410,7 +393,6 @@ export function PracticeScreen() {
               exit={{ opacity: 0 }}
               className="space-y-5"
             >
-              {/* Preguntas listas */}
               <div className="card-game p-6 text-center">
                 <motion.div
                   initial={{ scale: 0 }}
@@ -426,7 +408,6 @@ export function PracticeScreen() {
                 </p>
               </div>
 
-              {/* Modo seleccionado */}
               <div className="card-game p-4 flex items-center gap-3">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-xl"
@@ -451,21 +432,19 @@ export function PracticeScreen() {
                 </button>
               </div>
 
-              {/* Botón iniciar */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98, y: 2 }}
-                onClick={handleStartPractice}
+                onClick={handleStartPracticeFromConfig}
                 className="w-full rounded-2xl px-6 py-4 text-base font-black text-white shadow-game"
                 style={{
                   background: 'linear-gradient(90deg, #98C54E 0%, #6B9832 100%)',
                   boxShadow: '0 6px 0 rgba(80, 130, 40, 0.35), 0 8px 24px rgba(152, 197, 78, 0.3)',
                 }}
               >
-                Iniciar práctica
+                Iniciar practica
               </motion.button>
 
-              {/* Volver a configurar */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -476,9 +455,177 @@ export function PracticeScreen() {
               </motion.button>
             </motion.div>
           )}
+
+          {/* PUBLIC PRACTICES TAB */}
+          {tab === 'public' && (
+            <motion.div
+              key="public"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-4"
+            >
+              {/* Search */}
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por titulo, tema, creador o #codigo..."
+                  className="input-game w-full rounded-xl pl-10 pr-10 py-3 text-sm font-bold"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <FilterChip
+                  label="Todas"
+                  active={filterMode === 'all'}
+                  onClick={() => setFilterMode('all')}
+                />
+                <FilterChip
+                  label="Camino"
+                  active={filterMode === 'decisiones'}
+                  onClick={() => setFilterMode('decisiones')}
+                  color="#FFA000"
+                />
+                <FilterChip
+                  label="Lava"
+                  active={filterMode === 'lava'}
+                  onClick={() => setFilterMode('lava')}
+                  color="#EB5D70"
+                />
+              </div>
+
+              {/* Results count */}
+              <p className="text-xs font-bold text-surface-500">
+                {publicPractices.length} practica{publicPractices.length !== 1 ? 's' : ''} publica{publicPractices.length !== 1 ? 's' : ''}
+              </p>
+
+              {/* Practice cards */}
+              {publicPractices.length === 0 ? (
+                <div className="card-game p-8 text-center">
+                  <Globe size={32} className="mx-auto mb-3 text-surface-300" />
+                  <p className="text-sm font-bold text-surface-500">No se encontraron practicas</p>
+                  <p className="text-xs text-surface-400">
+                    {searchQuery ? 'Intenta con otro termino' : 'Aun no hay practicas publicas disponibles'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {publicPractices.map((practice) => (
+                    <PublicPracticeCard
+                      key={practice.id}
+                      practice={practice}
+                      onPlay={() => handleStartPractice(practice)}
+                    />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* HISTORY TAB */}
+          {tab === 'history' && isRegistered && (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-surface-700">Mis practicas</h3>
+                <span className="text-xs font-bold text-surface-400">
+                  {userPractices.length} practica{userPractices.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {userPractices.length === 0 ? (
+                <div className="card-game p-8 text-center">
+                  <History size={32} className="mx-auto mb-3 text-surface-300" />
+                  <p className="text-sm font-bold text-surface-500">Aun no tienes practicas guardadas.</p>
+                  <p className="text-xs text-surface-400">Crea una practica y se guardara automaticamente.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userPractices.map((practice) => (
+                    <HistoryPracticeCard
+                      key={practice.id}
+                      practice={practice}
+                      onPlay={() => handleStartPractice(practice)}
+                      onPublish={() => handlePublish(practice.id)}
+                      onUnpublish={() => handleUnpublish(practice.id)}
+                      onDelete={() => handleDeletePractice(practice.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <AuthModal
+            context={authModalContext}
+            onClose={() => setShowAuthModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+function TabButton({
+  icon,
+  label,
+  active,
+  onClick,
+  locked,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  locked?: boolean;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      className="flex flex-col items-center gap-1 rounded-2xl px-3 py-3 text-center transition-all duration-200"
+      style={{
+        background: active ? 'rgba(0, 160, 181, 0.1)' : '#fff',
+        border: active ? '2px solid #00A0B5' : '2px solid transparent',
+        boxShadow: active ? '0 4px 0 rgba(0, 160, 181, 0.15)' : '0 4px 0 rgba(0,0,0,0.04)',
+        opacity: locked && !active ? 0.6 : 1,
+      }}
+    >
+      <span style={{ color: active ? '#00A0B5' : locked ? '#8A7A6A' : '#8A7A6A' }}>{icon}</span>
+      <span
+        className="text-[10px] font-black leading-tight"
+        style={{ color: active ? '#00A0B5' : '#8A7A6A' }}
+      >
+        {label}
+      </span>
+      {locked && (
+        <Lock size={10} className="text-surface-400" />
+      )}
+    </motion.button>
   );
 }
 
@@ -531,5 +678,315 @@ function ModeCard({
         </motion.div>
       )}
     </motion.button>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+  color,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  color?: string;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className="rounded-full px-4 py-2 text-xs font-black transition-all duration-200"
+      style={{
+        background: active
+          ? color
+            ? `${color}20`
+            : 'rgba(0, 160, 181, 0.15)'
+          : '#f5f0ea',
+        color: active
+          ? color || '#00A0B5'
+          : '#8A7A6A',
+        border: active
+          ? `2px solid ${color || '#00A0B5'}`
+          : '2px solid transparent',
+      }}
+    >
+      {label}
+    </motion.button>
+  );
+}
+
+function PublicPracticeCard({
+  practice,
+  onPlay,
+}: {
+  practice: Practice;
+  onPlay: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="card-game p-4"
+    >
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="inline-flex h-5 w-5 items-center justify-center rounded-md"
+              style={{
+                background: practice.mode === 'decisiones' ? 'rgba(255, 160, 0, 0.15)' : 'rgba(235, 93, 112, 0.15)',
+                color: practice.mode === 'decisiones' ? '#FFA000' : '#EB5D70',
+              }}
+            >
+              {practice.mode === 'decisiones' ? <Route size={12} /> : <Flame size={12} />}
+            </span>
+            <span className="text-sm font-black text-surface-800 truncate">{practice.title}</span>
+          </div>
+          <p className="text-[10px] font-bold text-surface-400 mb-1">
+            {practice.description || practice.topic}
+          </p>
+          <div className="flex items-center gap-3 text-[10px] font-bold text-surface-400">
+            <span className="flex items-center gap-1">
+              <Users size={10} />
+              {practice.creatorName}
+            </span>
+            <span>{practice.questionCount} preguntas</span>
+            <span>{practice.playCount} jugadas</span>
+          </div>
+          {practice.code && (
+            <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-surface-100 px-2 py-0.5 text-[10px] font-black text-surface-500">
+              #{practice.code}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onPlay}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-white"
+          style={{
+            background: practice.mode === 'decisiones'
+              ? 'linear-gradient(90deg, #FFA000, #FF8F00)'
+              : 'linear-gradient(90deg, #EB5D70, #C94A5A)',
+            boxShadow: practice.mode === 'decisiones'
+              ? '0 4px 0 rgba(255, 143, 0, 0.3)'
+              : '0 4px 0 rgba(201, 74, 90, 0.3)',
+          }}
+        >
+          <Play size={14} />
+          Jugar
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+function HistoryPracticeCard({
+  practice,
+  onPlay,
+  onPublish,
+  onUnpublish,
+  onDelete,
+}: {
+  practice: Practice;
+  onPlay: () => void;
+  onPublish: () => void;
+  onUnpublish: () => void;
+  onDelete: () => void;
+}) {
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="card-game p-4"
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="inline-flex h-5 w-5 items-center justify-center rounded-md"
+              style={{
+                background: practice.mode === 'decisiones' ? 'rgba(255, 160, 0, 0.15)' : 'rgba(235, 93, 112, 0.15)',
+                color: practice.mode === 'decisiones' ? '#FFA000' : '#EB5D70',
+              }}
+            >
+              {practice.mode === 'decisiones' ? <Route size={12} /> : <Flame size={12} />}
+            </span>
+            <span className="text-xs font-black text-surface-800 truncate">{practice.topic}</span>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] font-bold text-surface-400">
+            <span>{practice.questionCount} preguntas</span>
+            <span>{formatDate(practice.createdAt)}</span>
+            {practice.isPublic && (
+              <span className="flex items-center gap-1 text-[#00A0B5]">
+                <Globe size={10} />
+                Publica
+              </span>
+            )}
+            {!practice.isPublic && (
+              <span className="flex items-center gap-1 text-surface-400">
+                <Lock size={10} />
+                Privada
+              </span>
+            )}
+            {practice.code && (
+              <span className="font-black text-surface-500">#{practice.code}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onPlay}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#98C54E]/15 text-[#98C54E]"
+            title="Jugar"
+          >
+            <Play size={14} />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowActions(!showActions)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-surface-500"
+            title="Mas opciones"
+          >
+            <Filter size={14} />
+          </motion.button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showActions && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center gap-2 pt-2 border-t border-surface-100">
+              {practice.isPublic ? (
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onUnpublish}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#FFA000]/10 px-3 py-1.5 text-[10px] font-black text-[#FFA000]"
+                >
+                  <EyeOff size={12} />
+                  Dejar de publicar
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onPublish}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#00A0B5]/10 px-3 py-1.5 text-[10px] font-black text-[#00A0B5]"
+                >
+                  <Globe size={12} />
+                  Publicar
+                </motion.button>
+              )}
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onDelete}
+                className="flex items-center gap-1.5 rounded-lg bg-[#EB5D70]/10 px-3 py-1.5 text-[10px] font-black text-[#EB5D70]"
+              >
+                <Trash2 size={12} />
+                Eliminar
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function AuthModal({
+  context,
+  onClose,
+}: {
+  context: 'history' | 'publish';
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-5"
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ scale: 0.9, y: 20, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.9, y: 20, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        className="relative z-10 w-full max-w-sm rounded-[28px] border-2 border-white/70 bg-edu-cream/95 p-7 shadow-game-lg backdrop-blur-xl"
+      >
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFEF5A]/20">
+            {context === 'history' ? (
+              <History size={28} className="text-[#FFA000]" />
+            ) : (
+              <Globe size={28} className="text-[#00A0B5]" />
+            )}
+          </div>
+
+          <h2 className="mb-2 text-xl font-black text-surface-800">Necesitas una cuenta</h2>
+          <p className="text-sm font-bold text-surface-500 mb-6">
+            {context === 'history'
+              ? 'Para guardar y consultar tu historial de practicas necesitas crear una cuenta.'
+              : 'Para publicar tus practicas y compartirlas con otros jugadores necesitas crear una cuenta.'}
+          </p>
+
+          <div className="space-y-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97, y: 2 }}
+              onClick={() => {
+                audioManager.play('navigate');
+                window.location.href = '/registro';
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#407516] px-6 py-3.5 text-sm font-black text-white shadow-game"
+              style={{ boxShadow: '0 6px 0 rgba(64, 117, 22, 0.4), 0 8px 24px rgba(64,117,22,0.3)' }}
+            >
+              <UserPlus size={18} />
+              Crear cuenta
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                audioManager.play('navigate');
+                window.location.href = '/ingresar';
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-surface-200 bg-white px-6 py-3 text-sm font-black text-surface-600 shadow-card"
+            >
+              <LogIn size={18} />
+              Ya tengo cuenta
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => { audioManager.play('modalClose'); onClose(); }}
+              className="w-full rounded-xl px-6 py-3 text-sm font-black text-surface-400"
+            >
+              Cerrar
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

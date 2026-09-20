@@ -9,6 +9,7 @@ interface LeagueStore {
   starsEarnedThisGame: number;
   initStars: () => void;
   addStars: (amount: number) => void;
+  removeStars: (amount: number) => void;
   setStarsEarnedThisGame: (amount: number) => void;
   resetStarsEarnedThisGame: () => void;
   getCurrentLeague: () => ReturnType<typeof getLeagueByStars>;
@@ -47,11 +48,18 @@ export const useLeagueStore = create<LeagueStore>((set, get) => ({
 
   addStars: (amount) => {
     if (amount <= 0) return;
-    set((s) => {
-      const newStars = s.stars + amount;
-      saveStars(newStars);
-      return { stars: newStars };
-    });
+    const currentStars = loadStars();
+    const newStars = currentStars + amount;
+    saveStars(newStars);
+    set({ stars: newStars });
+  },
+
+  removeStars: (amount) => {
+    if (amount <= 0) return;
+    const currentStars = loadStars();
+    const newStars = Math.max(0, currentStars - amount);
+    saveStars(newStars);
+    set({ stars: newStars });
   },
 
   setStarsEarnedThisGame: (amount) => set({ starsEarnedThisGame: amount }),

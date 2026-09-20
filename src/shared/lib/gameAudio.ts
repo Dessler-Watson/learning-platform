@@ -358,6 +358,9 @@ const MUSIC_FILES: Record<string, string[]> = {
     '/songs/freesound_community-lava-loop-1-67307.mp3',
     '/songs/sergequadrado-fairy-tale-loop-275534.mp3',
   ],
+  league: [
+    '/songs/Leage_song/idoberg-space-chords-loop-310493.mp3',
+  ],
 };
 
 interface LoopTrack {
@@ -441,7 +444,7 @@ function createSeamlessLoop(file: string): LoopTrack {
   return track;
 }
 
-function startMusic(mode: 'decisiones' | 'lava') {
+function startMusic(mode: 'decisiones' | 'lava' | 'league') {
   stopMusic();
   if (!masterEnabled) return;
   const files = MUSIC_FILES[mode];
@@ -498,6 +501,7 @@ export const gameAudio = {
   // ---- Music ----
   startDecisionMusic: () => startMusic('decisiones'),
   startLavaMusic: () => startMusic('lava'),
+  startLeagueMusic: () => startMusic('league'),
   stopMusic,
 
   // ---- Cleanup ----

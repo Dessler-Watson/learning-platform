@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import type { LavaPhase, LavaPlayer } from '@/games/lava-knowledge/types';
 import type { GameQuestion } from '@/games/decision-road/types';
+import { recordAchievementEvent } from '@/shared/lib/achievement-service';
 
 interface LavaStore {
   phase: LavaPhase; questions: GameQuestion[]; currentQuestionIndex: number;
@@ -68,6 +69,15 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     const nextPlayer = { ...s.players[0], correct: isCorrect, targetY: ty, blocks: newTicks, eliminated };
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
     const starsNow = isCorrect && !isPractice ? 15 : 0;
+    if (isCorrect) {
+      recordAchievementEvent({ type: 'correct_answer', mode: 'lava' });
+    } else {
+      recordAchievementEvent({ type: 'incorrect_answer', mode: 'lava' });
+    }
+    recordAchievementEvent({ type: 'score', mode: 'lava', metadata: { score: newScore } });
+    if (isCorrect) {
+      recordAchievementEvent({ type: 'xp', mode: 'lava', metadata: { xp: 15 } });
+    }
     return {
       players: [nextPlayer],
       roundResults: results,
@@ -89,7 +99,18 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
 
   startRound: () => set({ roundResults: [], phase: 'roundActive' }),
 
-  completeGame: (defeated = false) => set({ phase: 'completed', defeated }),
+  completeGame: (defeated = false) => {
+    set({ phase: 'completed', defeated });
+    const state = get();
+    const total = state.questions.length;
+    const accuracy = total > 0 ? Math.round((state.correctCount / total) * 100) : 0;
+    if (defeated) {
+      recordAchievementEvent({ type: 'elimination', mode: 'lava' });
+      recordAchievementEvent({ type: 'game_defeated', mode: 'lava', metadata: { accuracy, defeated: true, ticks: state.ticks } });
+    } else {
+      recordAchievementEvent({ type: 'game_completed', mode: 'lava', metadata: { accuracy, score: state.score, defeated: false, ticks: state.ticks } });
+    }
+  },
 
   reset: () => set({
     phase: 'loading', questions: [], currentQuestionIndex: 0,

@@ -14,6 +14,7 @@ interface PracticeData {
   mode: 'decisiones' | 'lava';
   questions: GameQuestion[];
   topic: string;
+  practiceId?: string;
 }
 
 interface AnsweredQuestion {

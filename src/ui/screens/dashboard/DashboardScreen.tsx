@@ -10,6 +10,8 @@ import { useLeagueStore } from '@/stores/league.store';
 import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
 import { audioManager } from '@/shared/lib/audio';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
+import { useAchievementStore } from '@/stores/achievement.store';
+import { AchievementNotification } from '@/ui/components/AchievementNotification';
 
 interface StoredUser {
   id_usuario: number;
@@ -95,13 +97,18 @@ export function DashboardScreen() {
   const [salaCode, setSalaCode] = useState('');
   const [salaLoading, setSalaLoading] = useState(false);
   const [salaError, setSalaError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const stars = useLeagueStore((s) => s.stars);
   const initStars = useLeagueStore((s) => s.initStars);
 
+  const achievementInit = useAchievementStore((s) => s.init);
+  const hasNewAchievements = useAchievementStore((s) => s.hasNewAchievements);
+
   useEffect(() => {
     initStars();
-  }, [initStars]);
+    achievementInit();
+  }, [initStars, achievementInit]);
 
   useEffect(() => {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
@@ -394,7 +401,15 @@ export function DashboardScreen() {
             label="Logros"
             color="#FFEF5A"
             text="#8A6D00"
-            onClick={() => {}}
+            showDot={isGuest ? false : hasNewAchievements()}
+            onClick={() => {
+              audioManager.play('click');
+              if (isGuest) {
+                setShowAuthModal(true);
+              } else {
+                window.location.href = '/logros';
+              }
+            }}
           />
           <QuickCard
             icon={<Sparkles size={22} />}
@@ -421,6 +436,50 @@ export function DashboardScreen() {
           }));
         }}
       />
+
+      {/* Auth Modal for achievements */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
+          <motion.div
+            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+            className="relative z-10 w-full max-w-sm rounded-[28px] border-2 border-white/70 bg-[#FFF7F2]/95 p-7 shadow-xl backdrop-blur-xl"
+          >
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFEF5A]/20">
+                <Trophy size={28} className="text-[#FFA000]" />
+              </div>
+              <h2 className="mb-2 text-xl font-black text-surface-800">Necesitas una cuenta</h2>
+              <p className="text-sm font-bold text-surface-500 mb-6">
+                Los logros se guardan en tu cuenta. Crea una cuenta para comenzar a desbloquear y guardar tus logros.
+              </p>
+              <div className="space-y-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97, y: 2 }}
+                  onClick={() => { audioManager.play('navigate'); window.location.href = '/registro'; }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#407516] px-6 py-3.5 text-sm font-black text-white"
+                  style={{ boxShadow: '0 6px 0 rgba(64, 117, 22, 0.4), 0 8px 24px rgba(64,117,22,0.3)' }}
+                >
+                  Crear cuenta
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { audioManager.play('modalClose'); setShowAuthModal(false); }}
+                  className="w-full rounded-xl px-6 py-3 text-sm font-black text-surface-400"
+                >
+                  Cerrar
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      <AchievementNotification />
     </main>
   );
 }
@@ -443,15 +502,18 @@ function IconBtn({ children, onClick, ariaLabel, badge }: { children: React.Reac
   );
 }
 
-function QuickCard({ icon, label, color, text, onClick }: { icon: React.ReactNode; label: string; color: string; text: string; onClick: () => void }) {
+function QuickCard({ icon, label, color, text, onClick, showDot }: { icon: React.ReactNode; label: string; color: string; text: string; onClick: () => void; showDot?: boolean }) {
   return (
     <motion.button
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.97, y: 2 }}
       onClick={onClick}
-      className="card-game flex items-center gap-3 p-4 text-left"
+      className="card-game relative flex items-center gap-3 p-4 text-left"
       style={{ borderLeft: `5px solid ${color}` }}
     >
+      {showDot && (
+        <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#EB5D70]" style={{ boxShadow: '0 0 6px rgba(235, 93, 112, 0.5)' }} />
+      )}
       <div
         className="flex h-10 w-10 items-center justify-center rounded-xl"
         style={{ background: color, color: text }}

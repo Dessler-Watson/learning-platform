@@ -12,6 +12,8 @@ import { QuestionPanel } from '@/games/decision-road/ui/QuestionPanel';
 import { FeedbackOverlay } from '@/games/decision-road/ui/FeedbackOverlay';
 import { ResultsScreen } from '@/games/decision-road/ui/ResultsScreen';
 import { useGameStore } from '@/stores/game.store';
+import { useAchievementStore } from '@/stores/achievement.store';
+import { GameAchievementNotification } from '@/ui/components/GameAchievementNotification';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { MobileControls } from '@/games/decision-road/ui/MobileControls';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
@@ -48,6 +50,10 @@ export function GameCanvas() {
   const gamePhase = useGameStore((s) => s.phase);
 
   useEffect(() => {
+    useAchievementStore.getState().init();
+  }, []);
+
+  useEffect(() => {
     gameAudio.startDecisionMusic();
     const init = () => { initAudio(); window.removeEventListener('keydown', init); window.removeEventListener('click', init); };
     window.addEventListener('keydown', init);
@@ -76,6 +82,7 @@ export function GameCanvas() {
       />
       <MobileControls />
       <Leaderboard />
+      <GameAchievementNotification />
       <div style={{
         position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%)',

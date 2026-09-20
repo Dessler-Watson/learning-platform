@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Star, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Trophy, Star, ChevronDown, ChevronUp, Palette } from 'lucide-react';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { useLeagueStore } from '@/stores/league.store';
 import { LEAGUES, type League, isLeagueUnlocked, getLeagueByStars } from '@/lib/leagues';
@@ -160,6 +160,20 @@ export function LeaguesScreen() {
             <p className="text-xs font-bold text-white/50">Tu camino de progresion</p>
           </div>
         </div>
+
+        {/* Ver diseños de ligas button */}
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          whileHover={{ scale: 1.02, y: -1 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { audioManager.play('click'); window.location.href = '/ligas/disenos'; }}
+          className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-white/10"
+        >
+          <Palette size={18} className="text-purple-400" />
+          <span className="text-sm font-black text-white">Ver diseños de ligas</span>
+        </motion.button>
 
         {/* Current league summary */}
         <motion.div

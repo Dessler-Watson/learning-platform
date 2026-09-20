@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, CheckCircle2, XCircle, Flame, ArrowLeft, RotateCcw, ChevronDown, ChevronUp, Skull } from 'lucide-react';
+import { Trophy, CheckCircle2, XCircle, Flame, ArrowLeft, RotateCcw, ChevronDown, ChevronUp, Skull, Globe } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { usePracticeStore } from '@/stores/practice.store';
+import type { StoredUser } from '@/shared/types/practice';
 
 interface AnsweredQuestion {
   question: string;
@@ -24,11 +26,31 @@ interface PracticeResult {
   incorrectAnswers: number;
   eliminatedByLava: boolean;
   answeredQuestions: AnsweredQuestion[];
+  practiceId?: string;
+}
+
+const USER_KEY = 'eduplay_user';
+
+function getUser(): StoredUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export function PracticeResultsScreen() {
   const [result, setResult] = useState<PracticeResult | null>(null);
   const [showQuestions, setShowQuestions] = useState(false);
+  const [resultSaved, setResultSaved] = useState(false);
+  const store = usePracticeStore();
+
+  useEffect(() => {
+    store.init();
+  }, []);
 
   useEffect(() => {
     audioManager.play('success');
@@ -68,11 +90,33 @@ export function PracticeResultsScreen() {
         incorrectAnswers,
         eliminatedByLava,
         answeredQuestions,
+        practiceId: practiceData.practiceId,
       });
     } catch {
       window.location.href = '/practica';
     }
   }, []);
+
+  useEffect(() => {
+    if (!result || resultSaved) return;
+
+    const user = getUser();
+    if (!user || user.modo !== 'registrado') {
+      setResultSaved(true);
+      return;
+    }
+
+    if (result.practiceId) {
+      store.recordPlayResult(
+        result.practiceId,
+        result.correctAnswers,
+        result.incorrectAnswers
+      );
+      setResultSaved(true);
+    } else {
+      setResultSaved(true);
+    }
+  }, [result, resultSaved]);
 
   const handlePlayAgain = () => {
     audioManager.play('click');
@@ -114,14 +158,12 @@ export function PracticeResultsScreen() {
         transition={{ duration: 0.5 }}
         className="relative z-10 mx-auto max-w-md"
       >
-        {/* Result card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 20 }}
           className="card-game overflow-hidden"
         >
-          {/* Header */}
           <div
             className="px-6 py-8 text-center"
             style={{
@@ -149,14 +191,13 @@ export function PracticeResultsScreen() {
             </motion.div>
 
             <h2 className="mb-2 text-2xl font-black text-surface-800">
-              {result.eliminatedByLava ? 'La lava te alcanzó' : '¡Práctica completada!'}
+              {result.eliminatedByLava ? 'La lava te alcanzo' : '¡Practica completada!'}
             </h2>
             <p className="text-sm font-bold text-surface-500">
               {result.topic}
             </p>
           </div>
 
-          {/* Stats */}
           <div className="px-6 pb-6">
             <div className="mb-4 text-center">
               <span className="text-4xl font-black text-surface-800">{result.totalQuestions}</span>
@@ -176,10 +217,9 @@ export function PracticeResultsScreen() {
               </div>
             </div>
 
-            {/* Accuracy bar */}
             <div className="mb-4">
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs font-bold text-surface-500">Precisión</span>
+                <span className="text-xs font-bold text-surface-500">Precision</span>
                 <span className="text-xs font-black text-surface-700">{accuracy}%</span>
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-surface-100">
@@ -199,7 +239,6 @@ export function PracticeResultsScreen() {
               </div>
             </div>
 
-            {/* Toggle questions list */}
             {result.answeredQuestions.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.01 }}
@@ -212,7 +251,6 @@ export function PracticeResultsScreen() {
               </motion.button>
             )}
 
-            {/* Questions list */}
             <AnimatePresence>
               {showQuestions && (
                 <motion.div
@@ -295,7 +333,6 @@ export function PracticeResultsScreen() {
               )}
             </AnimatePresence>
 
-            {/* Buttons */}
             <div className="space-y-3">
               <motion.button
                 whileHover={{ scale: 1.02 }}
