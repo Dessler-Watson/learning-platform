@@ -11,18 +11,28 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (id) {
+      if (session.role === 'student') {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
       const course = await getCourse(id);
-      if (!course) return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
+      if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+        return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
+      }
       const questions = await listCourseQuestions(id);
       return NextResponse.json({ curso: course, preguntas: questions });
     }
 
+    const studentOnlyActive = session.role === 'student';
     const courses = await listCourses({
       subject: searchParams.get('subject') ?? undefined,
       search: searchParams.get('q') ?? undefined,
-      teacherId: searchParams.get('mine') === '1' && session.role !== 'student' ? session.id : undefined,
+      teacherId:
+        session.role !== 'admin' && (session.role !== 'student' || searchParams.get('mine') === '1')
+          ? session.id
+          : undefined,
     });
-    return NextResponse.json({ cursos: courses });
+    const visible = studentOnlyActive ? courses.filter((c) => c.status === 'active') : courses;
+    return NextResponse.json({ cursos: visible });
   } catch (err) {
     console.error('[cursos GET]', err);
     return NextResponse.json({ error: 'Error' }, { status: 500 });

@@ -796,6 +796,292 @@ try {
   Ok 'estud: no self-delete 400' ($code -eq 400 -or $code -eq 404) "code=$code"
 }
 
+# ═══ 11. CURSOS Y PREGUNTAS (Paso 2) ═══
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+  email = 'carlos.lopez@gmail.com'; password = 'demo123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable stch2
+Ok 'cursos: segundo docente login' ($r.StatusCode -eq 200) $r.StatusCode
+
+# create course
+$r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+  action = 'create'; nombre = "Curso E2E $stamp"; descripcion = 'Creado por E2E'; gameModeId = 'lava'; estado = 'activo'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'cursos: create' ($r.StatusCode -eq 201) $r.StatusCode
+$nc = J $r
+$cursoE2E = if ($nc.curso) { $nc.curso.id } else { $null }
+
+# invalid mode rejected
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; nombre = "Bad $stamp"; gameModeId = 'modoinvalido'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cursos: invalid mode 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'cursos: invalid mode 400' ($code -eq 400) "code=$code"
+}
+
+# duplicate name in same mode → 409
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; nombre = "Curso E2E $stamp"; gameModeId = 'lava'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cursos: duplicate name 409' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'cursos: duplicate name 409' ($code -eq 409) "code=$code"
+}
+
+if ($cursoE2E) {
+  # list includes new course
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -WebSession $stch -UseBasicParsing
+  $clist = J $r
+  $found = @($clist.cursos | Where-Object { $_.id -eq $cursoE2E }).Count -eq 1
+  Ok 'cursos: list contains' $found "found=$found"
+
+  # exists check true/false
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'exists'; nombre = "Curso E2E $stamp"; gameModeId = 'lava'
+  } | ConvertTo-Json) -UseBasicParsing
+  $ex = J $r
+  Ok 'cursos: exists true' ($ex.existe -eq $true) "$($ex.existe)"
+
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'exists'; nombre = "NoExiste $stamp"; gameModeId = 'lava'
+  } | ConvertTo-Json) -UseBasicParsing
+  $ex2 = J $r
+  Ok 'cursos: exists false' ($ex2.existe -eq $false) "$($ex2.existe)"
+
+  # update course (incl. gameModeId)
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'update'; id = $cursoE2E; descripcion = 'Editado E2E'; gameModeId = 'decisiones'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cursos: update' ($r.StatusCode -eq 200) $r.StatusCode
+  $up = J $r
+  Ok 'cursos: update mode applied' ($up.curso.gameModeId -eq 'decisiones') "$($up.curso.gameModeId)"
+  # restore lava for later room tests not needed (room tests already ran)
+
+  # student 403
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -WebSession $s1 -UseBasicParsing
+    Ok 'cursos: student 403 list' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: student 403 list' ($code -eq 403) "code=$code"
+  }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'create'; nombre = "Stud $stamp"
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'cursos: student 403 create' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: student 403 create' ($code -eq 403) "code=$code"
+  }
+
+  # second teacher cannot update/delete foreign course
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+      action = 'update'; id = $cursoE2E; nombre = 'Hacked'
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'cursos: other teacher update 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: other teacher update 404' ($code -eq 404) "code=$code"
+  }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+      action = 'delete'; id = $cursoE2E
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'cursos: other teacher delete 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: other teacher delete 404' ($code -eq 404) "code=$code"
+  }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+      action = 'copy'; id = $cursoE2E
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'cursos: other teacher copy 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: other teacher copy 404' ($code -eq 404) "code=$code"
+  }
+
+  # create A/B question
+  $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; cursoId = $cursoE2E; enunciado = "¿Es A/B $stamp?"; opciones = @('Si es', 'No es'); respuestaCorrecta = 'Si es'; estado = 'activa'
+  } | ConvertTo-Json -Depth 5) -UseBasicParsing
+  Ok 'preguntas: create' ($r.StatusCode -eq 201) $r.StatusCode
+  $npE2E = J $r
+  $pregE2E = if ($npE2E.pregunta) { $npE2E.pregunta.id } else { $null }
+  Ok 'preguntas: create shape' ($npE2E.pregunta.enunciado -and $npE2E.pregunta.opciones.Count -eq 2) "$($npE2E.pregunta.opciones -join '|')"
+
+  # 3 options rejected (A/B only)
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; cursoId = $cursoE2E; enunciado = "3opt $stamp"; opciones = @('A', 'B', 'C'); respuestaCorrecta = 'A'
+    } | ConvertTo-Json -Depth 5) -UseBasicParsing
+    Ok 'preguntas: reject 3 options 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'preguntas: reject 3 options 400' ($code -eq 400) "code=$code"
+  }
+
+  # A = B rejected
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; cursoId = $cursoE2E; enunciado = "Igual $stamp"; opciones = @('X', 'X'); respuestaCorrecta = 'X'
+    } | ConvertTo-Json -Depth 5) -UseBasicParsing
+    Ok 'preguntas: reject A=B 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'preguntas: reject A=B 400' ($code -eq 400) "code=$code"
+  }
+
+  # respuesta not in options rejected
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; cursoId = $cursoE2E; enunciado = "NoMatch $stamp"; opciones = @('A', 'B'); respuestaCorrecta = 'Z'
+    } | ConvertTo-Json -Depth 5) -UseBasicParsing
+    Ok 'preguntas: reject bad answer 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'preguntas: reject bad answer 400' ($code -eq 400) "code=$code"
+  }
+
+  # student 403 preguntas
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas?curso_id=$cursoE2E" -WebSession $s1 -UseBasicParsing
+    Ok 'preguntas: student 403' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'preguntas: student 403' ($code -eq 403) "code=$code"
+  }
+
+  # other teacher cannot read questions of foreign course
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas?curso_id=$cursoE2E" -WebSession $stch2 -UseBasicParsing
+    Ok 'preguntas: other teacher read 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'preguntas: other teacher read 404' ($code -eq 404) "code=$code"
+  }
+
+  if ($pregE2E) {
+    # update question
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'update'; id = $pregE2E; enunciado = "Editada $stamp"; opciones = @('Opción A', 'Opción B'); respuestaCorrecta = 'Opción B'
+    } | ConvertTo-Json -Depth 5) -UseBasicParsing
+    Ok 'preguntas: update' ($r.StatusCode -eq 200) $r.StatusCode
+    $upq = J $r
+    Ok 'preguntas: update answer' ($upq.pregunta.respuestaCorrecta -eq 'Opción B') "$($upq.pregunta.respuestaCorrecta)"
+
+    # other teacher cannot update/delete
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+        action = 'update'; id = $pregE2E; enunciado = 'Hack'
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'preguntas: other teacher update 404' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'preguntas: other teacher update 404' ($code -eq 404) "code=$code"
+    }
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+        action = 'delete'; id = $pregE2E
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'preguntas: other teacher delete 404' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'preguntas: other teacher delete 404' ($code -eq 404) "code=$code"
+    }
+
+    # list by curso includes question
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas?curso_id=$cursoE2E" -WebSession $stch -UseBasicParsing
+    $plist = J $r
+    $pfound = @($plist.preguntas | Where-Object { $_.id -eq $pregE2E }).Count -eq 1
+    Ok 'preguntas: list by curso' $pfound "found=$pfound"
+  }
+
+  # copy own course → Pregunta shape
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'copy'; id = $cursoE2E
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cursos: copy own' ($r.StatusCode -eq 200) $r.StatusCode
+  $cp = J $r
+  $firstQ = @($cp.preguntas) | Select-Object -First 1
+  $shapeOk = $null -ne $firstQ -and $null -ne $firstQ.enunciado -and ($firstQ.opciones -is [array]) -and (@($firstQ.opciones).Count -eq 2) -and ($null -ne $firstQ.respuestaCorrecta)
+  Ok 'cursos: copy shape Pregunta' $shapeOk "q=$($firstQ.enunciado)"
+
+  # paste as new course
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'paste'
+      curso = $cp.curso
+      preguntas = $cp.preguntas
+      gameModeId = 'lava'
+      nombrePersonalizado = "Copia E2E $stamp"
+    } | ConvertTo-Json -Depth 8) -UseBasicParsing
+    Ok 'cursos: paste' ($r.StatusCode -eq 201) $r.StatusCode
+    $ps2 = J $r
+  } catch {
+    Ok 'cursos: paste' $false $_.Exception.Message
+    $ps2 = $null
+  }
+  $cursoCopia = if ($ps2 -and $ps2.curso) { $ps2.curso.id } else { $null }
+
+  if ($cursoCopia) {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas?curso_id=$cursoCopia" -WebSession $stch -UseBasicParsing
+    $pco = J $r
+    Ok 'cursos: paste questions' (@($pco.preguntas).Count -ge 1) "n=$(@($pco.preguntas).Count)"
+    $firstC = @($pco.preguntas) | Select-Object -First 1
+    Ok 'cursos: paste option strings' ($firstC.opciones[0] -is [string] -and $firstC.opciones[0].Length -gt 0) "$($firstC.opciones[0])"
+  }
+
+  # PostgreSQL integrity (not mocks)
+  $psqlExe = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+  if (Test-Path $psqlExe) {
+    $env:PGPASSWORD = 'casimiro123'
+    $pgN = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM courses WHERE id = '$cursoE2E' AND deleted_at IS NULL" 2>$null)
+    Ok 'cursos: PG row exists' ("$pgN".Trim() -eq '1') "n=$pgN"
+    $pgQ = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM question_options o JOIN questions q ON q.id = o.question_id WHERE q.course_id = '$cursoE2E' AND q.deleted_at IS NULL AND o.is_correct" 2>$null)
+    Ok 'cursos: PG has correct options' ([int]"$pgQ".Trim() -ge 1) "n=$pgQ"
+    $pgMode = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT gm.code FROM courses c JOIN game_modes gm ON gm.id = c.game_mode_id WHERE c.id = '$cursoE2E'" 2>$null)
+    Ok 'cursos: PG mode code' ("$pgMode".Trim() -eq 'decisiones') "mode=$pgMode"
+  } else {
+    Ok 'cursos: PG row exists' $false 'psql not found'
+  }
+
+  # delete paste copy + original (soft-delete cascades questions)
+  if ($cursoCopia) {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'delete'; id = $cursoCopia
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'cursos: delete copy' ($r.StatusCode -eq 200) $r.StatusCode
+  }
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'delete'; id = $cursoE2E
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cursos: delete' ($r.StatusCode -eq 200) $r.StatusCode
+
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/cursos?id=$cursoE2E" -WebSession $stch -UseBasicParsing
+    Ok 'cursos: deleted not found' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'cursos: deleted not found' ($code -eq 404) "code=$code"
+  }
+
+  if (Test-Path $psqlExe) {
+    $pgDel = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM questions WHERE course_id = '$cursoE2E' AND deleted_at IS NOT NULL" 2>$null)
+    Ok 'cursos: PG questions soft-deleted' ([int]"$pgDel".Trim() -ge 1) "n=$pgDel"
+  }
+} else {
+  Ok 'cursos: list contains' $false 'no curso id'
+  Ok 'preguntas: create' $false 'no curso'
+}
+
 # ═══ RESULTS ═══
 Write-Host "`n=== E2E RESULTS ==="
 $results | Format-Table -AutoSize -Wrap
