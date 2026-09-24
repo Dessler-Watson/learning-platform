@@ -1,0 +1,72 @@
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  createUser,
+  getUserByEmail,
+  hashPassword,
+  createSession,
+  setSessionCookie,
+  updateLastLogin,
+} from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const nombre = String(body.nombre ?? '').trim();
+    const apellido = String(body.apellido ?? '').trim() || null;
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '');
+    const avatarSort = body.avatar != null ? Number(body.avatar) : null;
+    const birthDate = body.birth_date ? String(body.birth_date) : null;
+    const sex = body.sex ? String(body.sex) : null;
+
+    if (!nombre || !email || !password) {
+      return NextResponse.json({ error: 'Nombre, correo y contraseña son obligatorios' }, { status: 400 });
+    }
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+    }
+
+    const existing = await getUserByEmail(email);
+    if (existing) {
+      return NextResponse.json({ error: 'Ya existe una cuenta con ese correo' }, { status: 409 });
+    }
+
+    const passwordHash = await hashPassword(password);
+    const user = await createUser({
+      roleCode: 'student',
+      nombre,
+      apellido,
+      email,
+      passwordHash,
+      avatarSort: Number.isFinite(avatarSort) ? avatarSort : null,
+      birthDate,
+      sex,
+    });
+    await updateLastLogin(user.id);
+    const token = await createSession(user.id, req.headers.get('user-agent'), req.headers.get('x-forwarded-for'));
+
+    const res = NextResponse.json({
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        role: user.role,
+        is_guest: user.is_guest,
+        avatar_sort: user.avatar_sort,
+        avatar_image: user.avatar_image,
+        custom_avatar: user.custom_avatar,
+      },
+    }, { status: 201 });
+    res.headers.set('Set-Cookie', setSessionCookie(token));
+    return res;
+  } catch (err) {
+    console.error('[auth/register]', err);
+    return NextResponse.json({ error: 'Error al crear la cuenta' }, { status: 500 });
+  }
+}

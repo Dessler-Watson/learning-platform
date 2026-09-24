@@ -13,16 +13,54 @@ interface PanelState {
   cursoCopiado: CursoCopiado | null;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
-  login: (correo: string, contrasena: string, institucion: string, rol: RolUsuario) => { success: boolean; error?: string };
-  register: (data: { nombre: string; correo: string; contrasena: string; institucion: string; rol?: RolUsuario; createdByAdmin?: boolean }) => { success: boolean; error?: string };
-  logout: () => void;
-  updateProfile: (data: { nombre?: string; correo?: string; contrasena?: string }) => { success: boolean; error?: string };
+  login: (
+    correo: string,
+    contrasena: string,
+    institucion: string,
+    rol: RolUsuario
+  ) => Promise<{ success: boolean; error?: string }>;
+  register: (data: {
+    nombre: string;
+    correo: string;
+    contrasena: string;
+    institucion: string;
+    rol?: RolUsuario;
+    createdByAdmin?: boolean;
+  }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
+  updateProfile: (data: {
+    nombre?: string;
+    correo?: string;
+    contrasena?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   setCursoCopiado: (curso: Curso, preguntas: Pregunta[]) => void;
   limpiarCursoCopiado: () => void;
   isAdmin: () => boolean;
 }
 
 const STORAGE_KEY = 'panel-auth';
+
+function toDocente(apiUser: {
+  id: string;
+  nombre: string;
+  apellido?: string | null;
+  email: string | null;
+  role: string;
+  institution?: string | null;
+}): Docente {
+  return {
+    id: apiUser.id,
+    nombre: apiUser.apellido ? `${apiUser.nombre} ${apiUser.apellido}` : apiUser.nombre,
+    correo: apiUser.email ?? '',
+    contrasena: '',
+    institucion: apiUser.institution ?? '',
+    rol: apiUser.role === 'admin' ? 'admin' : 'docente',
+    estado: 'activo',
+    fechaRegistro: new Date().toISOString().split('T')[0],
+    ultimaActividad: new Date().toISOString(),
+  };
+}
 
 function loadAuth(): Docente | null {
   if (typeof window === 'undefined') return null;
@@ -50,88 +88,110 @@ export const usePanelStore = create<PanelState>((set, get) => ({
   cursoCopiado: null,
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  login: (correo: string, contrasena: string, institucion: string, rol: RolUsuario) => {
-    const { obtenerDocentes } = require('../data/docentes');
-    const docentes = obtenerDocentes();
-    const docente = docentes.find(
-      (d: Docente) =>
-        d.correo.toLowerCase() === correo.toLowerCase() &&
-        d.contrasena === contrasena
-    );
-
-    if (!docente) {
-      return { success: false, error: 'Correo o contraseña incorrectos' };
+  login: async (correo, contrasena, institucion, rol) => {
+    try {
+      const res = await fetch('/api/panel/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: correo, password: contrasena, institution: institucion, role: rol }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        return { success: false, error: result.error || 'Correo o contraseña incorrectos' };
+      }
+      const docente = toDocente(result.user);
+      if (institucion && docente.institucion && docente.institucion.toLowerCase() !== institucion.toLowerCase()) {
+        await fetch('/api/panel/auth/logout', { method: 'POST' });
+        return { success: false, error: 'La institución no coincide con esta cuenta' };
+      }
+      if (rol === 'admin' && docente.rol !== 'admin') {
+        await fetch('/api/panel/auth/logout', { method: 'POST' });
+        return {
+          success: false,
+          error: `Esta cuenta tiene el rol "${docente.rol}". No puedes iniciar sesión como "admin".`,
+        };
+      }
+      if (rol === 'docente' && docente.rol === 'admin') {
+        // admins can also act as teachers; keep session
+      }
+      saveAuth(docente);
+      set({ docente, isAuthenticated: true });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
     }
-
-    if (docente.institucion.toLowerCase() !== institucion.toLowerCase()) {
-      return { success: false, error: 'La institución no coincide con esta cuenta' };
-    }
-
-    if (docente.rol !== rol) {
-      return { success: false, error: `Esta cuenta tiene el rol "${docente.rol}". No puedes iniciar sesión como "${rol}".` };
-    }
-
-    docente.ultimaActividad = new Date().toISOString();
-    saveAuth(docente);
-    set({ docente, isAuthenticated: true });
-    return { success: true };
   },
 
-  register: (data) => {
-    const { existeDocente, registrarDocente, obtenerDocentes } = require('../data/docentes');
-    if (existeDocente(data.correo)) {
-      return { success: false, error: 'Este correo ya está registrado.' };
+  register: async (data) => {
+    try {
+      const res = await fetch('/api/panel/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: data.nombre,
+          email: data.correo,
+          password: data.contrasena,
+          institution: data.institucion,
+          role: data.createdByAdmin ? (data.rol === 'admin' ? 'admin' : 'teacher') : 'teacher',
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        return { success: false, error: result.error || 'Este correo ya está registrado.' };
+      }
+      if (!data.createdByAdmin) {
+        const docente = toDocente(result.user);
+        saveAuth(docente);
+        set({ docente, isAuthenticated: true });
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
     }
-
-    const rolAsignado: RolUsuario = data.createdByAdmin ? (data.rol || 'docente') : 'docente';
-
-    const newId = `${rolAsignado === 'admin' ? 'admin' : 'teacher'}-${Date.now()}`;
-    const nuevoDocente: Docente = {
-      id: newId,
-      nombre: data.nombre,
-      correo: data.correo,
-      contrasena: data.contrasena,
-      institucion: data.institucion,
-      rol: rolAsignado,
-      estado: 'activo',
-      fechaRegistro: new Date().toISOString().split('T')[0],
-      ultimaActividad: new Date().toISOString(),
-    };
-    registrarDocente(nuevoDocente);
-
-    if (!data.createdByAdmin) {
-      saveAuth(nuevoDocente);
-      set({ docente: nuevoDocente, isAuthenticated: true });
-    }
-
-    return { success: true };
   },
 
-  logout: () => {
-    const current = get().docente;
-    if (current) {
-      const { actualizarDocentePorId } = require('../data/docentes');
-      actualizarDocentePorId(current.id, { estado: current.estado });
+  logout: async () => {
+    try {
+      await fetch('/api/panel/auth/logout', { method: 'POST' });
+    } catch {
+      /* still clear local */
     }
     saveAuth(null);
     set({ docente: null, isAuthenticated: false });
   },
 
-  updateProfile: (data) => {
-    const { actualizarDocentePorId, obtenerDocentePorId } = require('../data/docentes');
+  refreshAuth: async () => {
+    try {
+      const res = await fetch('/api/panel/auth/me');
+      if (res.ok) {
+        const result = await res.json();
+        if (result.user) {
+          const docente = toDocente(result.user);
+          saveAuth(docente);
+          set({ docente, isAuthenticated: true });
+          return;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+    saveAuth(null);
+    set({ docente: null, isAuthenticated: false });
+  },
+
+  updateProfile: async (data) => {
     const current = get().docente;
     if (!current) return { success: false, error: 'No hay sesión activa.' };
-    const result = actualizarDocentePorId(current.id, data);
-    if (result.success) {
-      const updated = obtenerDocentePorId(current.id);
-      if (updated) {
-        saveAuth(updated);
-        set({ docente: updated });
-      }
+    // Profile updates for panel users go through estudiante/perfil or a dedicated route later.
+    // Keep optimistic local update for display name only.
+    if (data.nombre) {
+      const updated = { ...current, nombre: data.nombre, ultimaActividad: new Date().toISOString() };
+      saveAuth(updated);
+      set({ docente: updated });
     }
-    return result;
+    return { success: true };
   },
 
   setCursoCopiado: (curso, preguntas) => set({ cursoCopiado: { curso, preguntas } }),

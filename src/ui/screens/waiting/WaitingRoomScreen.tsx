@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper } from 'lucide-react';
+import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper, AlertTriangle } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
-import { getLeagueByStars } from '@/lib/leagues';
-import { getMockRoom, MOCK_PLAYER_NAMES, type RoomData } from '@/lib/rooms';
+import { gameRouteFor, type RoomData } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
 import { getCustomAvatar } from '@/lib/custom-avatar';
 
@@ -19,130 +18,237 @@ interface Player {
   stars: number;
 }
 
-type Phase = 'filling' | 'full' | 'countdown' | 'go';
+type Phase = 'loading' | 'error' | 'waiting' | 'full' | 'countdown' | 'go' | 'closed';
 
-function loadCurrentUser(): { nombre: string; avatar: string; stars: number } | null {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('eduplay_user');
-  if (!raw) return null;
-  try {
-    const u = JSON.parse(raw);
-    const avatarId = u.avatar_id || 1;
-    const starsRaw = localStorage.getItem('eduplay_stars');
-    const stars = starsRaw ? parseInt(starsRaw, 10) || 0 : 0;
-    return { nombre: u.nombre || 'Jugador', avatar: getCustomAvatar() || avatarUrl(avatarId), stars };
-  } catch {
-    return null;
+interface RoomSnapshot {
+  room: RoomData;
+  players: Player[];
+  myId: string;
+  esHost: boolean;
+  estado: string;
+}
+
+function mapPlayer(p: {
+  user_id: string;
+  display_name: string;
+  avatar: string | null;
+  avatar_sort: number | null;
+  stars: number;
+}, myId: string): Player {
+  const esYo = p.user_id === myId;
+  let avatar = p.avatar || avatarUrl((p.avatar_sort ?? 1) || 1);
+  if (esYo) {
+    avatar = getCustomAvatar() || avatar;
   }
+  return {
+    id: p.user_id,
+    nombre: p.display_name || 'Jugador',
+    avatar,
+    esYo,
+    stars: Number(p.stars) || 0,
+  };
 }
 
 export function WaitingRoomScreen() {
   const searchParams = useSearchParams();
   const codigo = searchParams.get('codigo');
 
-  const room: RoomData = getMockRoom(codigo);
-
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [phase, setPhase] = useState<Phase>('filling');
+  const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevIdsRef = useRef<Set<string>>(new Set());
+  const startedRef = useRef(false);
 
-  const mostrarYo = useRef(false);
-  const fullAnnounced = useRef(false);
-
-  useEffect(() => {
-    // Entering a sala: clear any leftover practice flag so the game awards league stars
-    sessionStorage.removeItem('eduplay_practice');
-    const current = loadCurrentUser();
-    const yo: Player = {
-      id: 'yo',
-      nombre: current?.nombre || 'Jugador',
-      avatar: current?.avatar || avatarUrl(1),
-      esYo: true,
-      stars: current?.stars || 0,
-    };
-    setPlayers([yo]);
-    mostrarYo.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (!mostrarYo.current) return;
-    const max = room.maxJugadores;
-    const nombreList = MOCK_PLAYER_NAMES.filter(
-      (n, i) => i < max - 1
-    );
-
-    nombreList.forEach((nombre, idx) => {
-      const delay = 1800 + idx * 700;
-      const t = setTimeout(() => {
-        setPlayers(prev => {
-          if (prev.length >= max) return prev;
-          // Assign random stars to mock players for visual testing
-          const mockStars = [0, 50, 150, 300, 500, 800, 1200, 2000, 3500, 5000, 7000, 10000, 15000, 20000][idx % 14];
-          return [...prev, {
-            id: `guest-${idx}`,
-            nombre,
-            avatar: avatarUrl(idx + 2),
-            esYo: false,
-            stars: mockStars,
-          }];
-        });
-        setAnnouncement(`${nombre} se ha unido`);
-        setTimeout(() => setAnnouncement(null), 1600);
-      }, delay);
-      timers.current.push(t);
-    });
-
-    return () => {
-      timers.current.forEach(clearTimeout);
-      timers.current = [];
-    };
-  }, [room.maxJugadores]);
-
-  useEffect(() => {
-    if (players.length >= room.maxJugadores && !fullAnnounced.current) {
-      fullAnnounced.current = true;
-      setPhase('full');
-      setAnnouncement(null);
-      const t1 = setTimeout(() => {
-        setPhase('countdown');
-        startCountdown();
-      }, 2000);
-      timers.current.push(t1);
-    }
-  }, [players.length, room.maxJugadores]);
-
-  const startCountdown = () => {
-    const nums = [3, 2, 1];
-    nums.forEach((n, i) => {
-      const t = setTimeout(() => setCountdown(n), i * 900);
-      timers.current.push(t);
-    });
-    const tGo = setTimeout(() => {
-      setCountdown(null);
-      setPhase('go');
-    }, nums.length * 900);
-    timers.current.push(tGo);
-
-    const tRedirect = setTimeout(() => {
-      if (room.juegoId === 1) window.location.href = '/camino-decisiones';
-      else if (room.juegoId === 2) window.location.href = '/lava-conocimiento';
-      else if (room.juegoId === 3) window.location.href = '/tierras-hundidas';
-      else if (room.juegoId === 4) window.location.href = '/entre-abismos';
-      else window.location.href = '/camino-decisiones';
-    }, nums.length * 900 + 1500);
-    timers.current.push(tRedirect);
+  const clearTimers = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
   };
 
-  useEffect(() => {
-    return () => {
-      timers.current.forEach(clearTimeout);
-      timers.current = [];
-    };
+  const pushTimer = (fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timers.current.push(t);
+    return t;
+  };
+
+  const beginCountdown = useCallback((modo: string) => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    setPhase('countdown');
+    [3, 2, 1].forEach((n, i) => pushTimer(() => setCountdown(n), i * 900));
+    pushTimer(() => {
+      setCountdown(null);
+      setPhase('go');
+    }, 2700);
+    pushTimer(() => {
+      window.location.href = gameRouteFor(modo);
+    }, 4200);
   }, []);
 
-  const pct = Math.round((players.length / room.maxJugadores) * 100);
+  const applySnapshot = useCallback((data: {
+    sala: {
+      id: string;
+      code: string;
+      name: string | null;
+      mode_code: string;
+      mode_name: string | null;
+      status: string;
+      max_players: number | null;
+      docente: string | null;
+      curso: string | null;
+    };
+    participantes: Array<{
+      user_id: string;
+      display_name: string;
+      avatar: string | null;
+      avatar_sort: number | null;
+      stars: number;
+    }>;
+    usuario_id: string;
+    es_host: boolean;
+  }) => {
+    const room: RoomData = {
+      id: data.sala.id,
+      codigo: data.sala.code,
+      nombre: data.sala.name || `Sala ${data.sala.code}`,
+      docente: data.sala.docente || 'Docente',
+      curso: data.sala.curso || 'Curso',
+      actividad: data.sala.mode_name || data.sala.mode_code,
+      maxJugadores: data.sala.max_players ?? 8,
+      estado: data.sala.status,
+      modo: data.sala.mode_code,
+    };
+    const players = data.participantes.map((p) => mapPlayer(p, data.usuario_id));
+
+    const nextIds = new Set(players.map((p) => p.id));
+    if (prevIdsRef.current.size > 0) {
+      for (const p of players) {
+        if (!prevIdsRef.current.has(p.id) && !p.esYo) {
+          setAnnouncement(`${p.nombre} se ha unido`);
+          pushTimer(() => setAnnouncement(null), 1600);
+        }
+      }
+    }
+    prevIdsRef.current = nextIds;
+
+    setSnapshot({ room, players, myId: data.usuario_id, esHost: data.es_host, estado: data.sala.status });
+
+    if (data.sala.status === 'in_progress') {
+      beginCountdown(data.sala.mode_code);
+      return;
+    }
+    if (data.sala.status === 'finished' || data.sala.status === 'archived') {
+      setPhase('closed');
+      return;
+    }
+
+    if (players.length >= room.maxJugadores) {
+      setPhase('full');
+    } else {
+      setPhase((prev) => (prev === 'full' ? prev : 'waiting'));
+    }
+  }, [beginCountdown]);
+
+  const loadRoom = useCallback(async () => {
+    if (!codigo) {
+      setPhase('error');
+      setErrorMsg('Código de sala requerido');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/salas?code=${encodeURIComponent(codigo)}`, { cache: 'no-store' });
+      if (res.status === 401) {
+        setPhase('error');
+        setErrorMsg('Debes iniciar sesión para entrar a la sala');
+        return;
+      }
+      if (res.status === 404) {
+        setPhase('error');
+        setErrorMsg('Sala no encontrada. Verifica el código.');
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPhase('error');
+        setErrorMsg(data.error || 'No se pudo cargar la sala');
+        return;
+      }
+      const data = await res.json();
+      applySnapshot(data);
+    } catch {
+      setPhase('error');
+      setErrorMsg('Error de conexión. Intenta de nuevo.');
+    }
+  }, [codigo, applySnapshot]);
+
+  useEffect(() => {
+    sessionStorage.removeItem('eduplay_practice');
+    clearTimers();
+    prevIdsRef.current = new Set();
+    startedRef.current = false;
+    setPhase('loading');
+    loadRoom();
+    pollRef.current = setInterval(() => {
+      if (!startedRef.current) loadRoom();
+    }, 2000);
+    return () => {
+      clearTimers();
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [loadRoom]);
+
+  const salir = async () => {
+    if (snapshot?.room.id && snapshot.myId) {
+      try {
+        await fetch('/api/salas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'leave', room_id: snapshot.room.id }),
+        });
+      } catch { /* best-effort */ }
+    }
+    window.location.href = '/inicio';
+  };
+
+  const room = snapshot?.room;
+  const players = snapshot?.players ?? [];
+  const pct = room ? Math.round((players.length / room.maxJugadores) * 100) : 0;
+
+  if (phase === 'loading' && !snapshot) {
+    return (
+      <main className="relative min-h-screen px-4 pb-12 pt-6">
+        <Background />
+        <div className="relative z-10 mx-auto mt-24 max-w-lg text-center text-sm font-black text-surface-500">
+          Cargando sala...
+        </div>
+      </main>
+    );
+  }
+
+  if (phase === 'error' && !snapshot) {
+    return (
+      <main className="relative min-h-screen px-4 pb-12 pt-6">
+        <Background />
+        <div className="relative z-10 mx-auto mt-24 max-w-lg rounded-2xl bg-white/80 p-6 text-center shadow-card">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-edu-pink-light/40 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-edu-pink">
+            <AlertTriangle size={14} /> Sala no disponible
+          </div>
+          <p className="text-sm font-bold text-surface-500">{errorMsg}</p>
+          <button
+            onClick={() => { window.location.href = '/inicio'; }}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white"
+          >
+            <ArrowLeft size={16} /> Volver al inicio
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!room) return null;
 
   return (
     <main className="relative min-h-screen px-4 pb-12 pt-6">
@@ -154,17 +260,15 @@ export function WaitingRoomScreen() {
         transition={{ duration: 0.5 }}
         className="relative z-10 mx-auto max-w-lg"
       >
-        {/* Volver */}
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95, y: 2 }}
-          onClick={() => { window.location.href = '/inicio'; }}
+          onClick={salir}
           className="mb-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white"
         >
           <ArrowLeft size={16} /> Salir de la sala
         </motion.button>
 
-        {/* Bienvenida */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -182,7 +286,6 @@ export function WaitingRoomScreen() {
           </p>
         </motion.div>
 
-        {/* Informacion de la sala */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -194,7 +297,6 @@ export function WaitingRoomScreen() {
           <InfoRow icon={<Gamepad2 size={20} />} label="Actividad" value={room.actividad} color="#FFA000" />
         </motion.div>
 
-        {/* Contador */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -211,7 +313,6 @@ export function WaitingRoomScreen() {
           </span>
         </motion.div>
 
-        {/* Jugadores */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -255,14 +356,13 @@ export function WaitingRoomScreen() {
           </div>
         </motion.div>
 
-        {/* Estado de espera / sala completa */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
           className="mt-6 text-center"
         >
-          {phase === 'filling' && (
+          {(phase === 'waiting' || phase === 'loading') && (
             <div>
               <p className="text-base font-black text-surface-500">
                 Esperando al docente <Dots />
@@ -291,9 +391,24 @@ export function WaitingRoomScreen() {
               </p>
             </motion.div>
           )}
+
+          {phase === 'closed' && (
+            <div>
+              <p className="text-base font-black text-edu-pink">La sala ya termino</p>
+              <button
+                onClick={() => { window.location.href = '/inicio'; }}
+                className="mt-3 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2 text-sm font-black text-surface-500"
+              >
+                Volver al inicio
+              </button>
+            </div>
+          )}
+
+          {phase === 'error' && snapshot && (
+            <p className="text-sm font-black text-edu-pink">{errorMsg}</p>
+          )}
         </motion.div>
 
-        {/* Aviso de jugador entrando */}
         <AnimatePresence>
           {announcement && (
             <motion.div
@@ -308,7 +423,6 @@ export function WaitingRoomScreen() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Cuenta regresiva en pantalla completa */}
       <AnimatePresence>
         {(phase === 'countdown' || phase === 'go') && (
           <motion.div
@@ -356,7 +470,6 @@ export function WaitingRoomScreen() {
         )}
       </AnimatePresence>
 
-      {/* Barra de progreso de llenado de la sala */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

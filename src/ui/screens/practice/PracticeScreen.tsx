@@ -12,7 +12,6 @@ import { ModeLogo, MODE_THEME, modeButtonGradient, modeButtonShadow } from '@/sh
 import { audioManager } from '@/shared/lib/audio';
 import { generateQuestions, GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
 import { usePracticeStore } from '@/stores/practice.store';
-import { initSimulatedPractices } from '@/app/panel/lib/publicPractices';
 import type { Practice, PracticeMode, StoredUser } from '@/shared/types/practice';
 
 type GameMode = 'decisiones' | 'lava' | 'tierras' | 'abismos' | null;
@@ -78,22 +77,8 @@ export function PracticeScreen() {
 
   useEffect(() => {
     setUser(getUser());
+    void usePracticeStore.getState().init();
   }, []);
-
-  useEffect(() => {
-    store.init();
-  }, []);
-
-  useEffect(() => {
-    if (store.initialized && tab === 'public') {
-      const practices = store.getPublicPractices();
-      const merged = initSimulatedPractices(practices);
-      if (merged.length !== practices.length) {
-        localStorage.setItem('eduplay_practices', JSON.stringify(merged));
-        store.init();
-      }
-    }
-  }, [store.initialized, tab]);
 
   const userPractices = useMemo(() => {
     if (!user) return [];
@@ -102,7 +87,7 @@ export function PracticeScreen() {
 
   const publicPractices = useMemo(() => {
     return store.searchPublicPractices(searchQuery, filterMode);
-  }, [store.practices, searchQuery, filterMode]);
+  }, [store.publicPractices, searchQuery, filterMode]);
 
   const startLoadingAnimation = () => {
     setMessageIndex(0);
@@ -146,7 +131,10 @@ export function PracticeScreen() {
         throw new Error('Gemini devolvio un formato inesperado. Intenta generar nuevamente.');
       }
       setQuestions(result);
-      store.addPractice(topic.trim(), topic.trim(), selectedMode!, result);
+      const created = await store.addPractice(topic.trim(), topic.trim(), selectedMode!, result);
+      if (!created) {
+        throw new Error('Inicia sesion para guardar tus practicas.');
+      }
       setStep('ready');
       audioManager.play('success');
     } catch (err) {
@@ -162,20 +150,25 @@ export function PracticeScreen() {
     }
   };
 
-  const handleStartPractice = (practice: Practice) => {
-    if (practice.questions.length === 0 || !practice.mode) return;
+  const handleStartPractice = async (practice: Practice) => {
+    if (!practice.mode) return;
     audioManager.play('start');
-    const data = { mode: practice.mode, questions: practice.questions, topic: practice.topic, practiceId: practice.id };
+    let qs = practice.questions;
+    if (!qs || qs.length === 0) {
+      qs = await store.loadQuestions(practice.id);
+    }
+    if (!qs.length) return;
+    const data = { mode: practice.mode, questions: qs, topic: practice.topic, practiceId: practice.id };
     sessionStorage.setItem('eduplay_practice', JSON.stringify(data));
     window.location.href = '/practica/jugar';
   };
 
-  const handleStartPracticeFromConfig = () => {
+  const handleStartPracticeFromConfig = async () => {
     if (questions.length === 0 || !selectedMode) return;
     audioManager.play('start');
     const latestPractice = store.getUserPractices()[0];
     if (latestPractice) {
-      handleStartPractice(latestPractice);
+      await handleStartPractice(latestPractice);
     }
   };
 
@@ -200,24 +193,24 @@ export function PracticeScreen() {
     }
   };
 
-  const handlePublish = (practiceId: string) => {
+  const handlePublish = async (practiceId: string) => {
     if (!isRegistered) {
       setAuthModalContext('publish');
       setShowAuthModal(true);
       return;
     }
     audioManager.play('confirm');
-    store.publishPractice(practiceId);
+    await store.publishPractice(practiceId);
   };
 
-  const handleUnpublish = (practiceId: string) => {
+  const handleUnpublish = async (practiceId: string) => {
     audioManager.play('click');
-    store.unpublishPractice(practiceId);
+    await store.unpublishPractice(practiceId);
   };
 
-  const handleDeletePractice = (practiceId: string) => {
+  const handleDeletePractice = async (practiceId: string) => {
     audioManager.play('delete');
-    store.deletePractice(practiceId);
+    await store.deletePractice(practiceId);
   };
 
   return (

@@ -1,14 +1,21 @@
 'use client';
 import { create } from 'zustand';
 import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
-import { userKey, readUserJson, writeUserJson } from '@/shared/lib/userStorage';
 
-const STORAGE_BASE = 'eduplay_stars';
-
+/**
+ * PostgreSQL is the source of truth for stars/league.
+ * addStars/removeStars only update ephemeral UI state (starsEarnedThisGame).
+ * Permanent star changes happen only via server (room finish / admin / migrate).
+ */
 interface LeagueStore {
   stars: number;
   starsEarnedThisGame: number;
-  initStars: () => void;
+  leagueName: string | null;
+  leagueImage: string | null;
+  leagueColor: string | null;
+  loading: boolean;
+  initStars: () => Promise<void>;
+  refresh: () => Promise<void>;
   addStars: (amount: number) => void;
   removeStars: (amount: number) => void;
   setStarsEarnedThisGame: (amount: number) => void;
@@ -19,37 +26,51 @@ interface LeagueStore {
   getStarsToNext: () => number;
 }
 
-function loadStars(): number {
-  return readUserJson<number>(STORAGE_BASE, 0);
-}
-
-function saveStars(stars: number) {
-  writeUserJson(STORAGE_BASE, stars);
-}
-
 export const useLeagueStore = create<LeagueStore>((set, get) => ({
   stars: 0,
   starsEarnedThisGame: 0,
+  leagueName: null,
+  leagueImage: null,
+  leagueColor: null,
+  loading: false,
 
-  initStars: () => {
-    const stars = loadStars();
-    set({ stars });
+  initStars: async () => {
+    if (get().loading) return;
+    await get().refresh();
   },
 
+  refresh: async () => {
+    set({ loading: true });
+    try {
+      const res = await fetch('/api/estrellas', { cache: 'no-store' });
+      if (!res.ok) {
+        set({ loading: false });
+        return;
+      }
+      const data = await res.json();
+      const liga = data.liga;
+      set({
+        stars: Number(data.estrellas ?? 0),
+        leagueName: liga?.full_name ?? null,
+        leagueImage: liga?.image_path ?? null,
+        leagueColor: liga?.color ?? null,
+        loading: false,
+      });
+    } catch {
+      set({ loading: false });
+    }
+  },
+
+  /** Ephemeral only — does not persist. Server awards real stars. */
   addStars: (amount) => {
     if (amount <= 0) return;
-    const currentStars = loadStars();
-    const newStars = currentStars + amount;
-    saveStars(newStars);
-    set({ stars: newStars });
+    set({ starsEarnedThisGame: get().starsEarnedThisGame + amount });
   },
 
+  /** Ephemeral only — does not persist. */
   removeStars: (amount) => {
     if (amount <= 0) return;
-    const currentStars = loadStars();
-    const newStars = Math.max(0, currentStars - amount);
-    saveStars(newStars);
-    set({ stars: newStars });
+    set({ starsEarnedThisGame: get().starsEarnedThisGame - amount });
   },
 
   setStarsEarnedThisGame: (amount) => set({ starsEarnedThisGame: amount }),

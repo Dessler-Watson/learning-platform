@@ -41,8 +41,7 @@ export default function LoginPage() {
     if (!validate()) return;
     setLoading(true);
     setErrors({});
-    await new Promise((r) => setTimeout(r, 800));
-    const result = login(email, password, institucion, rol);
+    const result = await login(email, password, institucion, rol);
     setLoading(false);
     if (result.success) {
       grantAppEntry();

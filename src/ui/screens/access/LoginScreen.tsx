@@ -26,22 +26,48 @@ export function LoginScreen() {
     setLoginError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/usuarios?rol=estudiante&estado=activo');
-      const usuarios = await res.json();
-      const usuario = usuarios.find((u: { correo: string }) => u.correo.toLowerCase() === data.email.toLowerCase());
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      });
+      const result = await res.json();
 
-      if (!usuario) {
-        setLoginError('Correo no encontrado');
+      if (!res.ok) {
+        setLoginError(result.error || 'Credenciales invalidas');
         audioManager.play('error');
         setLoading(false);
         return;
       }
 
+      // Merge guest progress (server-side) into the account before navigating
+      try {
+        const guestRaw = localStorage.getItem('eduplay_user');
+        const guest = guestRaw ? JSON.parse(guestRaw) : null;
+        if (guest?.modo === 'invitado') {
+          const guestId = guest.id_usuario ? String(guest.id_usuario) : null;
+          const achievementsRaw = localStorage.getItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
+          await fetch('/api/auth/migrate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              guest_id: guestId,
+              achievements: achievementsRaw ? JSON.parse(achievementsRaw) : null,
+            }),
+          });
+          localStorage.removeItem('eduplay_user');
+          localStorage.removeItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
+        }
+      } catch {
+        /* migration is best-effort */
+      }
+
+      const u = result.user;
       localStorage.setItem('eduplay_user', JSON.stringify({
-        id_usuario: usuario.id_usuario,
-        nombre: usuario.nombre,
-        avatar_id: usuario.avatar_id,
-        correo: usuario.correo,
+        id_usuario: u.id,
+        nombre: u.nombre,
+        avatar_id: u.avatar_sort ?? u.avatar_id ?? 1,
+        correo: u.email,
         modo: 'registrado',
       }));
 

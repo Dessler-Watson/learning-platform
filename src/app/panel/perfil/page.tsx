@@ -28,14 +28,14 @@ export default function PerfilPage() {
   });
   const [error, setError] = useState('');
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!docente) return;
     if (!form.nombre.trim() || !form.correo.trim()) {
       audioManager.play('error');
       setError('Nombre y correo son obligatorios');
       return;
     }
-    const result = updateProfile(form);
+    const result = await updateProfile(form);
     if (result.success) {
       setEditing(false);
       audioManager.play('success');
@@ -45,8 +45,8 @@ export default function PerfilPage() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     audioManager.onLogout();
     clearAppEntry();
     router.push('/');

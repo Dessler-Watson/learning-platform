@@ -42,23 +42,22 @@ export default function MonitoreoPage() {
     });
   }, [salaId]);
 
-  const simulateProgress = useCallback(async () => {
-    if (!salaId || !sala || sala.estado !== 'en_curso') return;
-    const updated = await salasService.simularProgreso(salaId);
-    if (updated) {
-      setSala({ ...updated });
-      if (updated.estado === 'finalizada') {
-        audioManager.play('success');
-        router.push(`/panel/salas/${salaId}/resultados`);
-      }
+  const poll = useCallback(async () => {
+    if (!salaId) return;
+    const updated = await salasService.refrescar(salaId);
+    if (!updated) return;
+    setSala(updated);
+    if (updated.estado === 'finalizada') {
+      audioManager.play('success');
+      router.push(`/panel/salas/${salaId}/resultados`);
     }
-  }, [salaId, sala, router]);
+  }, [salaId, router]);
 
   useEffect(() => {
     if (!sala || sala.estado !== 'en_curso') return;
-    const interval = setInterval(simulateProgress, 2500);
+    const interval = setInterval(poll, 2500);
     return () => clearInterval(interval);
-  }, [sala, simulateProgress]);
+  }, [sala?.estado, salaId, poll]);
 
   const handleFinish = async () => {
     if (!salaId || !clickLock()) return;

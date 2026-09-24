@@ -1,153 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readData, writeData } from '@/lib/data';
+import { getSessionUser, getUserById, updateProfile, getLeagueProgress, ensureLeagueProgress, listAvatars, queryOne, query } from '@/lib/db';
 
-interface Usuario {
-  id_usuario: number;
-  avatar_id: number;
-  nombre: string;
-  apellido?: string;
-  correo: string;
-  rol: string;
-  estado: string;
-  fecha_registro: string;
-}
-
-interface Avatar {
-  id_avatar: number;
-  nombre: string;
-  imagen: string;
-}
-
-interface Resultado {
-  id_resultado: number;
-  partida_id: number;
-  usuario_id: number;
-  puntaje: number;
-  copas: number;
-  posicion: number;
-  correctas: number;
-  incorrectas: number;
-}
-
-const RANGOS = [
-  { nombre: 'Bronce', min: 0, max: 999, color: '#B87333', barColor: 'linear-gradient(90deg, #B87333, #CD7F32)', next: 'Plata' },
-  { nombre: 'Plata', min: 1000, max: 2499, color: '#94A3B8', barColor: 'linear-gradient(90deg, #94A3B8, #CBD5E1)', next: 'Oro' },
-  { nombre: 'Oro', min: 2500, max: 4999, color: '#FDDB33', barColor: 'linear-gradient(90deg, #FDDB33, #FDF293)', next: 'Diamante' },
-  { nombre: 'Diamante', min: 5000, max: Infinity, color: '#30BCE6', barColor: 'linear-gradient(90deg, #30BCE6, #4DC8D8)', next: null },
-];
-
-function getRango(puntos: number) {
-  return RANGOS.find(r => puntos >= r.min && puntos <= r.max) || RANGOS[RANGOS.length - 1];
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const usuarioId = Number(searchParams.get('usuario_id'));
+  try {
+    const session = await getSessionUser(req);
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
 
-  if (!usuarioId) {
-    return NextResponse.json({ error: 'usuario_id requerido' }, { status: 400 });
-  }
+    const user = await getUserById(session.id);
+    if (!user) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
 
-  const usuarios = readData<Usuario>('usuarios');
-  const avatares = readData<Avatar>('avatares');
-  const resultados = readData<Resultado>('resultados');
+    await ensureLeagueProgress(user.id);
+    const league = await getLeagueProgress(user.id);
 
-  const usuario = usuarios.find(u => u.id_usuario === usuarioId);
+    const practiceStats = await queryOne<{ total: number; avg_score: number; best_score: number }>(
+      `SELECT count(*)::int AS total, COALESCE(avg(score),0)::int AS avg_score, COALESCE(max(score),0)::int AS best_score
+       FROM practice_results WHERE user_id = $1`,
+      [user.id]
+    );
+    const matchStats = await queryOne<{ games: number; wins: number }>(
+      `SELECT count(*)::int AS games,
+              count(*) FILTER (WHERE rn = 1)::int AS wins
+       FROM (
+         SELECT mp.user_id,
+                dense_rank() OVER (PARTITION BY m.id ORDER BY mp.score DESC) AS rn
+         FROM match_participants mp
+         JOIN matches m ON m.id = mp.match_id AND m.status = 'finished'
+         WHERE mp.user_id = $1
+       ) t`,
+      [user.id]
+    );
 
-  if (!usuario) {
-    return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-  }
-
-  const avatar = avatares.find(a => a.id_avatar === usuario.avatar_id);
-  const puntos = resultados
-    .filter(r => r.usuario_id === usuarioId)
-    .reduce((sum, r) => sum + (r.puntaje || 0), 0);
-
-  const rango = getRango(puntos);
-  const esMaximo = rango.next === null;
-  const puntosRangoActual = Math.max(0, puntos - rango.min);
-  const puntosParaSiguiente = esMaximo ? 0 : rango.max + 1 - puntos;
-  const progreso = esMaximo
-    ? 100
-    : Math.min(100, Math.round((puntosRangoActual / (rango.max - rango.min + 1)) * 100));
-
-  return NextResponse.json({
-    usuario: {
-      id_usuario: usuario.id_usuario,
-      nombre: usuario.nombre,
-      apellido: usuario.apellido || '',
-      correo: usuario.correo,
-      rol: usuario.rol,
-      fecha_registro: usuario.fecha_registro,
-      avatar: {
-        id_avatar: avatar?.id_avatar || usuario.avatar_id,
-        nombre: avatar?.nombre || 'Güegüense',
-        imagen: avatar?.imagen || 'gueguense.png',
+    return NextResponse.json({
+      usuario: {
+        id_usuario: user.id,
+        nombre: user.nombre,
+        apellido: user.apellido || '',
+        correo: user.email,
+        rol: user.role,
+        fecha_registro: user.created_at,
+        is_guest: user.is_guest,
+        avatar: {
+          id_avatar: user.avatar_sort || 1,
+          nombre: user.avatar_name || 'Güegüense',
+          imagen: user.avatar_image || 'gueguense.png',
+          custom: user.custom_avatar,
+        },
       },
-    },
-    puntos,
-    rango: {
-      nombre: rango.nombre,
-      color: rango.color,
-      barColor: rango.barColor,
-      esMaximo,
-      progreso,
-      puntosRangoActual,
-      puntosParaSiguiente,
-      siguiente: rango.next,
-    },
-  });
+      estrellas: league?.stars ?? 0,
+      liga: league
+        ? {
+            id: league.current_league_id,
+            nombre: league.full_name,
+            mineral: league.mineral,
+            tier: league.tier,
+            color: league.color,
+            imagen: league.image_path,
+            siguiente: null,
+          }
+        : null,
+      estadisticas: {
+        practicas: practiceStats?.total ?? 0,
+        promedio_practica: practiceStats?.avg_score ?? 0,
+        mejor_practica: practiceStats?.best_score ?? 0,
+        partidas: matchStats?.games ?? 0,
+        victorias: matchStats?.wins ?? 0,
+      },
+    });
+  } catch (err) {
+    console.error('[perfil GET]', err);
+    return NextResponse.json({ error: 'Error al obtener el perfil' }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
+    const session = await getSessionUser(req);
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const usuarioId = Number(body.usuario_id);
     const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : undefined;
     const apellido = typeof body.apellido === 'string' ? body.apellido.trim() : undefined;
-    const avatarId = body.avatar_id !== undefined ? Number(body.avatar_id) : NaN;
+    const avatarId = body.avatar_id !== undefined && body.avatar_id !== null ? Number(body.avatar_id) : undefined;
+    const customAvatar = body.custom_avatar !== undefined ? body.custom_avatar : undefined;
 
-    if (!usuarioId) {
-      return NextResponse.json({ error: 'usuario_id requerido' }, { status: 400 });
-    }
-
-    const usuarios = readData<Usuario>('usuarios');
-    const usuario = usuarios.find(u => u.id_usuario === usuarioId);
-    if (!usuario) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
-    }
-
-    if (nombre) usuario.nombre = nombre;
-    if (apellido) usuario.apellido = apellido;
-
-    const avatares = readData<Avatar>('avatares');
-    if (!Number.isNaN(avatarId)) {
-      const existe = avatares.some(a => a.id_avatar === avatarId);
-      if (!existe) {
+    if (avatarId !== undefined && !Number.isNaN(avatarId)) {
+      const avatares = await listAvatars();
+      if (!avatares.some((a) => a.sort_order === avatarId)) {
         return NextResponse.json({ error: 'Avatar no encontrado' }, { status: 400 });
       }
-      usuario.avatar_id = avatarId;
     }
 
-    writeData('usuarios', usuarios);
-
-    const avatar = avatares.find(a => a.id_avatar === usuario.avatar_id);
+    const updated = await updateProfile(session.id, {
+      nombre,
+      apellido,
+      avatarSort: avatarId !== undefined && !Number.isNaN(avatarId) ? avatarId : undefined,
+      customAvatar,
+    });
+    if (!updated) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
       usuario: {
-        id_usuario: usuario.id_usuario,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido || '',
-        correo: usuario.correo,
+        id_usuario: updated.id,
+        nombre: updated.nombre,
+        apellido: updated.apellido || '',
+        correo: updated.email,
         avatar: {
-          id_avatar: avatar?.id_avatar || usuario.avatar_id,
-          nombre: avatar?.nombre || 'Güegüense',
-imagen: avatar?.imagen || 'gueguense.png',
+          id_avatar: updated.avatar_sort || 1,
+          nombre: updated.avatar_name || 'Güegüense',
+          imagen: updated.avatar_image || 'gueguense.png',
+          custom: updated.custom_avatar,
         },
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[perfil PATCH]', err);
     return NextResponse.json({ error: 'Error al guardar los cambios' }, { status: 500 });
   }
 }

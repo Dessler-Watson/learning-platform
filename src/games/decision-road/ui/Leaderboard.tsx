@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
-import { MOCK_PLAYER_NAMES } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
 
 interface Competitor {
@@ -14,6 +13,10 @@ interface Competitor {
   prevScore: number;
   trend: 'up' | 'down' | 'same';
 }
+
+const MOCK_PLAYER_NAMES: string[] = [
+  'DragonFeliz', 'AstroKid', 'PandaMagico', 'EstrellaLunar', 'RayoVeloz',
+];
 
 const INITIAL_COMPETITORS: Omit<Competitor, 'score' | 'prevScore' | 'trend'>[] = [
   { id: 'c1', name: MOCK_PLAYER_NAMES[0], avatar: avatarUrl(2) },

@@ -20,23 +20,42 @@ export function GuestNameScreen() {
   const [name, setName] = useState('');
   const [avatarId, setAvatarId] = useState(1);
   const [started, setStarted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const randomName = () => {
     setName(NAMES[Math.floor(Math.random() * NAMES.length)]);
   };
 
-  const start = () => {
+  const start = async () => {
     if (started) return;
     setStarted(true);
+    setError(null);
     const finalName = name.trim() || NAMES[Math.floor(Math.random() * NAMES.length)];
-    localStorage.setItem('eduplay_user', JSON.stringify({
-      id_usuario: 0,
-      nombre: finalName,
-      avatar_id: avatarId,
-      modo: 'invitado',
-    }));
-    grantAppEntry();
-    window.location.href = '/inicio';
+    try {
+      const res = await fetch('/api/auth/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: finalName, avatar: avatarId }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error || 'No se pudo iniciar como invitado');
+        setStarted(false);
+        return;
+      }
+      const u = result.user;
+      localStorage.setItem('eduplay_user', JSON.stringify({
+        id_usuario: u.id,
+        nombre: u.nombre,
+        avatar_id: avatarId,
+        modo: 'invitado',
+      }));
+      grantAppEntry();
+      window.location.href = '/inicio';
+    } catch {
+      setError('Error de conexion. Intenta de nuevo.');
+      setStarted(false);
+    }
   };
 
   return (
@@ -156,14 +175,18 @@ export function GuestNameScreen() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97, y: 2 }}
-              onClick={start}
-              disabled={!name.trim()}
+              onClick={() => { void start(); }}
+              disabled={!name.trim() || started}
               className="btn-game mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFEF5A] py-4 text-base text-[#407516] disabled:opacity-60"
               style={{ boxShadow: name.trim() ? '0 6px 0 rgba(64, 117, 22, 0.5), 0 8px 24px rgba(64,117,22,0.35)' : undefined }}
             >
-              Comenzar aventura
+              {started ? 'Preparando...' : 'Comenzar aventura'}
               <Rocket size={20} />
             </motion.button>
+
+            {error && (
+              <p className="mt-3 text-center text-sm font-black text-edu-pink">{error}</p>
+            )}
 
             <p className="mt-4 text-center text-xs font-black text-edu-pink">
               Tu progreso no se guardara porque estas jugando como invitado.

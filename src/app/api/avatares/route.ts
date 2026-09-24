@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server';
-import { readData } from '@/lib/data';
+import { listAvatars } from '@/lib/db';
 
-interface Avatar { id_avatar: number; nombre: string; imagen: string; desbloqueado?: boolean; }
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const avatares = readData<Avatar>('avatares');
-  return NextResponse.json(avatares);
+  try {
+    const avatares = await listAvatars();
+    return NextResponse.json(
+      avatares.map((a) => ({
+        id_avatar: a.sort_order,
+        nombre: a.name,
+        imagen: a.image,
+        desbloqueado: true,
+      }))
+    );
+  } catch (err) {
+    console.error('[avatares GET]', err);
+    return NextResponse.json({ error: 'Error al listar avatares' }, { status: 500 });
+  }
 }

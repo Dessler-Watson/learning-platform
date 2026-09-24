@@ -49,8 +49,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setServerError('');
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const result = register({
+    const result = await register({
       nombre: data.nombre,
       correo: data.correo,
       contrasena: data.contrasena,

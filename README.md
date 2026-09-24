@@ -144,6 +144,7 @@ EduPlay/
 ### Requisitos
 
 - Node.js 18.17 o superior.
+- PostgreSQL 13+.
 - npm o pnpm.
 
 ### Pasos
@@ -161,19 +162,30 @@ cd learning-platform
 npm install
 ```
 
-3. Configurar variable de entorno para IA:
+3. Configurar variables de entorno:
 
-Crear un archivo `.env.local` en la raiz del proyecto con la siguiente variable:
+Copiar `.env.example` a `.env.local` y completar:
 
 ```
+DATABASE_URL=postgresql://postgres:tu_password@localhost:5432/eduplay_db
+SESSION_SECRET=clave_secreta_larga
 GEMINI_API_KEY=tu_clave_aqui
 ```
 
-Nota: La clave es necesaria unicamente para la generacion de preguntas con IA desde el panel docente.
+`GEMINI_API_KEY` es solo para generación de preguntas con IA desde el panel.
 
-4.  Instalacion de base de datos pendiente:
+4. Crear y sembrar la base de datos:
 
-EduPlay utiliza archivos JSON en la carpeta `data/` El proyecto cuenta ya con su diagrama de base de datos ( PostgreSQL).
+```bash
+psql -U postgres -c "CREATE DATABASE eduplay_db;"
+psql -U postgres -d eduplay_db -f db/schema.sql
+psql -U postgres -d eduplay_db -f db/seed.sql
+npm run seed:demo   # usuarios demo admin/teacher con hash scrypt
+```
+
+La fuente de verdad es PostgreSQL (`db/schema.sql` + `db/seed.sql`). Ver `db/README.md` y `MIGRACION_POSTGRESQL.md`.
+
+Estado de migración (2026-09-24): **COMPLETA** (fase 3) — E2E 82/82, `tsc`/`build` OK; ver `## Legacy restante` en `MIGRACION_POSTGRESQL.md` §9 (WaitingRoom y ranking ligas migrados a API/PG; decision-road mocks decorativos temporales; APIs JSON clase C sin consumidores; `data/*.json` conservados; sin commit).
 
 ## 5. Ejecucion del sistema
 

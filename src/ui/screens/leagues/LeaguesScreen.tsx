@@ -9,68 +9,20 @@ import { LEAGUES, type League, isLeagueUnlocked, getLeagueByStars } from '@/lib/
 import { audioManager } from '@/shared/lib/audio';
 
 // ============================================================
-// MOCK RANKING DATA — stable for testing
+// RANKING REAL — /api/ranking (PostgreSQL v_league_leaderboard)
 // ============================================================
 
-interface MockPlayer {
+interface RankingPlayer {
+  posicion: number;
   id: string;
   nombre: string;
-  avatar: string;
-  stars: number;
+  avatar: string | null;
+  estrellas: number;
+  liga: string;
+  mineral: string;
+  nivel: number;
+  es_tu: boolean;
 }
-
-const MOCK_RANKING: MockPlayer[] = [
-  { id: 'r1', nombre: 'Sofia M.', avatar: '/images/avatares/leon.png', stars: 23800 },
-  { id: 'r2', nombre: 'Carlos R.', avatar: '/images/avatares/mariposa.png', stars: 22100 },
-  { id: 'r3', nombre: 'Ana L.', avatar: '/images/avatares/guardabarranco.png', stars: 20500 },
-  { id: 'r4', nombre: 'Diego P.', avatar: '/images/avatares/madrono.png', stars: 19200 },
-  { id: 'r5', nombre: 'Laura G.', avatar: '/images/avatares/nacatamal.png', stars: 18400 },
-  { id: 'r6', nombre: 'Pedro S.', avatar: '/images/avatares/sacuanjoche.png', stars: 17600 },
-  { id: 'r7', nombre: 'Camila R.', avatar: '/images/avatares/mariposa.png', stars: 16800 },
-  { id: 'r8', nombre: 'Andres V.', avatar: '/images/avatares/leon.png', stars: 15900 },
-  { id: 'r9', nombre: 'Isabella C.', avatar: '/images/avatares/guardabarranco.png', stars: 15100 },
-  { id: 'r10', nombre: 'Mateo F.', avatar: '/images/avatares/madrono.png', stars: 14300 },
-  { id: 'r11', nombre: 'Valentina T.', avatar: '/images/avatares/nacatamal.png', stars: 13500 },
-  { id: 'r12', nombre: 'Nicolas A.', avatar: '/images/avatares/sacuanjoche.png', stars: 12700 },
-  { id: 'r13', nombre: 'Gabriela N.', avatar: '/images/avatares/mariposa.png', stars: 11900 },
-  { id: 'r14', nombre: 'Santiago P.', avatar: '/images/avatares/leon.png', stars: 11100 },
-  { id: 'r15', nombre: 'Daniela P.', avatar: '/images/avatares/guardabarranco.png', stars: 10300 },
-  { id: 'r16', nombre: 'Roberto G.', avatar: '/images/avatares/madrono.png', stars: 9500 },
-  { id: 'r17', nombre: 'Patricia R.', avatar: '/images/avatares/nacatamal.png', stars: 8700 },
-  { id: 'r18', nombre: 'Javier O.', avatar: '/images/avatares/sacuanjoche.png', stars: 7900 },
-  { id: 'r19', nombre: 'Lucia H.', avatar: '/images/avatares/mariposa.png', stars: 7100 },
-  { id: 'r20', nombre: 'Miguel T.', avatar: '/images/avatares/leon.png', stars: 6300 },
-  { id: 'r21', nombre: 'Emma V.', avatar: '/images/avatares/guardabarranco.png', stars: 5500 },
-  { id: 'r22', nombre: 'Daniel M.', avatar: '/images/avatares/madrono.png', stars: 4700 },
-  { id: 'r23', nombre: 'Sofia L.', avatar: '/images/avatares/nacatamal.png', stars: 4000 },
-  { id: 'r24', nombre: 'Sebastian R.', avatar: '/images/avatares/sacuanjoche.png', stars: 3400 },
-  { id: 'r25', nombre: 'Mariana C.', avatar: '/images/avatares/mariposa.png', stars: 2900 },
-  { id: 'r26', nombre: 'Adrian P.', avatar: '/images/avatares/leon.png', stars: 2500 },
-  { id: 'r27', nombre: 'Paula S.', avatar: '/images/avatares/guardabarranco.png', stars: 2100 },
-  { id: 'r28', nombre: 'Diego A.', avatar: '/images/avatares/madrono.png', stars: 1800 },
-  { id: 'r29', nombre: 'Carla M.', avatar: '/images/avatares/nacatamal.png', stars: 1500 },
-  { id: 'r30', nombre: 'Fernando G.', avatar: '/images/avatares/sacuanjoche.png', stars: 1200 },
-  { id: 'r31', nombre: 'Ana P.', avatar: '/images/avatares/mariposa.png', stars: 1000 },
-  { id: 'r32', nombre: 'Luis R.', avatar: '/images/avatares/leon.png', stars: 800 },
-  { id: 'r33', nombre: 'Carmen V.', avatar: '/images/avatares/guardabarranco.png', stars: 600 },
-  { id: 'r34', nombre: 'Roberto M.', avatar: '/images/avatares/madrono.png', stars: 450 },
-  { id: 'r35', nombre: 'Laura S.', avatar: '/images/avatares/nacatamal.png', stars: 300 },
-  { id: 'r36', nombre: 'Miguel A.', avatar: '/images/avatares/sacuanjoche.png', stars: 200 },
-  { id: 'r37', nombre: 'Isabel C.', avatar: '/images/avatares/mariposa.png', stars: 150 },
-  { id: 'r38', nombre: 'Carlos G.', avatar: '/images/avatares/leon.png', stars: 100 },
-  { id: 'r39', nombre: 'Maria P.', avatar: '/images/avatares/guardabarranco.png', stars: 50 },
-  { id: 'r40', nombre: 'Jose M.', avatar: '/images/avatares/madrono.png', stars: 25 },
-  { id: 'r41', nombre: 'Teresa L.', avatar: '/images/avatares/nacatamal.png', stars: 15 },
-  { id: 'r42', nombre: 'Ricardo V.', avatar: '/images/avatares/sacuanjoche.png', stars: 10 },
-  { id: 'r43', nombre: 'Claudia S.', avatar: '/images/avatares/mariposa.png', stars: 5 },
-  { id: 'r44', nombre: 'Fernando R.', avatar: '/images/avatares/leon.png', stars: 3 },
-  { id: 'r45', nombre: 'Patricia M.', avatar: '/images/avatares/guardabarranco.png', stars: 2 },
-  { id: 'r46', nombre: 'Jorge A.', avatar: '/images/avatares/madrono.png', stars: 1 },
-  { id: 'r47', nombre: 'Sandra C.', avatar: '/images/avatares/nacatamal.png', stars: 0 },
-  { id: 'r48', nombre: 'Manuel P.', avatar: '/images/avatares/sacuanjoche.png', stars: 0 },
-  { id: 'r49', nombre: 'Rosa L.', avatar: '/images/avatares/mariposa.png', stars: 0 },
-  { id: 'r50', nombre: 'Pedro G.', avatar: '/images/avatares/leon.png', stars: 0 },
-];
 
 // ============================================================
 // COMPONENT
@@ -81,6 +33,8 @@ export function LeaguesScreen() {
   const initStars = useLeagueStore((s) => s.initStars);
   const getCurrentLeague = useLeagueStore((s) => s.getCurrentLeague);
   const [showRanking, setShowRanking] = useState(false);
+  const [ranking, setRanking] = useState<RankingPlayer[]>([]);
+  const [rankingError, setRankingError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ nombre: string; avatar: string } | null>(null);
 
   const currentLeague = getCurrentLeague();
@@ -101,21 +55,30 @@ export function LeaguesScreen() {
     }
   }, []);
 
-  // Calculate player position
-  const playerPosition = useMemo(() => {
-    const allPlayers = [...MOCK_RANKING];
-    // Insert current player
-    const playerEntry: MockPlayer = {
-      id: 'current',
-      nombre: currentUser?.nombre || 'Tu',
-      avatar: currentUser?.avatar || '/images/avatares/gueguense.png',
-      stars,
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/ranking?limit=50', { cache: 'no-store' });
+        if (!res.ok) {
+          if (!cancelled) setRankingError('No se pudo cargar el ranking');
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setRanking(Array.isArray(data.ranking) ? data.ranking : []);
+          setRankingError(null);
+        }
+      } catch {
+        if (!cancelled) setRankingError('Error de conexion');
+      }
     };
-    allPlayers.push(playerEntry);
-    allPlayers.sort((a, b) => b.stars - a.stars);
-    const idx = allPlayers.findIndex(p => p.id === 'current');
-    return idx >= 0 ? idx + 1 : allPlayers.length;
-  }, [stars, currentUser]);
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const myEntry = useMemo(() => ranking.find((p) => p.es_tu), [ranking]);
+  const playerPosition = myEntry?.posicion ?? null;
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -305,20 +268,30 @@ export function LeaguesScreen() {
               className="overflow-hidden"
             >
               <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-md">
-                {MOCK_RANKING.map((player, idx) => {
-                  const league = getLeagueByStars(player.stars);
+                {rankingError && (
+                  <div className="px-4 py-6 text-center text-sm font-bold text-white/50">
+                    {rankingError}
+                  </div>
+                )}
+                {!rankingError && ranking.length === 0 && (
+                  <div className="px-4 py-6 text-center text-sm font-bold text-white/50">
+                    Cargando ranking...
+                  </div>
+                )}
+                {ranking.map((player, idx) => {
+                  const league = getLeagueByStars(player.estrellas);
                   return (
                     <div
                       key={player.id}
                       className={`flex items-center gap-3 border-b border-white/5 px-4 py-3 ${
-                        idx === MOCK_RANKING.length - 1 ? 'border-b-0' : ''
-                      }`}
+                        idx === ranking.length - 1 && !myEntry?.es_tu ? 'border-b-0' : ''
+                      } ${player.es_tu ? 'bg-yellow-400/5' : ''}`}
                     >
                       <span className="w-6 text-center text-xs font-black text-white/40">
-                        {idx + 1}
+                        {player.posicion || idx + 1}
                       </span>
                       <img
-                        src={player.avatar}
+                        src={player.avatar || '/images/avatares/gueguense.png'}
                         alt={player.nombre}
                         draggable={false}
                         className="h-8 w-8 rounded-full object-cover"
@@ -335,7 +308,7 @@ export function LeaguesScreen() {
                       <div className="flex items-center gap-1">
                         <Star size={12} fill="#F9A825" stroke="#F9A825" />
                         <span className="text-xs font-black text-white">
-                          {player.stars.toLocaleString('es-ES')}
+                          {player.estrellas.toLocaleString('es-ES')}
                         </span>
                       </div>
                     </div>
@@ -349,17 +322,17 @@ export function LeaguesScreen() {
                   </p>
                   <div className="flex items-center gap-3">
                     <span className="w-6 text-center text-sm font-black text-yellow-400">
-                      #{playerPosition}
+                      #{playerPosition ?? '—'}
                     </span>
                     <img
-                      src={currentUser?.avatar || '/images/avatares/gueguense.png'}
-                      alt={currentUser?.nombre || 'Tu'}
+                      src={myEntry?.avatar || currentUser?.avatar || '/images/avatares/gueguense.png'}
+                      alt={myEntry?.nombre || currentUser?.nombre || 'Tu'}
                       draggable={false}
                       className="h-8 w-8 rounded-full object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-white">
-                        {currentUser?.nombre || 'Tu'}
+                        {myEntry?.nombre || currentUser?.nombre || 'Tu'}
                       </p>
                       <div className="flex items-center gap-1.5">
                         <LeagueBadge league={currentLeague} size="xs" circular />

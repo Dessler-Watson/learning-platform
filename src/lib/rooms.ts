@@ -1,71 +1,25 @@
-// Datos de salas para la SALA DE ESPERA.
-//
-// IMPORTANTE: Estos datos son una SIMULACION para el hackathon.
-// La entrada de jugadores se simula en el frontend (WaitingRoomScreen)
-// y los datos de la sala son MOCK. Mas adelante se reemplazaran por
-// los datos reales del Panel Docente y PostgreSQL (WebSockets incluidos).
+// Tipos compartidos de salas para la SALA DE ESPERA.
+// Los datos reales vienen de /api/salas (PostgreSQL).
 
 export interface RoomData {
+  id?: string;
   codigo: string;
   nombre: string;
   docente: string;
   curso: string;
   actividad: string;
   maxJugadores: number;
-  juegoId: number; // 1 = Rumbo, 2 = Bajo Presión, 3 = Tierras Hundidas, 4 = Entre Abismos
+  estado: string;
+  modo: string;
 }
 
-// Sala problema por defecto (valida para el codigo de prueba).
-const DEFAULT_ROOM: RoomData = {
-  codigo: 'CD-001',
-  nombre: 'Creciendo en Valores',
-  docente: 'Carlos Martinez',
-  curso: 'Derechos y Dignidad de la Mujer',
-  actividad: 'Rumbo',
-  maxJugadores: 20,
-  juegoId: 1,
+export const GAME_ROUTES: Record<string, string> = {
+  decisiones: '/camino-decisiones',
+  lava: '/lava-conocimiento',
+  tierras: '/tierras-hundidas',
+  abismos: '/entre-abismos',
 };
 
-const MOCK_ROOMS: Record<string, RoomData> = {
-  'cd-001': {
-    codigo: 'CD-001',
-    nombre: 'Creciendo en Valores',
-    docente: 'Carlos Martinez',
-    curso: 'Derechos y Dignidad de la Mujer',
-    actividad: 'Rumbo',
-    maxJugadores: 20,
-    juegoId: 1,
-  },
-  '6rt5': {
-    codigo: '6rt5',
-    nombre: 'Descubriendo Nuestros Derechos',
-    docente: 'Prof. Luis Torres',
-    curso: 'Ciudadania y Derechos',
-    actividad: 'Rumbo',
-    maxJugadores: 20,
-    juegoId: 1,
-  },
-  'es-001': {
-    codigo: 'ES-001',
-    nombre: 'Aprender Jugando',
-    docente: 'Prof. Ana Garcia',
-    curso: 'Derechos Humanos Basico',
-    actividad: 'Rumbo',
-    maxJugadores: 20,
-    juegoId: 1,
-  },
-};
-
-// Lista de nombres simulados para los jugadores que van entrando.
-export const MOCK_PLAYER_NAMES: string[] = [
-  'DragonFeliz', 'AstroKid', 'PandaMagico', 'EstrellaLunar', 'RayoVeloz',
-  'ZorroSabio', 'CapitanNube', 'TigreAlegre', 'MonoCurioso', 'LoboAventurero',
-  'SirenaAzul', 'BuhoInteligente', 'RanaSaltarina', 'ElefanteMemoria', 'Lincesieta',
-  'KoalaCarinoso', 'PumaHeroico', 'ConejoRapido', 'TucanColores', 'GatoEstrella',
-];
-
-export function getMockRoom(codigo: string | null | undefined): RoomData {
-  if (!codigo) return DEFAULT_ROOM;
-  const key = codigo.trim().toLowerCase();
-  return MOCK_ROOMS[key] || { ...DEFAULT_ROOM, codigo: codigo.trim().toUpperCase() };
+export function gameRouteFor(modeCode: string | null | undefined): string {
+  return GAME_ROUTES[String(modeCode ?? '').trim().toLowerCase()] || '/camino-decisiones';
 }

@@ -85,16 +85,17 @@ export function RegisterScreen() {
       const anio = fechaNac.getFullYear();
       const mes = String(fechaNac.getMonth() + 1).padStart(2, '0');
       const dia = String(fechaNac.getDate()).padStart(2, '0');
-      const res = await fetch('/api/usuarios', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: data.nombre,
           apellido: data.apellido,
-          correo: data.email,
-          avatar_id: avatarId,
-          fecha_nacimiento: `${anio}-${mes}-${dia}`,
-          sexo: data.sexo,
+          email: data.email,
+          password: data.password,
+          avatar: avatarId,
+          birth_date: `${anio}-${mes}-${dia}`,
+          sex: data.sexo,
         }),
       });
       const result = await res.json();
@@ -103,11 +104,34 @@ export function RegisterScreen() {
         setRegistering(false);
         return;
       }
+
+      try {
+        const guestRaw = localStorage.getItem('eduplay_user');
+        const guest = guestRaw ? JSON.parse(guestRaw) : null;
+        if (guest?.modo === 'invitado') {
+          const guestId = guest.id_usuario ? String(guest.id_usuario) : null;
+          const achievementsRaw = localStorage.getItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
+          await fetch('/api/auth/migrate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              guest_id: guestId,
+              achievements: achievementsRaw ? JSON.parse(achievementsRaw) : null,
+            }),
+          });
+          localStorage.removeItem('eduplay_user');
+          localStorage.removeItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
+        }
+      } catch {
+        /* best-effort */
+      }
+
+      const u = result.user;
       localStorage.setItem('eduplay_user', JSON.stringify({
-        id_usuario: result.usuario.id_usuario,
-        nombre: result.usuario.nombre,
-        avatar_id: result.usuario.avatar.id_avatar,
-        correo: result.usuario.correo,
+        id_usuario: u.id,
+        nombre: u.nombre,
+        avatar_id: u.avatar_sort ?? avatarId,
+        correo: u.email,
         modo: 'registrado',
       }));
       grantAppEntry();

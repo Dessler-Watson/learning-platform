@@ -50,7 +50,7 @@ export function PracticeResultsScreen() {
   const store = usePracticeStore();
 
   useEffect(() => {
-    store.init();
+    void usePracticeStore.getState().init();
   }, []);
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export function PracticeResultsScreen() {
     }
 
     if (result.practiceId) {
-      store.recordPlayResult(
+      void store.recordPlayResult(
         result.practiceId,
         result.correctAnswers,
         result.incorrectAnswers

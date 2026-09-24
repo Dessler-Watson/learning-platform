@@ -5,9 +5,9 @@ import type { AchievementProgress, AchievementEvent } from '@/shared/types/achie
 import { ACHIEVEMENTS } from '@/shared/lib/achievements-data';
 import { onAchievementEvent } from '@/shared/lib/achievement-service';
 import { audioManager } from '@/shared/lib/audio';
-import { userKey, readUserJson, writeUserJson, getUserId, isRegisteredUser } from '@/shared/lib/userStorage';
+import { isRegisteredUser, writeUserJson } from '@/shared/lib/userStorage';
 
-const STORAGE_BASE = 'eduplay_achievements';
+/** Ephemeral counter cache only — PG achievement_progress is source of truth for progress/completed/unlockedAt. */
 const STATS_BASE = 'eduplay_achievement_stats';
 
 interface AchievementStats {
@@ -21,8 +21,9 @@ interface AchievementStore {
   initialized: boolean;
   notificationQueue: string[];
   currentNotification: string | null;
+  loading: boolean;
 
-  init: () => void;
+  init: () => Promise<void>;
   markAsReviewed: () => void;
   hasNewAchievements: () => boolean;
   getProgressForId: (id: string) => AchievementProgress | undefined;
@@ -32,44 +33,87 @@ interface AchievementStore {
   resetForTesting: () => void;
 }
 
-function loadProgress(): AchievementProgress[] {
-  return readUserJson<AchievementProgress[]>(STORAGE_BASE, []);
+function emptyProgress(): AchievementProgress[] {
+  return ACHIEVEMENTS.map((def) => ({
+    id: def.id,
+    progress: 0,
+    completed: false,
+    unlockedAt: null,
+    isNew: false,
+  }));
 }
 
-function saveProgress(progress: AchievementProgress[]) {
-  writeUserJson(STORAGE_BASE, progress);
+function loadStatsCache(): AchievementStats {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(`${STATS_BASE}`);
+    return raw ? (JSON.parse(raw) as AchievementStats) : {};
+  } catch {
+    return {};
+  }
 }
 
-function loadStats(): AchievementStats {
-  return readUserJson<AchievementStats>(STATS_BASE, {});
-}
-
-function saveStats(stats: AchievementStats) {
+function saveStatsCache(stats: AchievementStats): void {
   writeUserJson(STATS_BASE, stats);
 }
 
-function initProgress(): AchievementProgress[] {
-  const existing = loadProgress();
-  const existingMap = new Map(existing.map((p) => [p.id, p]));
-
-  return ACHIEVEMENTS.map((def) => {
-    const saved = existingMap.get(def.id);
-    if (saved) return saved;
-    return {
-      id: def.id,
-      progress: 0,
-      completed: false,
-      unlockedAt: null,
-      isNew: false,
-    };
-  });
+function hydrateStatsFromProgress(progress: AchievementProgress[], stats: AchievementStats): AchievementStats {
+  const next = { ...stats };
+  for (const def of ACHIEVEMENTS) {
+    const p = progress.find((x) => x.id === def.id);
+    if (!p) continue;
+    const cur = next[def.statKey] || 0;
+    if (p.progress > cur) next[def.statKey] = p.progress;
+    if (p.completed && next[def.statKey] < def.goal) next[def.statKey] = def.goal;
+  }
+  return next;
 }
 
-function getInitialStats(): AchievementStats {
-  const saved = loadStats();
-  if (Object.keys(saved).length > 0) return saved;
+async function fetchProgressFromApi(): Promise<AchievementProgress[] | null> {
+  try {
+    const res = await fetch('/api/logros', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const logros: Array<{
+      code: string;
+      progreso: number;
+      completado: boolean;
+      desbloqueado_en: string | null;
+    }> = data.logros ?? [];
+    const map = new Map(logros.map((l) => [l.code, l]));
+    return ACHIEVEMENTS.map((def) => {
+      const row = map.get(def.id);
+      return {
+        id: def.id,
+        progress: row?.progreso ?? 0,
+        completed: row?.completado ?? false,
+        unlockedAt: row?.desbloqueado_en ? Date.parse(row.desbloqueado_en) : null,
+        isNew: false,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
 
-  return {};
+/** Batch upsert of changed progress rows (single request). */
+async function saveProgressBatch(items: Array<{ id: string; progress: number; completed: boolean }>): Promise<void> {
+  if (items.length === 0 || !isRegisteredUser()) return;
+  try {
+    await fetch('/api/logros', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: items.map((it) => ({
+          code: it.id,
+          progress: it.progress,
+          completed: it.completed,
+        })),
+      }),
+    });
+  } catch {
+    /* offline — retry on next unlock */
+  }
 }
 
 function incrementStat(stats: AchievementStats, key: string, amount: number = 1): AchievementStats {
@@ -90,12 +134,22 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
   initialized: false,
   notificationQueue: [],
   currentNotification: null,
+  loading: false,
 
-  init: () => {
-    if (get().initialized) return;
-    const progress = initProgress();
-    const stats = getInitialStats();
-    set({ progress, stats, initialized: true });
+  init: async () => {
+    if (get().initialized || get().loading) return;
+    set({ loading: true });
+
+    let progress = emptyProgress();
+    let stats = loadStatsCache();
+
+    if (isRegisteredUser()) {
+      const remote = await fetchProgressFromApi();
+      if (remote) progress = remote;
+    }
+
+    stats = hydrateStatsFromProgress(progress, stats);
+    set({ progress, stats, initialized: true, loading: false });
 
     onAchievementEvent((event) => {
       get().processEvent(event);
@@ -106,7 +160,6 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
     const updated = get().progress.map((p) =>
       p.isNew ? { ...p, isNew: false } : p
     );
-    saveProgress(updated);
     set({ progress: updated, newAchievementIds: [] });
   },
 
@@ -127,14 +180,14 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
     if (!user) return;
 
     const state = get();
+    if (!state.initialized) return;
+
     let newStats = { ...state.stats };
     let newProgress = [...state.progress];
     const newlyUnlocked: string[] = [];
 
-    const isRelevantMode = (mode: string) =>
-      event.mode === mode;
+    const isRelevantMode = (mode: string) => event.mode === mode;
 
-    // Update stats based on event
     switch (event.type) {
       case 'correct_answer': {
         if (isRelevantMode('decisiones')) {
@@ -159,12 +212,12 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
         }
         if (isRelevantMode('lava')) {
           newStats = incrementStat(newStats, 'lava_games_completed');
-          if (!event.metadata?.defeated) {
-            newStats = incrementStat(newStats, 'lava_games_survived');
-          }
-          if (event.metadata?.ticks !== undefined) {
-            newStats = updateStatMax(newStats, 'lava_max_ticks_reached', event.metadata.ticks);
-          }
+        }
+        if (isRelevantMode('lava') && !event.metadata?.defeated) {
+          newStats = incrementStat(newStats, 'lava_games_survived');
+        }
+        if (event.metadata?.ticks !== undefined && isRelevantMode('lava')) {
+          newStats = updateStatMax(newStats, 'lava_max_ticks_reached', event.metadata.ticks);
         }
         if (event.metadata?.accuracy !== undefined) {
           if (isRelevantMode('decisiones')) {
@@ -177,10 +230,8 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
         break;
       }
       case 'game_defeated': {
-        if (isRelevantMode('lava')) {
-          if (event.metadata?.ticks !== undefined) {
-            newStats = updateStatMax(newStats, 'lava_max_ticks_reached', event.metadata.ticks);
-          }
+        if (isRelevantMode('lava') && event.metadata?.ticks !== undefined) {
+          newStats = updateStatMax(newStats, 'lava_max_ticks_reached', event.metadata.ticks);
         }
         break;
       }
@@ -207,10 +258,8 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
         break;
       }
       case 'streak': {
-        if (event.metadata?.streak !== undefined) {
-          if (isRelevantMode('decisiones')) {
-            newStats = updateStatMax(newStats, 'decisiones_best_streak', event.metadata.streak);
-          }
+        if (event.metadata?.streak !== undefined && isRelevantMode('decisiones')) {
+          newStats = updateStatMax(newStats, 'decisiones_best_streak', event.metadata.streak);
         }
         break;
       }
@@ -230,7 +279,6 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
       }
     }
 
-    // Tierras Hundidas / Entre Abismos stats (keys: tierras_*, abismos_*)
     if (event.mode === 'tierras' || event.mode === 'abismos') {
       const m = event.mode;
       switch (event.type) {
@@ -251,9 +299,6 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
           if (event.metadata?.score !== undefined) {
             newStats = updateStatMax(newStats, `${m}_best_score`, event.metadata.score);
           }
-          break;
-        }
-        case 'xp': {
           break;
         }
         case 'game_completed': {
@@ -291,12 +336,8 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
           newStats = { ...newStats, [`${m}_current_win_streak`]: 0, [`${m}_after_loss`]: 1 };
           break;
         }
-        case 'incorrect_answer':
-        case 'accuracy':
-        case 'perfect_streak':
-        case 'elimination': {
+        default:
           break;
-        }
       }
     }
 
@@ -350,18 +391,34 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
       return next;
     };
 
-    // Check each achievement (non-meta first, then recompute meta and check again)
     newProgress = checkAchievements(newStats, newProgress, newlyUnlocked, false);
     newStats = updateMetaStats(newStats);
     newProgress = checkAchievements(newStats, newProgress, newlyUnlocked, true);
+
+    const dirty = newProgress
+      .filter((p, i) => {
+        const old = state.progress[i];
+        if (!old) return p.progress > 0 || p.completed;
+        return p.progress !== old.progress || p.completed !== old.completed;
+      })
+      .map((p) => ({ id: p.id, progress: p.progress, completed: p.completed }));
+
+    if (dirty.length > 0) {
+      void saveProgressBatch(dirty);
+    }
+
+    const statsChanged =
+      Object.keys(newStats).length !== Object.keys(state.stats).length ||
+      Object.entries(newStats).some(([k, v]) => state.stats[k] !== v);
+
+    if (statsChanged) {
+      saveStatsCache(newStats);
+    }
 
     if (newlyUnlocked.length > 0) {
       const queue = [...state.notificationQueue, ...newlyUnlocked];
       const currentNotification = state.currentNotification || queue[0];
       const remainingQueue = state.currentNotification ? queue : queue.slice(1);
-
-      saveProgress(newProgress);
-      saveStats(newStats);
 
       if (!state.currentNotification) {
         audioManager.play('success');
@@ -374,19 +431,8 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
         notificationQueue: remainingQueue,
         currentNotification,
       });
-    } else {
-      const progressChanged = newProgress.some((p, i) => p.progress !== state.progress[i]?.progress);
-      if (progressChanged) {
-        saveProgress(newProgress);
-      }
-      if (Object.keys(newStats).length !== Object.keys(state.stats).length ||
-        Object.entries(newStats).some(([k, v]) => state.stats[k] !== v)) {
-        saveStats(newStats);
-      }
-      if (progressChanged || Object.keys(newStats).length !== Object.keys(state.stats).length ||
-        Object.entries(newStats).some(([k, v]) => state.stats[k] !== v)) {
-        set({ progress: newProgress, stats: newStats });
-      }
+    } else if (dirty.length > 0 || statsChanged) {
+      set({ progress: newProgress, stats: newStats });
     }
   },
 
@@ -403,14 +449,7 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
   },
 
   resetForTesting: () => {
-    const fresh = ACHIEVEMENTS.map((def) => ({
-      id: def.id,
-      progress: 0,
-      completed: false,
-      unlockedAt: null,
-      isNew: false,
-    }));
-    saveProgress(fresh);
+    const fresh = emptyProgress();
     writeUserJson(STATS_BASE, {});
     set({
       progress: fresh,

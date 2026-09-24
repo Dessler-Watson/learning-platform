@@ -41,15 +41,8 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { useToast } from '../../ui/toast';
 import { usePanelStore } from '../../store/usePanelStore';
 import { audioManager } from '../../lib/audio';
-import {
-  obtenerDocentes,
-  obtenerInstituciones,
-  actualizarDocentePorId,
-  eliminarDocente,
-  registrarDocente,
-  existeDocente,
-} from '../../data/docentes';
-import { Docente, RolUsuario, EstadoUsuario } from '../../types';
+import { docentesService } from '../../services';
+import { Docente } from '../../types';
 
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
@@ -130,9 +123,13 @@ export default function AdminDocentesPage() {
   const [loading, setLoading] = useState(false);
 
   const cargarDatos = useCallback(() => {
-    const todos = obtenerDocentes();
-    setDocentes(todos);
-    setInstituciones(obtenerInstituciones());
+    docentesService.obtenerTodos().then(({ docentes, instituciones }) => {
+      setDocentes(docentes);
+      setInstituciones(instituciones);
+    }).catch(() => {
+      setDocentes([]);
+      setInstituciones([]);
+    });
   }, []);
 
   useEffect(() => {
@@ -192,9 +189,9 @@ export default function AdminDocentesPage() {
     setShowCambiarContrasena(true);
   }, []);
 
-  const confirmarEliminar = useCallback(() => {
+  const confirmarEliminar = useCallback(async () => {
     if (!selectedDocente) return;
-    const result = eliminarDocente(selectedDocente.id);
+    const result = await docentesService.eliminar(selectedDocente.id);
     if (result.success) {
       toast(`Cuenta de ${selectedDocente.nombre} eliminada`, 'success');
       setShowEliminarDialog(false);
@@ -216,8 +213,8 @@ export default function AdminDocentesPage() {
     if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
-    setTimeout(() => {
-      const result = actualizarDocentePorId(selectedDocente.id, {
+    void (async () => {
+      const result = await docentesService.actualizar(selectedDocente.id, {
         nombre: editForm.nombre,
         correo: editForm.correo,
         institucion: editForm.institucion,
@@ -231,7 +228,7 @@ export default function AdminDocentesPage() {
       } else {
         toast(result.error || 'Error al actualizar', 'error');
       }
-    }, 400);
+    })();
   }, [selectedDocente, editForm, toast, cargarDatos]);
 
   const guardarContrasena = useCallback(() => {
@@ -244,8 +241,8 @@ export default function AdminDocentesPage() {
     if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
-    setTimeout(() => {
-      const result = actualizarDocentePorId(selectedDocente.id, { contrasena: passwordForm.nueva });
+    void (async () => {
+      const result = await docentesService.actualizar(selectedDocente.id, { contrasena: passwordForm.nueva });
       setLoading(false);
       if (result.success) {
         toast('Contraseña actualizada correctamente', 'success');
@@ -254,7 +251,7 @@ export default function AdminDocentesPage() {
       } else {
         toast(result.error || 'Error al actualizar contraseña', 'error');
       }
-    }, 400);
+    })();
   }, [selectedDocente, passwordForm, toast]);
 
   const crearAdmin = useCallback(() => {
@@ -269,14 +266,14 @@ export default function AdminDocentesPage() {
     setAdminErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    if (existeDocente(adminForm.correo)) {
-      setAdminErrors({ correo: 'Este correo ya está registrado' });
-      return;
-    }
-
     setLoading(true);
-    setTimeout(() => {
-      const result = usePanelStore.getState().register({
+    void (async () => {
+      if (await docentesService.existe(adminForm.correo)) {
+        setLoading(false);
+        setAdminErrors({ correo: 'Este correo ya está registrado' });
+        return;
+      }
+      const result = await usePanelStore.getState().register({
         nombre: adminForm.nombre,
         correo: adminForm.correo,
         contrasena: adminForm.contrasena,
@@ -293,7 +290,7 @@ export default function AdminDocentesPage() {
       } else {
         toast(result.error || 'Error al crear administrador', 'error');
       }
-    }, 400);
+    })();
   }, [adminForm, toast, cargarDatos]);
 
   const crearDocente = useCallback(() => {
@@ -308,14 +305,14 @@ export default function AdminDocentesPage() {
     setDocenteErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    if (existeDocente(docenteForm.correo)) {
-      setDocenteErrors({ correo: 'Este correo ya está registrado' });
-      return;
-    }
-
     setLoading(true);
-    setTimeout(() => {
-      const result = usePanelStore.getState().register({
+    void (async () => {
+      if (await docentesService.existe(docenteForm.correo)) {
+        setLoading(false);
+        setDocenteErrors({ correo: 'Este correo ya está registrado' });
+        return;
+      }
+      const result = await usePanelStore.getState().register({
         nombre: docenteForm.nombre,
         correo: docenteForm.correo,
         contrasena: docenteForm.contrasena,
@@ -332,7 +329,7 @@ export default function AdminDocentesPage() {
       } else {
         toast(result.error || 'Error al crear docente', 'error');
       }
-    }, 400);
+    })();
   }, [docenteForm, toast, cargarDatos]);
 
   return (

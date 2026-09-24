@@ -59,7 +59,7 @@ export function Sidebar() {
 
   const handleLogout = useCallback(() => {
     audioManager.onLogout();
-    logout();
+    void logout();
     clearAppEntry();
     router.push('/');
     router.refresh();

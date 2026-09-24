@@ -35,20 +35,17 @@ export default function LobbyPage() {
     });
   }, [salaId]);
 
-  const simulateJoin = useCallback(async () => {
-    if (!salaId || !sala || sala.estado !== 'esperando') return;
-    const result = await salasService.simularIngresoEstudiante(salaId);
-    if (result) {
-      audioManager.play('create');
-      setSala({ ...result.sala });
-    }
-  }, [salaId, sala]);
+  const refresh = useCallback(async () => {
+    if (!salaId) return;
+    const updated = await salasService.refrescar(salaId);
+    if (updated) setSala(updated);
+  }, [salaId]);
 
   useEffect(() => {
     if (!sala || sala.estado !== 'esperando') return;
-    const interval = setInterval(simulateJoin, 3000);
+    const interval = setInterval(refresh, 3000);
     return () => clearInterval(interval);
-  }, [sala, simulateJoin]);
+  }, [sala?.estado, salaId, refresh]);
 
   const handleStart = async () => {
     if (!salaId || !clickLock()) return;
@@ -157,10 +154,10 @@ export default function LobbyPage() {
           <Button
             variant="outline"
             className="flex-1"
-            onClick={() => { if (clickLock()) simulateJoin(); }}
+            onClick={() => { if (clickLock()) void refresh(); }}
             disabled={sala.estado !== 'esperando'}
           >
-            <UserPlus className="mr-2 h-4 w-4" /> Simular entrada
+            <UserPlus className="mr-2 h-4 w-4" /> Actualizar
           </Button>
           <Button
             className="flex-1"
