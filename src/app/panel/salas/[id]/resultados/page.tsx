@@ -51,8 +51,8 @@ export default function ResultadosPage() {
     );
   }
 
-  const esLava = sala.juegoId === 'juego-2';
   const modeId = toGameModeId(sala.juegoId);
+  const esLava = modeId === 'lava';
   const totalParticipantes = sala.participantes.length;
   const completados = sala.participantes.filter((p) => p.estado === 'finalizado').length;
   const eliminados = sala.participantes.filter((p) => p.estado === 'eliminado').length;

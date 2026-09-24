@@ -87,8 +87,8 @@ export default function SalasPage() {
           <div className="space-y-3">
             <AnimatePresence>
               {filtered.map((sala) => {
-                const esLava = sala.juegoId === 'juego-2';
                 const modeId = toGameModeId(sala.juegoId);
+                const esLava = modeId === 'lava';
                 const theme = modeId ? MODE_THEME[modeId] : null;
                 return (
                   <motion.div

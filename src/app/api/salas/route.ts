@@ -13,6 +13,15 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const MAX_NAME = 120;
+
+function parseMaxPlayers(raw: unknown): number | null {
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 50) return null;
+  return n;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionUser(req);
@@ -21,16 +30,25 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
     const id = searchParams.get('id');
+    const joinParam = searchParams.get('join');
+    const shouldJoin = joinParam !== '0';
 
     const room = code ? await getRoomByCode(code) : id ? await getRoomById(id) : null;
     if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+
     const participantes = await listParticipants(room.id);
     const soyParticipante = participantes.some((p) => p.user_id === session.id);
+    const soyHost = room.teacher_id === session.id;
+    const esStaff = session.role === 'teacher' || session.role === 'admin';
 
-    // Entrada por código (sala de espera): auto-join si aún no está y la sala acepta.
-    if (code && !soyParticipante) {
+    // Entrada por código: auto-join solo en la carga inicial (join != '0').
+    if (code && shouldJoin && !soyParticipante) {
       if (room.status !== 'waiting') {
-        return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
+        const msg =
+          room.status === 'finished' || room.status === 'archived'
+            ? 'La sala ya finalizó'
+            : 'La sala no está disponible';
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
       const join = await joinRoom(room.id, session.id);
       if (!join.joined) {
@@ -41,11 +59,26 @@ export async function GET(req: NextRequest) {
         sala: room,
         participantes: lista,
         usuario_id: session.id,
-        es_host: room.teacher_id === session.id,
+        es_host: soyHost,
       });
     }
 
-    if (!code && !soyParticipante && room.status !== 'waiting') {
+    // Sin code: solo participantes, host o staff dueño pueden ver la sala.
+    if (!code) {
+      const allowed =
+        soyParticipante ||
+        soyHost ||
+        (esStaff && (session.role === 'admin' || room.teacher_id === session.id));
+      if (!allowed) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      if (!soyParticipante && !soyHost && room.status !== 'waiting' && room.status !== 'in_progress') {
+        return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
+      }
+    }
+
+    // Poll por código de un no-participante en sala cerrada → no disponible.
+    if (code && !soyParticipante && !soyHost && room.status !== 'waiting' && room.status !== 'in_progress') {
       return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
     }
 
@@ -53,7 +86,7 @@ export async function GET(req: NextRequest) {
       sala: room,
       participantes,
       usuario_id: session.id,
-      es_host: room.teacher_id === session.id,
+      es_host: soyHost,
     });
   } catch (err) {
     console.error('[salas GET]', err);
@@ -65,20 +98,42 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSessionUser(req);
     if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    await ensureLeagueProgress(session.id);
 
     const body = await req.json();
     const action = String(body.action ?? 'create');
+    const esStaff = session.role === 'teacher' || session.role === 'admin';
 
     if (action === 'create') {
-      const name = String(body.name ?? '').trim() || `Sala de ${session.nombre}`;
+      if (!esStaff) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      await ensureLeagueProgress(session.id);
+
+      const name = String(body.name ?? '').trim().slice(0, MAX_NAME) || `Sala de ${session.nombre}`;
       const modeCode = String(body.mode ?? body.mode_code ?? 'decisiones').trim();
+      const maxPlayers = parseMaxPlayers(body.max_players);
+      if (body.max_players != null && body.max_players !== '' && maxPlayers == null) {
+        return NextResponse.json({ error: 'max_players debe ser un entero entre 1 y 50' }, { status: 400 });
+      }
+
+      let courseId: string | undefined;
+      if (body.course_id) {
+        courseId = String(body.course_id);
+        const course = await queryOne<{ id: string; teacher_id: string }>(
+          `SELECT id, teacher_id FROM courses WHERE id = $1 AND deleted_at IS NULL`,
+          [courseId]
+        );
+        if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+          return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
+        }
+      }
+
       const room = await createRoom({
         hostId: session.id,
         name,
         modeCode,
-        maxPlayers: Number(body.max_players) || 8,
-        courseId: body.course_id ? String(body.course_id) : undefined,
+        maxPlayers: maxPlayers ?? 8,
+        courseId,
       });
       return NextResponse.json({ sala: room }, { status: 201 });
     }
@@ -105,12 +160,27 @@ export async function POST(req: NextRequest) {
 
     if (action === 'start') {
       const roomId = String(body.room_id ?? '');
-      const ok = await startRoom(roomId, session.id);
-      if (!ok) return NextResponse.json({ error: 'Solo el host puede iniciar' }, { status: 403 });
+      if (!roomId) return NextResponse.json({ error: 'room_id requerido' }, { status: 400 });
+      if (!esStaff) {
+        return NextResponse.json({ error: 'Solo el docente puede iniciar la sala' }, { status: 403 });
+      }
+      const room = await getRoomById(roomId);
+      if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+      if (session.role !== 'admin' && room.teacher_id !== session.id) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const result = await startRoom(roomId, session.id, { isAdmin: session.role === 'admin' });
+      if (!result.ok) {
+        if (result.reason === 'bad_status') {
+          return NextResponse.json({ error: 'La sala no está esperando jugadores' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'No se pudo iniciar' }, { status: 403 });
+      }
       return NextResponse.json({ ok: true });
     }
 
     if (action === 'answer') {
+      // Lógica de partida completa: Paso 4. Solo se valida membresía/estado básico.
       const roomId = String(body.room_id ?? '');
       const questionId = String(body.question_id ?? '');
       const selectedIndex = Number(body.selected_index ?? -1);
@@ -119,8 +189,17 @@ export async function POST(req: NextRequest) {
 
       const room = await getRoomById(roomId);
       if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+      if (room.status !== 'in_progress') {
+        return NextResponse.json({ error: 'La sala no está en curso' }, { status: 409 });
+      }
+      const member = await queryOne(
+        `SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $2 AND left_at IS NULL`,
+        [roomId, session.id]
+      );
+      if (!member) {
+        return NextResponse.json({ error: 'No eres participante de esta sala' }, { status: 403 });
+      }
 
-      // Ensure a live match exists for this room
       let match = await queryOne<{ id: string }>(
         `SELECT id FROM matches WHERE room_id = $1 AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1`,
         [roomId]
@@ -149,10 +228,7 @@ export async function POST(req: NextRequest) {
       if (!participant) return NextResponse.json({ error: 'No se pudo registrar participante' }, { status: 500 });
 
       if (isCorrect && points > 0) {
-        await query(
-          `UPDATE match_participants SET score = score + $2 WHERE id = $1`,
-          [participant.id, points]
-        );
+        await query(`UPDATE match_participants SET score = score + $2 WHERE id = $1`, [participant.id, points]);
       }
 
       const posRow = await queryOne<{ n: number }>(
@@ -171,8 +247,22 @@ export async function POST(req: NextRequest) {
 
     if (action === 'finish') {
       const roomId = String(body.room_id ?? '');
-      const result = await finishRoom(roomId, session.id);
-      if (!result.ok) return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 403 });
+      if (!roomId) return NextResponse.json({ error: 'room_id requerido' }, { status: 400 });
+      if (!esStaff) {
+        return NextResponse.json({ error: 'Solo el docente puede finalizar la sala' }, { status: 403 });
+      }
+      const room = await getRoomById(roomId);
+      if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+      if (session.role !== 'admin' && room.teacher_id !== session.id) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const result = await finishRoom(roomId, session.id, { isAdmin: session.role === 'admin' });
+      if (!result.ok) {
+        if (result.reason === 'bad_status') {
+          return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 403 });
+      }
 
       await query(
         `UPDATE matches SET status = 'finished', finished_at = now()
@@ -180,8 +270,6 @@ export async function POST(req: NextRequest) {
         [roomId]
       );
 
-      // Competitive stars: host and top participants only for room_match source.
-      // Ranking by match_participants.score
       const ranking = await query<{ user_id: string; score: number }>(
         `SELECT mp.user_id, mp.score
          FROM match_participants mp

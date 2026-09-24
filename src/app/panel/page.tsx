@@ -133,8 +133,8 @@ export default function InicioPage() {
         </motion.div>
 
         {salaActiva && (() => {
-          const esLava = salaActiva.juegoId === 'juego-2';
           const modeId = toGameModeId(salaActiva.juegoId);
+          const esLava = modeId === 'lava';
           const theme = modeId ? MODE_THEME[modeId] : null;
           return (
             <motion.div

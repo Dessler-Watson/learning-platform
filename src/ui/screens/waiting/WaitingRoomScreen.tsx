@@ -152,14 +152,18 @@ export function WaitingRoomScreen() {
     }
   }, [beginCountdown]);
 
-  const loadRoom = useCallback(async () => {
+  const leaveRequestedRef = useRef(false);
+
+  const loadRoom = useCallback(async (opts?: { join?: boolean }) => {
     if (!codigo) {
       setPhase('error');
       setErrorMsg('Código de sala requerido');
       return;
     }
+    if (leaveRequestedRef.current) return;
     try {
-      const res = await fetch(`/api/salas?code=${encodeURIComponent(codigo)}`, { cache: 'no-store' });
+      const joinQs = opts?.join === false ? '&join=0' : '';
+      const res = await fetch(`/api/salas?code=${encodeURIComponent(codigo)}${joinQs}`, { cache: 'no-store' });
       if (res.status === 401) {
         setPhase('error');
         setErrorMsg('Debes iniciar sesión para entrar a la sala');
@@ -189,10 +193,11 @@ export function WaitingRoomScreen() {
     clearTimers();
     prevIdsRef.current = new Set();
     startedRef.current = false;
+    leaveRequestedRef.current = false;
     setPhase('loading');
-    loadRoom();
+    loadRoom({ join: true });
     pollRef.current = setInterval(() => {
-      if (!startedRef.current) loadRoom();
+      if (!startedRef.current && !leaveRequestedRef.current) loadRoom({ join: false });
     }, 2000);
     return () => {
       clearTimers();
@@ -201,6 +206,8 @@ export function WaitingRoomScreen() {
   }, [loadRoom]);
 
   const salir = async () => {
+    leaveRequestedRef.current = true;
+    if (pollRef.current) clearInterval(pollRef.current);
     if (snapshot?.room.id && snapshot.myId) {
       try {
         await fetch('/api/salas', {

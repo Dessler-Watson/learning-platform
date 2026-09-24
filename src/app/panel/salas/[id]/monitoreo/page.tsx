@@ -92,8 +92,8 @@ export default function MonitoreoPage() {
     );
   }
 
-  const esLava = sala.juegoId === 'juego-2';
   const modeId = toGameModeId(sala.juegoId);
+  const esLava = modeId === 'lava';
   const theme = modeId ? MODE_THEME[modeId] : null;
   const maxProgreso = Math.max(...sala.participantes.map((p) => p.progreso), 1);
   const progressPct = (progreso: number) => Math.round((progreso / sala.totalPreguntas) * 100);

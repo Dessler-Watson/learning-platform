@@ -54,8 +54,8 @@ export default function EstudianteDetallePage() {
     );
   }
 
-  const esLava = sala.juegoId === 'juego-2';
   const modeId = toGameModeId(sala.juegoId);
+  const esLava = modeId === 'lava';
   const esEliminado = detalle.estadoFinal === 'eliminado';
   const participante = sala.participantes.find((p) => p.estudianteId === estudianteId);
   const avatarId = participante?.avatar_id;

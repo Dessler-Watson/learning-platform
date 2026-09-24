@@ -122,11 +122,22 @@ if ($curso) {
   $np = J $r
   if ($np.pregunta) { $questionId = $np.pregunta.id }
 
-  # Student creates room (host) → can start/answer/finish for stars
-  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+  # Student cannot create rooms (role gate)
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'create'; name = "Sala Stud $stamp"; mode = 'decisiones'
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: student create 403' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: student create 403' ($code -eq 403) "code=$code"
+  }
+
+  # Teacher creates room (host) → student joins, teacher start/finish
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
     action = 'create'; name = "Sala E2E $stamp"; mode = $curso.gameModeId; course_id = $curso.id
   } | ConvertTo-Json) -UseBasicParsing
-  Ok 'sala: student create' ($r.StatusCode -eq 201) $r.StatusCode
+  Ok 'sala: teacher create' ($r.StatusCode -eq 201) $r.StatusCode
   $sala = J $r
   $salaId = $sala.sala.id
   $codigo = $sala.sala.code
@@ -134,12 +145,22 @@ if ($curso) {
   $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
     action = 'join'; code = $codigo
   } | ConvertTo-Json) -UseBasicParsing
-  Ok 'sala: self join' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+  Ok 'sala: student join' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
 
-  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'start'; room_id = $salaId
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: student start 403' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: student start 403' ($code -eq 403) "code=$code"
+  }
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
     action = 'start'; room_id = $salaId
   } | ConvertTo-Json) -UseBasicParsing
-  Ok 'sala: start' ($r.StatusCode -eq 200) $r.StatusCode
+  Ok 'sala: teacher start' ($r.StatusCode -eq 200) $r.StatusCode
 
   if ($questionId) {
     $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
@@ -150,15 +171,36 @@ if ($curso) {
     Ok 'sala: answer' $false 'no question id'
   }
 
-  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'finish'; room_id = $salaId
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: student finish 403' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: student finish 403' ($code -eq 403) "code=$code"
+  }
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
     action = 'finish'; room_id = $salaId
   } | ConvertTo-Json) -UseBasicParsing
-  Ok 'sala: finish' ($r.StatusCode -eq 200) $r.StatusCode
+  Ok 'sala: teacher finish' ($r.StatusCode -eq 200) $r.StatusCode
 
   Start-Sleep -Milliseconds 300
   $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
   $st3 = J $r
   Ok 'estrellas: sala > 0' ([int]$st3.estrellas -gt 0) "stars=$($st3.estrellas)"
+
+  # Closed room rejects joins
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'join'; code = $codigo
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: join finished 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: join finished 400' ($code -eq 400) "code=$code"
+  }
 
   # Panel poll real (no simulation)
   $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
@@ -296,13 +338,15 @@ $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 
 } | ConvertTo-Json) -UseBasicParsing -SessionVariable swp
 Ok 'waiting: player register' ($r.StatusCode -eq 201) $r.StatusCode
 
-$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swh -Body (@{
+# Teacher is the room host; students join by code
+$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
   action = 'create'; name = "Sala Wait $stamp"; mode = 'decisiones'; max_players = 3
 } | ConvertTo-Json) -UseBasicParsing
-Ok 'waiting: create' ($r.StatusCode -eq 201) $r.StatusCode
+Ok 'waiting: teacher create' ($r.StatusCode -eq 201) $r.StatusCode
 $wSala = J $r
 $wCode = $wSala.sala.code
 $wId = $wSala.sala.id
+Ok 'waiting: max_players stored' ([int]$wSala.sala.max_players -eq 3) "max=$($wSala.sala.max_players)"
 
 $r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))" -WebSession $swp -UseBasicParsing
 Ok 'waiting: player GET join by code' ($r.StatusCode -eq 200) $r.StatusCode
@@ -310,10 +354,31 @@ $wSnap = J $r
 $wParts = @($wSnap.participantes)
 Ok 'waiting: 2 jugadores tras join' ($wParts.Count -eq 2) "count=$($wParts.Count)"
 $wNames = @($wParts | ForEach-Object { $_.display_name })
-Ok 'waiting: nombres reales (no mock)' (($wNames -contains 'WaitHost') -and ($wNames -contains 'WaitPlayer')) ($wNames -join ',')
+Ok 'waiting: nombres reales (no mock)' (($wNames -contains 'WaitPlayer') -and (($wNames | Where-Object { $_ -match 'Ana|Garc' }).Count -ge 1)) ($wNames -join ',')
 Ok 'waiting: estrellas en participantes' (($wParts | Where-Object { $null -ne $_.stars }) -ne $null) (($wParts | Select-Object -First 1).stars)
 Ok 'waiting: sala status waiting' ($wSnap.sala.status -eq 'waiting') $wSnap.sala.status
 Ok 'waiting: docente/curso present' (($null -ne $wSnap.sala.docente) -and ($null -ne $wSnap.sala.curso)) "docente=$($wSnap.sala.docente)"
+
+$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swh -Body (@{
+  action = 'join'; code = $wCode
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'waiting: second player join' ($r.StatusCode -eq 200) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swp -UseBasicParsing
+Ok 'waiting: 3 jugadores (max full)' ((@((J $r).participantes).Count) -eq 3) "count=$(@((J $r).participantes).Count)"
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'WaitExtra'; email = "e2e_wait_x_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable swx
+Ok 'waiting: extra register' ($r.StatusCode -eq 201) $r.StatusCode
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swx -Body (@{
+    action = 'join'; code = $wCode
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'waiting: max_players full 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'waiting: max_players full 400' ($code -eq 400) "code=$code"
+}
 
 try {
   $r = Invoke-WebRequest -Uri "$base/api/salas?code=NOEXISTE$stamp" -WebSession $swp -UseBasicParsing
@@ -323,31 +388,156 @@ try {
   Ok 'waiting: codigo inexistente 404' ($code -eq 404) "code=$code"
 }
 
-$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swh -Body (@{
+$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swp -Body (@{
   action = 'leave'; room_id = $wId
 } | ConvertTo-Json) -UseBasicParsing
 Ok 'waiting: leave' ($r.StatusCode -eq 200) $r.StatusCode
 
-$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))" -WebSession $swp -UseBasicParsing
-$wAfterLeave = J $r
-Ok 'waiting: 1 jugador tras leave' ((@($wAfterLeave.participantes).Count) -eq 1) "count=$(@($wAfterLeave.participantes).Count)"
-
-$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))" -WebSession $swh -UseBasicParsing
-Ok 'waiting: host rejoin after leave' ($r.StatusCode -eq 200) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swx -UseBasicParsing
+Ok 'waiting: 2 jugadores tras leave' ((@((J $r).participantes).Count) -eq 2) "count=$(@((J $r).participantes).Count)"
 
 $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swp -Body (@{
   action = 'join'; code = $wCode
 } | ConvertTo-Json) -UseBasicParsing
 Ok 'waiting: player rejoin' ($r.StatusCode -eq 200) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swx -UseBasicParsing
+Ok 'waiting: 3 jugadores tras rejoin' ((@((J $r).participantes).Count) -eq 3) "count=$(@((J $r).participantes).Count)"
 
-$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swh -Body (@{
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swp -Body (@{
+    action = 'start'; room_id = $wId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'waiting: student start 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'waiting: student start 403' ($code -eq 403) "code=$code"
+}
+
+$r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
   action = 'start'; room_id = $wId
 } | ConvertTo-Json) -UseBasicParsing
-Ok 'waiting: start by host' ($r.StatusCode -eq 200) $r.StatusCode
+Ok 'waiting: start by teacher host' ($r.StatusCode -eq 200) $r.StatusCode
 
-$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))" -WebSession $swp -UseBasicParsing
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swp -UseBasicParsing
 $wStarted = J $r
 Ok 'waiting: status in_progress tras start' ($wStarted.sala.status -eq 'in_progress') $wStarted.sala.status
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swx -Body (@{
+    action = 'join'; code = $wCode
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'waiting: join in_progress 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'waiting: join in_progress 400' ($code -eq 400) "code=$code"
+}
+
+# ═══ 3b. ROOM SECURITY + PERSISTENCE (roles, ownership, codes, PG) ═══
+if (-not $stch2) {
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+      email = 'carlos.lopez@gmail.com'; password = 'demo123'
+    } | ConvertTo-Json) -UseBasicParsing -SessionVariable stch2
+    Ok 'sala: stch2 login' ($r.StatusCode -eq 200) $r.StatusCode
+  } catch {
+    Ok 'sala: stch2 login' $false $_.Exception.Message
+  }
+}
+if ($stch2 -and $curso) {
+  # Foreign teacher cannot manage room
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+      action = 'start'; id = $wId
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: foreign start 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: foreign start 404' ($code -eq 404) "code=$code"
+  }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+      action = 'poll'; id = $wId
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: foreign panel poll 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: foreign panel poll 404' ($code -eq 404) "code=$code"
+  }
+
+  # Student cannot poll foreign room by id
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas?id=$wId&join=0" -WebSession $s1 -UseBasicParsing
+    Ok 'sala: student foreign id 403' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: student foreign id 403' ($code -eq 403) "code=$code"
+  }
+
+  # Unique codes across two teacher rooms
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "CodeA $stamp"; mode = 'decisiones'; course_id = $curso.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'sala: code A create' ($r.StatusCode -eq 201) $r.StatusCode
+  $codeA = (J $r).sala.code
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "CodeB $stamp"; mode = 'decisiones'; course_id = $curso.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'sala: code B create' ($r.StatusCode -eq 201) $r.StatusCode
+  $codeB = (J $r).sala.code
+  Ok 'sala: codes unique' ($codeA -and $codeB -and ($codeA -ne $codeB)) "a=$codeA b=$codeB"
+
+  # Invalid max_players
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; name = "BadMax $stamp"; mode = 'decisiones'; max_players = 0
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'sala: invalid max_players 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'sala: invalid max_players 400' ($code -eq 400) "code=$code"
+  }
+
+  # Double start rejected
+  if ($wId) {
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'start'; room_id = $wId
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'sala: double start 409' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'sala: double start 409' ($code -eq 409) "code=$code"
+    }
+  }
+
+  # PostgreSQL persistence (not mocks)
+  $psqlExe = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+  if ((Test-Path $psqlExe) -and $wId) {
+    $env:PGPASSWORD = 'casimiro123'
+    $pgR = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT status FROM rooms WHERE id = '$wId'" 2>$null)
+    Ok 'sala: PG status in_progress' ("$pgR".Trim() -eq 'in_progress') "status=$pgR"
+    $pgP = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM room_participants WHERE room_id = '$wId' AND left_at IS NULL" 2>$null)
+    Ok 'sala: PG participants' ([int]"$pgP".Trim() -ge 2) "n=$pgP"
+    $pgC = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(DISTINCT code) FROM rooms WHERE code IN ('$codeA','$codeB')" 2>$null)
+    Ok 'sala: PG distinct codes' ([int]"$pgC".Trim() -eq 2) "n=$pgC"
+  } else {
+    Ok 'sala: PG status in_progress' $false 'psql or wId missing'
+    Ok 'sala: PG participants' $false 'psql or wId missing'
+    Ok 'sala: PG distinct codes' $false 'psql or wId missing'
+  }
+} else {
+  Ok 'sala: foreign start 404' $false 'stch2/curso missing'
+  Ok 'sala: foreign panel poll 404' $false 'stch2/curso missing'
+  Ok 'sala: student foreign id 403' $false 'stch2/curso missing'
+  Ok 'sala: code A create' $false 'stch2/curso missing'
+  Ok 'sala: code B create' $false 'stch2/curso missing'
+  Ok 'sala: codes unique' $false 'stch2/curso missing'
+  Ok 'sala: invalid max_players 400' $false 'stch2/curso missing'
+  Ok 'sala: double start 409' $false 'stch2/curso missing'
+  Ok 'sala: PG status in_progress' $false 'stch2/curso missing'
+  Ok 'sala: PG participants' $false 'stch2/curso missing'
+  Ok 'sala: PG distinct codes' $false 'stch2/curso missing'
+}
 
 # ═══ 8. RANKING REAL (orden por estrellas + liga + sin datos privados) ═══
 $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{

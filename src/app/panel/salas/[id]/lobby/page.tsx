@@ -82,8 +82,8 @@ export default function LobbyPage() {
     );
   }
 
-  const esLava = sala.juegoId === 'juego-2';
   const modeId = toGameModeId(sala.juegoId);
+  const esLava = modeId === 'lava';
   const theme = modeId ? MODE_THEME[modeId] : null;
 
   return (

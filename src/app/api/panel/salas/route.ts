@@ -21,6 +21,8 @@ async function mapRoom(room: {
   max_players: number | null;
   status: string;
   created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
 }) {
   const parts = await listParticipants(room.id);
   const matchStats = await queryOne<{
@@ -120,11 +122,11 @@ async function mapRoom(room: {
     estado: mapEstado(room.status),
     totalPreguntas: matchStats?.total_preguntas || 10,
     createdAt: room.created_at,
-    startedAt: null,
-    finishedAt: null,
     participantes,
     maxPlayers: room.max_players,
     matchStatus: matchStats?.status ?? null,
+    startedAt: room.started_at ?? null,
+    finishedAt: room.finished_at ?? null,
   };
 }
 
@@ -148,7 +150,8 @@ export async function GET(req: NextRequest) {
     type RoomRow = Parameters<typeof mapRoom>[0];
     const rows = await query<RoomRow>(
       `SELECT r.id, r.code, r.name, gm.code AS mode_code, r.teacher_id, r.course_id,
-              r.max_players, r.status::text AS status, r.created_at::text AS created_at
+              r.max_players, r.status::text AS status, r.created_at::text AS created_at,
+              r.started_at::text AS started_at, r.finished_at::text AS finished_at
        FROM rooms r
        JOIN game_modes gm ON gm.id = r.game_mode_id
        WHERE r.deleted_at IS NULL
@@ -176,6 +179,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create') {
       const cursoId = String(body.cursoId ?? body.course_id ?? '');
+      if (!cursoId) return NextResponse.json({ error: 'Curso requerido' }, { status: 400 });
       const course = await queryOne<{ id: string; teacher_id: string }>(
         `SELECT id, teacher_id FROM courses WHERE id = $1 AND deleted_at IS NULL`,
         [cursoId]
@@ -183,11 +187,20 @@ export async function POST(req: NextRequest) {
       if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
         return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
       }
+      const maxRaw = body.maxPlayers ?? body.max_players;
+      let maxPlayers = 8;
+      if (maxRaw != null && maxRaw !== '') {
+        const n = Number(maxRaw);
+        if (!Number.isInteger(n) || n < 1 || n > 50) {
+          return NextResponse.json({ error: 'maxPlayers debe ser un entero entre 1 y 50' }, { status: 400 });
+        }
+        maxPlayers = n;
+      }
       const room = await createRoom({
         hostId: session.id,
         name: String(body.nombre ?? body.name ?? 'Sala'),
         modeCode: String(body.juegoId ?? body.mode_code ?? 'decisiones'),
-        maxPlayers: Number(body.maxPlayers) || 8,
+        maxPlayers,
         courseId: cursoId,
       });
       await query(
@@ -204,8 +217,13 @@ export async function POST(req: NextRequest) {
       if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
-      const ok = await startRoom(id, session.id);
-      if (!ok) return NextResponse.json({ error: 'No se pudo iniciar' }, { status: 400 });
+      const result = await startRoom(id, session.id, { isAdmin: session.role === 'admin' });
+      if (!result.ok) {
+        if (result.reason === 'bad_status') {
+          return NextResponse.json({ error: 'La sala no está esperando jugadores' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'No se pudo iniciar' }, { status: 400 });
+      }
       const questionCount = await queryOne<{ n: number }>(
         `SELECT count(*)::int AS n FROM questions WHERE course_id = $1 AND deleted_at IS NULL AND status = 'active'`,
         [room.course_id]
@@ -225,8 +243,13 @@ export async function POST(req: NextRequest) {
       if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
-      const result = await finishRoom(id, session.id);
-      if (!result.ok) return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 400 });
+      const result = await finishRoom(id, session.id, { isAdmin: session.role === 'admin' });
+      if (!result.ok) {
+        if (result.reason === 'bad_status') {
+          return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 400 });
+      }
       await query(
         `UPDATE matches SET status = 'finished', finished_at = now()
          WHERE room_id = $1 AND status = 'in_progress'`,
