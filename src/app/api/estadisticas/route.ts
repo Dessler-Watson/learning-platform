@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 import { readData } from '@/lib/data';
 
 interface Resultado { correctas: number; incorrectas: number; puntaje: number; copas: number; }
@@ -8,6 +9,10 @@ interface Usuario { id_usuario: number; nombre: string; rol: string; }
 interface Progreso { usuario_id: number; copas: number; victorias: number; racha: number; }
 
 export async function GET(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
   const { searchParams } = new URL(req.url);
   const tipo = searchParams.get('tipo');
 

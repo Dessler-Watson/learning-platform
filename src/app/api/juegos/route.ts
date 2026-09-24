@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 import { readData } from '@/lib/data';
 
 interface Juego { id_juego: number; nombre: string; descripcion: string; imagen: string; }
@@ -7,7 +8,11 @@ interface Sala { juego_id: number; id_sala: number; }
 interface Partida { sala_id: number; }
 interface JuegoCuestionario { juego_id: number; cuestionario_id: number; }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
   const juegos = readData<Juego>('juegos');
   const cuestionarios = readData<Cuestionario>('cuestionarios');
   const salas = readData<Sala>('salas');

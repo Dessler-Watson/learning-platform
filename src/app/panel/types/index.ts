@@ -16,6 +16,16 @@ export interface Docente {
   ultimaActividad: string;
 }
 
+export interface CuentaJugador {
+  id: string;
+  nombre: string;
+  correo: string;
+  estado: EstadoUsuario;
+  fechaRegistro: string;
+  ultimaActividad: string;
+  estrellas: number;
+}
+
 export interface Curso {
   id: string;
   teacherId: string;

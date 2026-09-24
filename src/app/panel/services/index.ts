@@ -7,6 +7,7 @@ import {
   Actividad,
   EstadisticasInicio,
   Docente,
+  CuentaJugador,
 } from '../types';
 import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJuego, RespuestaDetalleSala } from '../types';
 import { MODE_THEME, GameModeId } from '@/shared/lib/game-modes';
@@ -376,6 +377,34 @@ export const docentesService = {
   },
 };
 
+// ─── Estudiantes / jugadores (admin) ───
+
+export const estudiantesService = {
+  async listar(q?: string): Promise<{ estudiantes: CuentaJugador[] }> {
+    const url = q ? `/api/panel/estudiantes?q=${encodeURIComponent(q)}` : '/api/panel/estudiantes';
+    return api<{ estudiantes: CuentaJugador[] }>(url);
+  },
+  async actualizar(
+    id: string,
+    data: { nombre?: string; correo?: string; estado?: string; contrasena?: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api('/api/panel/estudiantes', { method: 'POST', body: JSON.stringify({ action: 'update', id, ...data }) });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al actualizar' };
+    }
+  },
+  async eliminar(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api('/api/panel/estudiantes', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al eliminar' };
+    }
+  },
+};
+
 /** Kept for type-only imports in older pages; simulation removed. */
 export type { ModoJuego, RespuestaDetalleSala, ParticipanteSala, CursoEstudiante, Estudiante };
-export type { Docente };
+export type { Docente, CuentaJugador };

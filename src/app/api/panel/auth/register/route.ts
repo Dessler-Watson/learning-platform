@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUser, getUserByEmail, hashPassword, createSession, setSessionCookie, updateLastLogin } from '@/lib/db';
+import { createUser, getUserByEmail, hashPassword, createSession, setSessionCookie, updateLastLogin, getSessionUser } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,9 @@ export async function POST(req: NextRequest) {
     if (!nombre || !email || !password) {
       return NextResponse.json({ error: 'Nombre, correo y contraseña son obligatorios' }, { status: 400 });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+    }
     if (password.length < 6) {
       return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
     }
@@ -23,9 +26,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ya existe una cuenta con ese correo' }, { status: 409 });
     }
 
-    const passwordHash = await hashPassword(password);
+    const caller = await getSessionUser(req);
     const requestedRole = String(body.role ?? body.rol ?? 'teacher');
-    const roleCode = requestedRole === 'admin' ? 'admin' : 'teacher';
+    let roleCode: 'teacher' | 'admin' = 'teacher';
+    if (requestedRole === 'admin') {
+      if (!caller || caller.role !== 'admin') {
+        return NextResponse.json({ error: 'Solo un administrador puede crear cuentas admin' }, { status: 403 });
+      }
+      roleCode = 'admin';
+    }
+
+    const passwordHash = await hashPassword(password);
     const user = await createUser({
       roleCode,
       nombre,
@@ -34,21 +45,25 @@ export async function POST(req: NextRequest) {
       institutionName,
     });
     await updateLastLogin(user.id);
-    const token = await createSession(user.id, req.headers.get('user-agent'), req.headers.get('x-forwarded-for'));
 
-    const res = NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          nombre: user.nombre,
-          email: user.email,
-          role: user.role,
-          institution: user.institution_name,
-        },
+    const payload = {
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        role: user.role,
+        institution: user.institution_name,
       },
-      { status: 201 }
-    );
-    res.headers.set('Set-Cookie', setSessionCookie(token));
+    };
+
+    // Staff creating another account: do not replace the caller's session cookie.
+    if (caller) {
+      return NextResponse.json(payload, { status: 201 });
+    }
+
+    const token = await createSession(user.id, req.headers.get('user-agent'), req.headers.get('x-forwarded-for'));
+    const res = NextResponse.json(payload, { status: 201 });
+    res.headers.set('Set-Cookie', setSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[panel/auth/register]', err);

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 import { readData, writeData, getNextId } from '@/lib/data';
+
+async function requireStaff(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
+  return null;
+}
 
 interface Pregunta { id_pregunta: number; categoria_id: number; pregunta: string; opcion_a: string; opcion_b: string; opcion_c: string | null; opcion_d: string | null; respuesta_correcta: string; dificultad: string; explicacion: string | null; puntos: number; }
 interface Categoria { id_categoria: number; nombre: string; cuestionario_id: number; }
@@ -7,6 +16,8 @@ interface Cuestionario { id_cuestionario: number; nombre: string; }
 interface JuegoCuestionario { juego_id: number; cuestionario_id: number; }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const preguntas = readData<Pregunta>('preguntas');
   const categorias = readData<Categoria>('categorias');
   const cuestionarios = readData<Cuestionario>('cuestionarios');
@@ -38,6 +49,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const data = readData<Pregunta>('preguntas');
   const newId = getNextId('preguntas');
@@ -60,6 +73,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const url = new URL(req.url);
   const id = parseInt(url.pathname.split('/').pop() || '0');
@@ -72,6 +87,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const url = new URL(req.url);
   const id = parseInt(url.pathname.split('/').pop() || '0');
   let data = readData<Pregunta>('preguntas');

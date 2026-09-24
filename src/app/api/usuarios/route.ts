@@ -57,6 +57,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSessionUser(req);
+    if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
     const body = await req.json();
     const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : '';
     const apellido = typeof body.apellido === 'string' ? body.apellido.trim() : '';

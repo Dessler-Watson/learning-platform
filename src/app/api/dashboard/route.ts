@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 import { readData } from '@/lib/data';
 
 interface Usuario { rol: string; estado: string; }
@@ -11,7 +12,11 @@ interface Categoria { id_categoria: number; nombre: string; }
 interface CursoEstudiante { curso_id: number; usuario_id: number; }
 interface Juego { id_juego: number; nombre: string; }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
   const usuarios = readData<Usuario>('usuarios');
   const salas = readData<Sala>('salas');
   const partidas = readData<Partida>('partidas');

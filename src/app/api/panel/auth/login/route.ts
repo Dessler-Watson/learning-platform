@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
     if (!user || !user.password_hash || (user.role !== 'teacher' && user.role !== 'admin')) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
+    if (user.status !== 'active') {
+      return NextResponse.json({ error: 'Cuenta desactivada' }, { status: 403 });
+    }
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
         institution: user.institution_name,
       },
     });
-    res.headers.set('Set-Cookie', setSessionCookie(token));
+    res.headers.set('Set-Cookie', setSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[panel/auth/login]', err);

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         custom_avatar: user.custom_avatar,
       },
     });
-    res.headers.set('Set-Cookie', setSessionCookie(token));
+    res.headers.set('Set-Cookie', setSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[auth/login]', err);

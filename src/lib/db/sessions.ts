@@ -50,6 +50,24 @@ export async function revokeSession(token: string): Promise<void> {
   );
 }
 
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  await query(
+    `UPDATE user_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+    [userId]
+  );
+}
+
+function isHttpsRequest(req?: Request): boolean {
+  if (!req) return false;
+  const proto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  if (proto) return proto === 'https';
+  try {
+    return new URL(req.url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export async function getUserBySessionToken(token: string): Promise<SessionUser | null> {
   if (!token) return null;
   const row = await queryOne<SessionUser & { expires_at: Date; revoked_at: Date | null }>(
@@ -57,7 +75,7 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
             u.avatar_id, u.custom_avatar, u.status,
             s.expires_at, s.revoked_at
      FROM user_sessions s
-     JOIN users u ON u.id = s.user_id AND u.deleted_at IS NULL
+     JOIN users u ON u.id = s.user_id AND u.deleted_at IS NULL AND u.status = 'active'
      JOIN roles r ON r.id = u.role_id
      WHERE s.token_hash = $1
        AND s.revoked_at IS NULL
@@ -105,11 +123,13 @@ export async function getSessionUser(req?: Request): Promise<SessionUser | null>
   return getUserBySessionToken(token);
 }
 
-export function setSessionCookie(token: string): string {
+export function setSessionCookie(token: string, req?: Request): string {
   const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+  const secure = isHttpsRequest(req) ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+export function clearSessionCookie(req?: Request): string {
+  const secure = isHttpsRequest(req) ? '; Secure' : '';
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }

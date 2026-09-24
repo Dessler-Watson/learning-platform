@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { label: 'Salas', href: '/panel/salas' },
   { label: 'Perfil', href: '/panel/perfil' },
   { label: 'Administrar docentes', href: '/panel/admin/docentes' },
+  { label: 'Administrar estudiantes', href: '/panel/admin/estudiantes' },
 ];
 
 export function Topbar() {

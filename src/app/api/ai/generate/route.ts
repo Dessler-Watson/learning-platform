@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 
 /**
  * Proxy server-side para mantener la API Key segura.
  */
 export async function POST(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'API key de Gemini no configurada en el servidor.', type: 'auth_error' }, { status: 500 });

@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
     if (!nombre) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 });
     }
+    if (nombre.length > 50) {
+      return NextResponse.json({ error: 'El nombre es demasiado largo (máx. 50)' }, { status: 400 });
+    }
 
     const user = await createUser({
       roleCode: 'student',
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-    res.headers.set('Set-Cookie', setSessionCookie(token));
+    res.headers.set('Set-Cookie', setSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[auth/guest]', err);

@@ -9,6 +9,7 @@ import {
   LogOut,
   DoorOpen,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { cn } from '../../utils';
 import { usePanelStore } from '../../store/usePanelStore';
@@ -25,6 +26,7 @@ const navItems = [
 
 const adminNavItems = [
   { label: 'Administrar docentes', href: '/panel/admin/docentes', icon: ShieldCheck, color: 'text-[#FFA000]' },
+  { label: 'Administrar estudiantes', href: '/panel/admin/estudiantes', icon: Users, color: 'text-[#98C54E]' },
 ];
 
 export function Sidebar() {
@@ -114,7 +116,7 @@ export function Sidebar() {
               )}>
                 <item.icon className={cn(
                   'h-[18px] w-[18px] shrink-0 transition-colors duration-200',
-                  active ? 'text-[#00A0B5]' : item.color === 'text-[#FFA000]' ? 'text-[#FFA000]/70 group-hover:text-[#FFA000]' : 'text-gray-400 group-hover:text-foreground'
+                  active ? 'text-[#00A0B5]' : item.color === 'text-[#FFA000]' ? 'text-[#FFA000]/70 group-hover:text-[#FFA000]' : item.color === 'text-[#98C54E]' ? 'text-[#98C54E]/70 group-hover:text-[#98C54E]' : 'text-gray-400 group-hover:text-foreground'
                 )} />
               </div>
               <AnimatePresence mode="wait">

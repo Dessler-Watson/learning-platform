@@ -10,12 +10,12 @@ export async function POST(req: NextRequest) {
       await revokeSession(token);
     }
     const res = NextResponse.json({ ok: true });
-    res.headers.set('Set-Cookie', clearSessionCookie());
+    res.headers.set('Set-Cookie', clearSessionCookie(req));
     return res;
   } catch (err) {
     console.error('[auth/logout]', err);
     const res = NextResponse.json({ ok: true });
-    res.headers.set('Set-Cookie', clearSessionCookie());
+    res.headers.set('Set-Cookie', clearSessionCookie(req));
     return res;
   }
 }

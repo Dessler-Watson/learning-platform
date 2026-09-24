@@ -421,6 +421,381 @@ try {
   Ok 'ranking: 401 sin sesion' ($code -eq 401) "code=$code"
 }
 
+# ═══ 9. AUTH COMPLETO (registro, login, sesión, roles, invitado, migrate) ═══
+# student login after earlier register
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "e2e_logros_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing -SessionVariable sauth
+  $au = J $r
+  Ok 'auth: student login' ($r.StatusCode -eq 200 -and $au.user.role -eq 'student') "role=$($au.user.role)"
+} catch {
+  Ok 'auth: student login' $false $_.Exception.Message
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "e2e_logros_$stamp@gmail.com"; password = 'wrongpass'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: login wrong password 401' ($r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: login wrong password 401' ($code -eq 401) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'BadEmail'; email = 'not-an-email'; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: register invalid email 400' ($r.StatusCode -eq 400) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: register invalid email 400' ($code -eq 400) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'ShortPwd'; email = "e2e_short_$stamp@gmail.com"; password = '123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: register short password 400' ($r.StatusCode -eq 400) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: register short password 400' ($code -eq 400) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'Dup'; email = "e2e_logros_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: register duplicate 409' ($r.StatusCode -eq 409) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: register duplicate 409' ($code -eq 409) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -WebSession $sauth -UseBasicParsing
+  $me = J $r
+  Ok 'auth: session me' ($r.StatusCode -eq 200 -and $me.user.id) $me.user.id
+} catch {
+  Ok 'auth: session me' $false $_.Exception.Message
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -UseBasicParsing
+  Ok 'auth: me 401 sin sesion' ($r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: me 401 sin sesion' ($code -eq 401) "code=$code"
+}
+
+# panel register cannot self-promote to admin
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'FakeAdmin'; email = "e2e_fakeadmin_$stamp@gmail.com"; password = 'secret123'; role = 'admin'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: panel register admin 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: panel register admin 403' ($code -eq 403) "code=$code"
+}
+
+# panel register without role creates teacher
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'NewTeacher'; email = "e2e_newteacher_$stamp@gmail.com"; password = 'secret123'; institution = 'E2E'
+  } | ConvertTo-Json) -UseBasicParsing -SessionVariable stchreg
+  $nt = J $r
+  Ok 'auth: panel register teacher 201' ($r.StatusCode -eq 201 -and $nt.user.role -eq 'teacher') "role=$($nt.user.role)"
+} catch {
+  Ok 'auth: panel register teacher 201' $false $_.Exception.Message
+}
+
+# student cannot access panel login
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "e2e_logros_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: panel login student 401' ($r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: panel login student 401' ($code -eq 401) "code=$code"
+}
+
+# POST /api/usuarios requires staff
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/usuarios" -Method Post -ContentType 'application/json' -Body (@{
+    nombre = 'X'; apellido = 'Y'; correo = "e2e_us_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: usuarios POST sin sesion 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: usuarios POST sin sesion 403' ($code -eq 403) "code=$code"
+}
+
+# ai/generate requires staff
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/ai/generate" -Method Post -ContentType 'application/json' -Body (@{
+    prompt = 'hola'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: ai generate sin sesion 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: ai generate sin sesion 403' ($code -eq 403) "code=$code"
+}
+
+# migrate: body.stars must be ignored (server is source of truth)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $sauth -Body (@{
+    stars = 999999
+  } | ConvertTo-Json) -UseBasicParsing
+  $mg = J $r
+  Ok 'auth: migrate body.stars ignored' ($r.StatusCode -eq 200 -and [int]$mg.migrated_stars -eq 0) "migrated=$($mg.migrated_stars)"
+} catch {
+  Ok 'auth: migrate body.stars ignored' $false $_.Exception.Message
+}
+
+$r4 = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $sauth -UseBasicParsing
+$st5 = J $r4
+Ok 'auth: stars unchanged after body.stars' ([int]$st5.estrellas -lt 999999) "stars=$($st5.estrellas)"
+
+# migrate: invalid guest_id
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $sauth -Body (@{
+    guest_id = 'not-a-uuid'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: migrate invalid guest_id 400' ($r.StatusCode -eq 400) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: migrate invalid guest_id 400' ($code -eq 400) "code=$code"
+}
+
+# migrate: without session
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -Body (@{
+    guest_id = $guestId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: migrate sin sesion 401' ($r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: migrate sin sesion 401' ($code -eq 401) "code=$code"
+}
+
+# guest cannot call panel endpoints
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -WebSession $sg -UseBasicParsing
+  Ok 'auth: guest 403 panel inicio' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: guest 403 panel inicio' ($code -eq 403) "code=$code"
+}
+
+# profile: student can PATCH own profile only (no user_id override)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/estudiante/perfil" -Method Patch -ContentType 'application/json' -WebSession $sauth -Body (@{
+    nombre = 'E2E Logros Renombrado'; user_id = '00000000-0000-0000-0000-000000000001'
+  } | ConvertTo-Json) -UseBasicParsing
+  $pf = J $r
+  Ok 'auth: perfil PATCH propio' ($r.StatusCode -eq 200 -and $pf.usuario.nombre -eq 'E2E Logros Renombrado') $pf.usuario.nombre
+} catch {
+  Ok 'auth: perfil PATCH propio' $false $_.Exception.Message
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/estudiante/perfil" -Method Patch -ContentType 'application/json' -Body (@{
+    nombre = 'Hacker'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: perfil PATCH sin sesion 401' ($r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: perfil PATCH sin sesion 401' ($code -eq 401) "code=$code"
+}
+
+# profile validation: empty name
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/estudiante/perfil" -Method Patch -ContentType 'application/json' -WebSession $sauth -Body (@{
+    nombre = ''
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: perfil nombre vacio 400' ($r.StatusCode -eq 400) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: perfil nombre vacio 400' ($code -eq 400) "code=$code"
+}
+
+# student cannot create admin via estrellas or docentes (already covered) + cannot list panel docentes without session
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -UseBasicParsing
+  Ok 'auth: docentes sin sesion 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: docentes sin sesion 403' ($code -eq 403) "code=$code"
+}
+
+# student cannot adjust stars
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/estrellas" -Method Post -ContentType 'application/json' -WebSession $sauth -Body (@{
+    user_id = $guestId; delta = 100; reason = 'cheat'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'auth: estrellas POST student 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: estrellas POST student 403' ($code -eq 403) "code=$code"
+}
+
+# logout then me
+Invoke-WebRequest -Uri "$base/api/auth/logout" -Method Post -WebSession $sauth -UseBasicParsing | Out-Null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -WebSession $sauth -UseBasicParsing
+  Ok 'auth: logout then me' (($r.StatusCode -eq 200 -and (J $r).user -eq $null) -or $r.StatusCode -eq 401) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'auth: logout then me' ($code -eq 401) "code=$code"
+}
+
+# ═══ 10. ADMIN ESTUDIANTES (listar, buscar, editar, eliminar, 403, integridad) ═══
+# create disposable students for manage tests
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'E2E StudEdit'; email = "e2e_stud_edit_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable sse
+Ok 'estud: register edit target' ($r.StatusCode -eq 201) $r.StatusCode
+$studEditId = (J $r).user.id
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'E2E StudDel'; email = "e2e_stud_del_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable ssd
+Ok 'estud: register delete target' ($r.StatusCode -eq 201) $r.StatusCode
+$studDelId = (J $r).user.id
+
+# ensure admin session (login again if needed)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $sadm -UseBasicParsing
+  if ((J $r).user.role -ne 'admin') { throw 'not admin' }
+} catch {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = 'roberto.admin@gmail.com'; password = 'admin123'
+  } | ConvertTo-Json) -UseBasicParsing -SessionVariable sadm
+}
+
+# list students
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -WebSession $sadm -UseBasicParsing
+  $es = J $r
+  Ok 'estud: admin list' ($r.StatusCode -eq 200 -and (@($es.estudiantes).Count -gt 0)) "count=$(@($es.estudiantes).Count)"
+} catch {
+  Ok 'estud: admin list' $false $_.Exception.Message
+}
+
+# search by name/email
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=E2E%20StudEdit" -WebSession $sadm -UseBasicParsing
+  $eq = J $r
+  $foundEdit = @($eq.estudiantes | Where-Object { $_.id -eq $studEditId }).Count -gt 0
+  Ok 'estud: search by name' ($r.StatusCode -eq 200 -and $foundEdit) "found=$foundEdit"
+} catch {
+  Ok 'estud: search by name' $false $_.Exception.Message
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=e2e_stud_del_$stamp" -WebSession $sadm -UseBasicParsing
+  $eq = J $r
+  $foundDel = @($eq.estudiantes | Where-Object { $_.id -eq $studDelId }).Count -gt 0
+  Ok 'estud: search by email' ($r.StatusCode -eq 200 -and $foundDel) "found=$foundDel"
+} catch {
+  Ok 'estud: search by email' $false $_.Exception.Message
+}
+
+# edit student
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{
+    action = 'update'; id = $studEditId; nombre = 'E2E StudEdit Renamed'; correo = "e2e_stud_edit2_$stamp@gmail.com"; estado = 'activo'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'estud: admin edit' ($r.StatusCode -eq 200) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: admin edit' ($code -eq 200) "code=$code"
+}
+
+# verify edit persisted
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=E2E%20StudEdit%20Renamed" -WebSession $sadm -UseBasicParsing
+  $ev = J $r
+  $renamed = @($ev.estudiantes | Where-Object { $_.id -eq $studEditId -and $_.nombre -eq 'E2E StudEdit Renamed' }).Count -gt 0
+  Ok 'estud: edit persisted' $renamed "renamed=$renamed"
+} catch {
+  Ok 'estud: edit persisted' $false $_.Exception.Message
+}
+
+# non-admin (student) gets 403
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -WebSession $s1 -UseBasicParsing
+  Ok 'estud: student 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: student 403' ($code -eq 403) "code=$code"
+}
+
+# no session gets 403
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -UseBasicParsing
+  Ok 'estud: sin sesion 403' ($r.StatusCode -eq 403) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: sin sesion 403' ($code -eq 403) "code=$code"
+}
+
+# delete test student
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{
+    action = 'delete'; id = $studDelId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'estud: admin delete' ($r.StatusCode -eq 200) $r.StatusCode
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: admin delete' ($code -eq 200) "code=$code"
+}
+
+# deleted student no longer in list
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=e2e_stud_del_$stamp" -WebSession $sadm -UseBasicParsing
+  $eg = J $r
+  $gone = @($eg.estudiantes | Where-Object { $_.id -eq $studDelId }).Count -eq 0
+  Ok 'estud: deleted not listed' $gone "gone=$gone"
+} catch {
+  Ok 'estud: deleted not listed' $false $_.Exception.Message
+}
+
+# deleted student cannot login (soft delete + integrity)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "e2e_stud_del_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'estud: deleted login 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: deleted login 401' ($code -eq 401) "code=$code"
+}
+
+# integrity: list still works after delete (no orphan/FK break)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -WebSession $sadm -UseBasicParsing
+  $ei = J $r
+  Ok 'estud: integrity after delete' ($r.StatusCode -eq 200 -and (@($ei.estudiantes).Count -gt 0)) "count=$(@($ei.estudiantes).Count)"
+} catch {
+  Ok 'estud: integrity after delete' $false $_.Exception.Message
+}
+
+# admin cannot delete self
+try {
+  $adminId = ((Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $sadm -UseBasicParsing | J).user.id)
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{
+    action = 'delete'; id = $adminId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'estud: no self-delete 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'estud: no self-delete 400' ($code -eq 400 -or $code -eq 404) "code=$code"
+}
+
 # ═══ RESULTS ═══
 Write-Host "`n=== E2E RESULTS ==="
 $results | Format-Table -AutoSize -Wrap

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionUser } from '@/lib/db';
 import { readData, writeData, getNextId } from '@/lib/data';
+
+async function requireStaff(req: NextRequest) {
+  const session = await getSessionUser(req);
+  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  }
+  return null;
+}
 
 interface Cuestionario { id_cuestionario: number; nombre: string; descripcion: string | null; nivel: string; }
 interface Categoria { id_categoria: number; cuestionario_id: number; }
@@ -7,7 +16,9 @@ interface Pregunta { categoria_id: number; }
 interface Juego { id_juego: number; nombre: string; }
 interface JuegoCuestionario { juego_id: number; cuestionario_id: number; }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const cuestionarios = readData<Cuestionario>('cuestionarios');
   const categorias = readData<Categoria>('categorias');
   const preguntas = readData<Pregunta>('preguntas');
@@ -33,6 +44,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const data = readData<Cuestionario>('cuestionarios');
   const newId = getNextId('cuestionarios');
@@ -43,6 +56,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const body = await req.json();
   const url = new URL(req.url);
   const id = parseInt(url.pathname.split('/').pop() || '0');
@@ -55,6 +70,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await requireStaff(req);
+  if (denied) return denied;
   const url = new URL(req.url);
   const id = parseInt(url.pathname.split('/').pop() || '0');
   let data = readData<Cuestionario>('cuestionarios');

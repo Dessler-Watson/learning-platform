@@ -91,6 +91,21 @@ export async function PATCH(req: NextRequest) {
     const avatarId = body.avatar_id !== undefined && body.avatar_id !== null ? Number(body.avatar_id) : undefined;
     const customAvatar = body.custom_avatar !== undefined ? body.custom_avatar : undefined;
 
+    if (nombre !== undefined && (!nombre || nombre.length > 100)) {
+      return NextResponse.json({ error: 'Nombre inválido (1-100 caracteres)' }, { status: 400 });
+    }
+    if (apellido !== undefined && apellido.length > 100) {
+      return NextResponse.json({ error: 'Apellido demasiado largo' }, { status: 400 });
+    }
+    if (customAvatar !== undefined && customAvatar !== null) {
+      if (typeof customAvatar !== 'string' || customAvatar.length > 500_000) {
+        return NextResponse.json({ error: 'Avatar personalizado inválido' }, { status: 400 });
+      }
+      if (!customAvatar.startsWith('data:image/')) {
+        return NextResponse.json({ error: 'Avatar personalizado inválido' }, { status: 400 });
+      }
+    }
+
     if (avatarId !== undefined && !Number.isNaN(avatarId)) {
       const avatares = await listAvatars();
       if (!avatares.some((a) => a.sort_order === avatarId)) {

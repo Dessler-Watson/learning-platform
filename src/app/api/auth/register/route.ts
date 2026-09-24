@@ -19,16 +19,26 @@ export async function POST(req: NextRequest) {
     const password = String(body.password ?? '');
     const avatarSort = body.avatar != null ? Number(body.avatar) : null;
     const birthDate = body.birth_date ? String(body.birth_date) : null;
-    const sex = body.sex ? String(body.sex) : null;
+    const sexRaw = body.sex ? String(body.sex).trim().toLowerCase() : null;
+    const sex = sexRaw === 'masculino' || sexRaw === 'femenino' ? sexRaw : null;
 
     if (!nombre || !email || !password) {
       return NextResponse.json({ error: 'Nombre, correo y contraseña son obligatorios' }, { status: 400 });
+    }
+    if (nombre.length > 100) {
+      return NextResponse.json({ error: 'El nombre es demasiado largo' }, { status: 400 });
     }
     if (password.length < 6) {
       return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+    }
+    if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+      return NextResponse.json({ error: 'Fecha de nacimiento inválida' }, { status: 400 });
+    }
+    if (avatarSort !== null && !Number.isInteger(avatarSort)) {
+      return NextResponse.json({ error: 'Avatar inválido' }, { status: 400 });
     }
 
     const existing = await getUserByEmail(email);
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
         custom_avatar: user.custom_avatar,
       },
     }, { status: 201 });
-    res.headers.set('Set-Cookie', setSessionCookie(token));
+    res.headers.set('Set-Cookie', setSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[auth/register]', err);

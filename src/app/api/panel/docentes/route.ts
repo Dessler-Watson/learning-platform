@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, query, queryOne, hashPassword } from '@/lib/db';
+import { getSessionUser, query, queryOne, hashPassword, revokeAllUserSessions } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +73,9 @@ export async function POST(req: NextRequest) {
       if (!nombre || !email || password.length < 6) {
         return NextResponse.json({ error: 'Datos inválidos (mín. 6 caracteres en contraseña)' }, { status: 400 });
       }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+      }
       const exists = await queryOne(`SELECT 1 FROM users WHERE lower(email) = lower($1) AND deleted_at IS NULL`, [email]);
       if (exists) return NextResponse.json({ error: 'Este correo ya está registrado.' }, { status: 409 });
       const roleRow = await queryOne<{ id: string }>(`SELECT id FROM roles WHERE code = $1`, [roleCode]);
@@ -122,11 +125,21 @@ export async function POST(req: NextRequest) {
         [id]
       );
       if (!target) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+      if (target.role !== 'teacher' && target.role !== 'admin') {
+        return NextResponse.json({ error: 'Solo se pueden modificar docentes o administradores' }, { status: 400 });
+      }
+      if (body.correo != null || body.email != null) {
+        const newEmail = String(body.correo ?? body.email ?? '').trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+          return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+        }
+      }
       if (body.contrasena || body.password) {
         const password = String(body.contrasena ?? body.password);
         if (password.length < 6) return NextResponse.json({ error: 'Contraseña muy corta' }, { status: 400 });
         const hash = await hashPassword(password);
         await query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [id, hash]);
+        await revokeAllUserSessions(id);
       }
       let roleUuid: string | null = null;
       if (body.rol != null) {
@@ -183,10 +196,11 @@ export async function POST(req: NextRequest) {
       const id = String(body.id ?? '');
       if (id === session.id) return NextResponse.json({ error: 'No puedes eliminarte a ti mismo' }, { status: 400 });
       await query(
-        `UPDATE users SET deleted_at = now()
+        `UPDATE users SET deleted_at = now(), status = 'inactive'
          WHERE id = $1 AND role_id IN (SELECT id FROM roles WHERE code IN ('teacher','admin'))`,
         [id]
       );
+      await revokeAllUserSessions(id);
       return NextResponse.json({ ok: true });
     }
 
