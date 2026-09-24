@@ -3,53 +3,25 @@
 import { create } from 'zustand';
 import type { Practice, PracticeMode, PracticeResult, StoredUser } from '@/shared/types/practice';
 import type { GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
+import { userKey, readUserJson, writeUserJson, getCurrentUser, isRegisteredUser } from '@/shared/lib/userStorage';
 
-const PRACTICES_KEY = 'eduplay_practices';
-const RESULTS_KEY = 'eduplay_practice_results';
-const USER_KEY = 'eduplay_user';
-
-function getUser(): StoredUser | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function isRegistered(): boolean {
-  const user = getUser();
-  return user !== null && user.modo === 'registrado';
-}
+const PRACTICES_BASE = 'eduplay_practices';
+const RESULTS_BASE = 'eduplay_practice_results';
 
 function loadPractices(): Practice[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(PRACTICES_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readUserJson<Practice[]>(PRACTICES_BASE, []);
 }
 
 function savePractices(practices: Practice[]) {
-  localStorage.setItem(PRACTICES_KEY, JSON.stringify(practices));
+  writeUserJson(PRACTICES_BASE, practices);
 }
 
 function loadResults(): PracticeResult[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(RESULTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readUserJson<PracticeResult[]>(RESULTS_BASE, []);
 }
 
 function saveResults(results: PracticeResult[]) {
-  localStorage.setItem(RESULTS_KEY, JSON.stringify(results));
+  writeUserJson(RESULTS_BASE, results);
 }
 
 function generateCode(): string {
@@ -92,7 +64,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   addPractice: (title, topic, mode, questions) => {
-    const user = getUser();
+    const user = getCurrentUser();
     const practice: Practice = {
       id: `practice_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       code: generateCode(),
@@ -125,7 +97,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   publishPractice: (id) => {
-    if (!isRegistered()) return false;
+    if (!isRegisteredUser()) return false;
     const updated = get().practices.map((p) =>
       p.id === id ? { ...p, isPublic: true, code: p.code || generateCode() } : p
     );
@@ -135,7 +107,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   unpublishPractice: (id) => {
-    if (!isRegistered()) return false;
+    if (!isRegisteredUser()) return false;
     const updated = get().practices.map((p) =>
       p.id === id ? { ...p, isPublic: false } : p
     );
@@ -145,7 +117,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   getUserPractices: () => {
-    const user = getUser();
+    const user = getCurrentUser();
     if (!user) return [];
     return get().practices.filter((p) => p.creatorId === user.id_usuario);
   },
@@ -182,7 +154,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   recordPlayResult: (practiceId, correctAnswers, incorrectAnswers) => {
-    const user = getUser();
+    const user = getCurrentUser();
     const practice = get().practices.find((p) => p.id === practiceId);
     if (!practice) return;
 
@@ -219,7 +191,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   getUserResults: () => {
-    const user = getUser();
+    const user = getCurrentUser();
     if (!user) return [];
     return get().results.filter((r) => r.userId === user.id_usuario);
   },
@@ -229,10 +201,10 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   canAccessHistory: () => {
-    return isRegistered();
+    return isRegisteredUser();
   },
 
   canPublish: () => {
-    return isRegistered();
+    return isRegisteredUser();
   },
 }));

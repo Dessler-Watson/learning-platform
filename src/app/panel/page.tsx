@@ -3,8 +3,9 @@
 import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, DoorOpen, ArrowRight, Sparkles, Clock, Trash2, X, Flame } from 'lucide-react';
+import { Users, DoorOpen, ArrowRight, Sparkles, Clock, Trash2, X } from 'lucide-react';
 import { GameCard } from './components/shared/GameCard';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { StatusBadge } from './components/shared/StatusBadge';
 import { Button } from './ui/button';
 import { salasService, juegosService, inicioService } from './services';
@@ -133,6 +134,8 @@ export default function InicioPage() {
 
         {salaActiva && (() => {
           const esLava = salaActiva.juegoId === 'juego-2';
+          const modeId = toGameModeId(salaActiva.juegoId);
+          const theme = modeId ? MODE_THEME[modeId] : null;
           return (
             <motion.div
               variants={it}
@@ -156,9 +159,13 @@ export default function InicioPage() {
                       label={ESTADO_SALA_LABEL[salaActiva.estado]}
                       className={ESTADO_SALA_COLOR[salaActiva.estado]}
                     />
-                    {esLava && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-600">
-                        <Flame className="h-3 w-3" /> Lava
+                    {theme && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                        style={{ background: theme.bg, color: theme.colorDark }}
+                      >
+                        <ModeLogo mode={modeId} size={14} shape="circle" showBox={false} />
+                        {theme.label}
                       </span>
                     )}
                   </div>
@@ -174,6 +181,7 @@ export default function InicioPage() {
                       ? 'border-orange-200 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300'
                       : 'border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300'
                   }`}
+                  style={theme ? { borderColor: theme.color, color: theme.colorDark } : undefined}
                   onClick={() => {
                     if (!clickLock()) return;
                     audioManager.play('click');

@@ -25,6 +25,33 @@ function useScreenSize() {
 
 type FeedbackStage = 'idle' | 'text' | 'done';
 
+/** Bajo Presión: brasa/ember tenue en esquinas + resplandor naranja inferior. */
+const EmberCornerSVG = ({ flip = false }: { flip?: boolean }) => (
+  <svg
+    width="48"
+    height="40"
+    viewBox="0 0 48 40"
+    fill="none"
+    aria-hidden
+    style={{
+      position: 'absolute',
+      bottom: -2,
+      left: flip ? undefined : -4,
+      right: flip ? -4 : undefined,
+      opacity: 0.4,
+      pointerEvents: 'none',
+      transform: flip ? 'scaleX(-1)' : undefined,
+    }}
+  >
+    <path d="M4 38 L10 22 L18 26 L22 14 L30 24 L36 18 L44 38 Z" fill="#4a3530" />
+    <path d="M10 22 L14 28 L8 30 Z" fill="#5c4038" />
+    <circle cx="16" cy="30" r="2.2" fill="#ff6b00" opacity="0.9" />
+    <circle cx="16" cy="30" r="4.5" fill="#ff6b00" opacity="0.22" />
+    <circle cx="30" cy="28" r="1.8" fill="#ffab40" opacity="0.85" />
+    <circle cx="30" cy="28" r="3.5" fill="#ffab40" opacity="0.2" />
+  </svg>
+);
+
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
   const displayRef = useRef(target);
@@ -291,33 +318,50 @@ export function LavaHUD() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: isPhone ? 4 : isTablet ? 7 : 10 }}>
               <span style={{
-                background: 'linear-gradient(135deg, #E94930, #EB5D70)',
-                color: '#fff', padding: isPhone ? '3px 10px' : isTablet ? '4px 14px' : '6px 18px', borderRadius: 999,
+                background: 'linear-gradient(135deg, #1a2a4a 0%, #0f1a30 100%)',
+                color: 'rgba(255,255,255,0.92)', padding: isPhone ? '3px 10px' : isTablet ? '4px 14px' : '6px 18px', borderRadius: 999,
                 fontSize: isPhone ? 8 : isTablet ? 10 : 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
-                boxShadow: '0 4px 12px rgba(240,135,169,0.35)', fontFamily: 'var(--font-baloo)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(100,180,255,0.1)', fontFamily: 'var(--font-baloo)',
                 whiteSpace: 'nowrap',
+                border: '1px solid rgba(80,140,220,0.2)',
               }}>
                 Pregunta {current}/{total}
               </span>
             </div>
 
             <div style={{
-              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)',
+              position: 'relative',
+              background: 'linear-gradient(160deg, rgba(15,25,50,0.94) 0%, rgba(10,18,35,0.96) 100%)',
+              backdropFilter: 'blur(16px)',
               borderRadius: isPhone ? 14 : isTablet ? 20 : 26,
-              padding: isPhone ? '10px 12px' : isTablet ? '14px 20px' : '18px 28px',
-              border: '2px solid rgba(240,135,169,0.2)',
-              boxShadow: '0 12px 40px rgba(30,42,58,0.18), 0 2px 8px rgba(0,0,0,0.06)',
+              padding: isPhone ? '14px 12px 12px' : isTablet ? '18px 20px 16px' : '22px 28px 20px',
+              border: '1px solid rgba(255,120,0,0.14)',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,160,80,0.05)',
+              overflow: 'hidden',
             }}>
+              <EmberCornerSVG />
+              <EmberCornerSVG flip />
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(180deg, transparent 55%, rgba(255,100,0,0.1) 100%)',
+                pointerEvents: 'none',
+              }} />
+
               <p style={{
-                color: '#2A1E0E',
+                position: 'relative',
+                zIndex: 1,
+                color: 'rgba(255,255,255,0.95)',
                 fontSize: isPhone ? 12 : isTablet ? 15 : 18,
                 fontWeight: 700, textAlign: 'center', margin: `0 0 ${isPhone ? 10 : 16}px`, lineHeight: 1.35,
+                fontFamily: 'var(--font-baloo)',
+                textShadow: '0 2px 8px rgba(0,0,0,0.3)',
               }}>
                 {question.statement}
               </p>
-              <div style={{ display: 'flex', gap: isPhone ? 6 : isTablet ? 9 : 12 }}>
-                <ABtn label="A" text={question.optionA} color="#E94930" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
-                <ABtn label="B" text={question.optionB} color="#4CAF50" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: isPhone ? 6 : isTablet ? 9 : 12 }}>
+                <ABtn label="A" text={question.optionA} color="#E53935" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
+                <ABtn label="B" text={question.optionB} color="#42A5F5" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
               </div>
             </div>
           </motion.div>
@@ -403,20 +447,20 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
   const isActualCorrect = actualCorrect === side;
   const dimmed = revealed && !isActualCorrect;
 
-  let bg = '#FFF7F2';
-  let tx = '#4A3E32';
-  let border = '2px solid rgba(0,0,0,0.06)';
-  let circleBg = color;
+  let bg = 'rgba(255,255,255,0.04)';
+  let tx = 'rgba(255,255,255,0.9)';
+  let border = `2px solid ${color}44`;
+  let circleBg = `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`;
   let circleTx = '#fff';
   let shake = false;
   let celebrate = false;
 
   if (selected) {
-    if (myCorrect === true) { bg = '#D4EDDA'; tx = '#1B5E20'; border = '2px solid #4CAF50'; celebrate = true; circleBg = '#2E7D32'; }
-    else if (myCorrect === false) { bg = '#FDE2E1'; tx = '#8B1A12'; border = '2px solid #E94930'; shake = true; circleBg = '#E94930'; }
-    else { bg = color; tx = '#fff'; border = `2px solid ${color}`; circleBg = 'rgba(255,255,255,0.25)'; circleTx = '#fff'; }
+    if (myCorrect === true) { bg = 'rgba(76,175,80,0.16)'; tx = '#C8E6C9'; border = '2px solid #4CAF50'; celebrate = true; circleBg = 'linear-gradient(135deg, #43A047 0%, #2E7D32 100%)'; }
+    else if (myCorrect === false) { bg = 'rgba(229,57,53,0.16)'; tx = '#FFCDD2'; border = '2px solid #E53935'; shake = true; circleBg = 'linear-gradient(135deg, #E53935 0%, #C62828 100%)'; }
+    else { bg = `${color}18`; tx = '#fff'; border = `2px solid ${color}`; }
   } else if (revealed && isActualCorrect) {
-    bg = '#D4EDDA'; tx = '#1B5E20'; border = '2px solid #4CAF50'; circleBg = '#2E7D32';
+    bg = 'rgba(76,175,80,0.16)'; tx = '#C8E6C9'; border = '2px solid #4CAF50'; circleBg = 'linear-gradient(135deg, #43A047 0%, #2E7D32 100%)';
   }
 
   return (
@@ -429,12 +473,14 @@ function ABtn({ label, text, color, disabled, selected, myCorrect, side, reveale
       style={{
         flex: 1,
         padding: isPhone ? '8px 6px' : isTablet ? '10px 8px' : '14px 12px',
-        borderRadius: isPhone ? 12 : 18,
+        borderRadius: isPhone ? 12 : 16,
         cursor: disabled && !selected ? 'default' : 'pointer',
         background: bg, color: tx,
         fontSize: isPhone ? 10 : isTablet ? 12 : 14,
         fontWeight: 700,
-        border, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', textAlign: 'left',
+        border,
+        boxShadow: selected ? `0 4px 14px rgba(0,0,0,0.28)` : 'inset 0 1px 0 rgba(255,255,255,0.03)',
+        textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: isPhone ? 6 : isTablet ? 9 : 12,
         transition: 'background 0.2s, border-color 0.2s',
         opacity: dimmed ? 0.5 : 1,

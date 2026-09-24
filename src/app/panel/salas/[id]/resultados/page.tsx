@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, AlertTriangle, Users, Flame, Check, X, Minus, Skull, ChevronRight } from 'lucide-react';
+import { Trophy, TrendingUp, AlertTriangle, Users, Check, X, Minus, Skull, ChevronRight } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Card, CardContent } from '../../../ui/card';
 import { PageHeader } from '../../../components/shared/PageHeader';
@@ -14,6 +14,7 @@ import { salasService } from '../../../services';
 import { Sala, PreguntaDificil } from '../../../types';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
 import { StudentAvatar } from '../../../components/shared/StudentAvatar';
+import { ModeLogo, toGameModeId } from '@/shared/lib/game-modes';
 
 export default function ResultadosPage() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function ResultadosPage() {
   }
 
   const esLava = sala.juegoId === 'juego-2';
+  const modeId = toGameModeId(sala.juegoId);
   const totalParticipantes = sala.participantes.length;
   const completados = sala.participantes.filter((p) => p.estado === 'finalizado').length;
   const eliminados = sala.participantes.filter((p) => p.estado === 'eliminado').length;
@@ -61,7 +63,15 @@ export default function ResultadosPage() {
     <div className="relative z-10 space-y-6">
       {esLava && <AnimatedBackground variant="lava" />}
       <PageHeader title={`Resultados — ${sala.nombre}`} description="Resumen de la sesión">
-        <BackButton onClick={() => router.push('/panel/salas')} />
+        <div className="flex items-center gap-3">
+          {modeId && (
+            <span className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-white/80 px-2.5 py-1.5 text-xs font-black text-surface-600">
+              <ModeLogo mode={modeId} size={18} shape="circle" showBox={false} />
+              {modeId === 'decisiones' ? 'Rumbo' : modeId === 'lava' ? 'Bajo Presión' : modeId === 'tierras' ? 'Tierras Hundidas' : 'Entre Abismos'}
+            </span>
+          )}
+          <BackButton onClick={() => router.push('/panel/salas')} />
+        </div>
       </PageHeader>
 
       <div className="mx-auto max-w-4xl space-y-6">

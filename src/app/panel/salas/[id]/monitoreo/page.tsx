@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Square, Zap, Shield, Flame, Skull, Trophy, Search, X } from 'lucide-react';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { Button } from '../../../ui/button';
 import { Card, CardContent } from '../../../ui/card';
 import { PageHeader } from '../../../components/shared/PageHeader';
@@ -93,6 +94,8 @@ export default function MonitoreoPage() {
   }
 
   const esLava = sala.juegoId === 'juego-2';
+  const modeId = toGameModeId(sala.juegoId);
+  const theme = modeId ? MODE_THEME[modeId] : null;
   const maxProgreso = Math.max(...sala.participantes.map((p) => p.progreso), 1);
   const progressPct = (progreso: number) => Math.round((progreso / sala.totalPreguntas) * 100);
   const filtered = search.trim()
@@ -119,7 +122,15 @@ export default function MonitoreoPage() {
                   className={sala.estado === 'en_curso' ? (esLava ? 'bg-[#FFA000]/10 text-[#FFA000] border border-[#FFA000]/20' : 'bg-[#00A0B5]/10 text-[#00A0B5] border border-[#00A0B5]/20') : sala.estado === 'finalizada' ? 'bg-[#98C54E]/10 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}
                 />
                 <span className="text-sm text-gray-400">{sala.participantes.length} participantes</span>
-                {esLava && <span className="text-sm text-gray-400 flex items-center gap-1"><Flame className="h-3 w-3 text-orange-500" /> Modo Lava</span>}
+                {theme && (
+                  <span
+                    className="text-sm text-gray-400 flex items-center gap-1"
+                    style={{ color: theme.colorDark }}
+                  >
+                    <ModeLogo mode={modeId} size={18} shape="circle" showBox={false} />
+                    {theme.label}
+                  </span>
+                )}
               </div>
               {sala.estado === 'en_curso' && (
                 <Button variant="destructive" onClick={handleFinish}>

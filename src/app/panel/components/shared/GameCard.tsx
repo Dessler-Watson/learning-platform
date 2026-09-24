@@ -6,7 +6,7 @@ import { Button } from '../../ui/button';
 import { cn } from '../../utils';
 import { audioManager } from '../../lib/audio';
 import { useClickLock } from '../../hooks/useClickLock';
-import { GameIcon, GAME_ICON_COLORS } from '../../ui/game-icons';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 
 interface GameCardProps {
   nombre: string;
@@ -21,7 +21,8 @@ interface GameCardProps {
 
 export function GameCard({ nombre, descripcion, color, juegoId, activo, preguntasActivas, onCrearSala, onAdministrar }: GameCardProps) {
   const clickLock = useClickLock();
-  const iconColors = GAME_ICON_COLORS[juegoId];
+  const modeId = toGameModeId(juegoId);
+  const theme = modeId ? MODE_THEME[modeId] : null;
 
   return (
     <motion.div
@@ -34,8 +35,8 @@ export function GameCard({ nombre, descripcion, color, juegoId, activo, pregunta
       <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-violet-300 opacity-[0.04] pointer-events-none" />
       <div className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-purple-300 opacity-[0.03] pointer-events-none" />
       <div className="flex items-start gap-4">
-        <div className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl flex items-center justify-center ${iconColors?.bg ?? 'bg-gray-50'}`}>
-          <GameIcon juegoId={juegoId} className={iconColors?.text ?? 'text-gray-400'} size={28} />
+        <div className="relative h-24 w-24 shrink-0 flex items-center justify-center" style={{ overflow: 'visible' }}>
+          <ModeLogo mode={modeId} size={96} shape="square" radius={22} imgScale={1} />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-bold tracking-tight text-foreground">{nombre}</h3>
@@ -58,6 +59,7 @@ export function GameCard({ nombre, descripcion, color, juegoId, activo, pregunta
         <Button
           size="sm"
           className="flex-1"
+          style={theme ? { background: `linear-gradient(90deg, ${theme.color}, ${theme.colorDark})`, border: 'none', color: '#fff' } : undefined}
           onClick={() => { if (!clickLock()) return; audioManager.play('click'); onCrearSala?.(); }}
         >
           Crear sala <ArrowRight className="ml-1 h-3.5 w-3.5" />

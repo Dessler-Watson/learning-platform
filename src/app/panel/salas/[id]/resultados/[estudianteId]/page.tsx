@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, X, Minus, Clock, Target, Zap, Shield, Flame, Skull, Trophy } from 'lucide-react';
+import { ArrowLeft, Check, X, Minus, Clock, Target, Zap, Shield, Skull, Trophy } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { Card, CardContent } from '../../../../ui/card';
 import { PageHeader } from '../../../../components/shared/PageHeader';
@@ -14,6 +14,7 @@ import { salasService } from '../../../../services';
 import { Sala, DetalleEstudianteSala } from '../../../../types';
 import { AnimatedBackground } from '../../../../components/shared/AnimatedBackground';
 import { StudentAvatar } from '../../../../components/shared/StudentAvatar';
+import { ModeLogo, toGameModeId } from '@/shared/lib/game-modes';
 
 export default function EstudianteDetallePage() {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function EstudianteDetallePage() {
   }
 
   const esLava = sala.juegoId === 'juego-2';
+  const modeId = toGameModeId(sala.juegoId);
   const esEliminado = detalle.estadoFinal === 'eliminado';
   const participante = sala.participantes.find((p) => p.estudianteId === estudianteId);
   const avatarId = participante?.avatar_id;
@@ -63,7 +65,15 @@ export default function EstudianteDetallePage() {
     <div className="relative z-10 space-y-6">
       {esLava && <AnimatedBackground variant="lava" />}
       <PageHeader title={detalle.nombre} description="Detalle del estudiante">
-        <BackButton onClick={() => router.push(`/panel/salas/${salaId}/resultados`)} />
+        <div className="flex items-center gap-3">
+          {modeId && (
+            <span className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-white/80 px-2.5 py-1.5 text-xs font-black text-surface-600">
+              <ModeLogo mode={modeId} size={18} shape="circle" showBox={false} />
+              {modeId === 'decisiones' ? 'Rumbo' : modeId === 'lava' ? 'Bajo Presión' : modeId === 'tierras' ? 'Tierras Hundidas' : 'Entre Abismos'}
+            </span>
+          )}
+          <BackButton onClick={() => router.push(`/panel/salas/${salaId}/resultados`)} />
+        </div>
       </PageHeader>
 
       <div className="mx-auto max-w-3xl space-y-6">

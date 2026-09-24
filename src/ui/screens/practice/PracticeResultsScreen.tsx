@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, CheckCircle2, XCircle, Flame, ArrowLeft, RotateCcw, ChevronDown, ChevronUp, Skull, Globe } from 'lucide-react';
+import { Trophy, CheckCircle2, XCircle, ArrowLeft, RotateCcw, ChevronDown, ChevronUp, Skull, Globe } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { ModeLogo, modeButtonGradient, modeButtonShadow } from '@/shared/lib/game-modes';
 import { audioManager } from '@/shared/lib/audio';
 import { usePracticeStore } from '@/stores/practice.store';
 import type { StoredUser } from '@/shared/types/practice';
@@ -184,7 +185,7 @@ export function PracticeResultsScreen() {
               }}
             >
               {result.eliminatedByLava ? (
-                <Flame size={40} className="text-[#EB5D70]" />
+                <ModeLogo mode="lava" size={56} shape="circle" />
               ) : (
                 <Trophy size={40} className="text-[#98C54E]" />
               )}
@@ -340,8 +341,8 @@ export function PracticeResultsScreen() {
                 onClick={handlePlayAgain}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-black text-white shadow-game"
                 style={{
-                  background: 'linear-gradient(90deg, #00A0B5 0%, #008A9D 100%)',
-                  boxShadow: '0 6px 0 rgba(0, 100, 120, 0.35), 0 8px 24px rgba(0, 160, 181, 0.3)',
+                  background: modeButtonGradient(result.mode),
+                  boxShadow: modeButtonShadow(result.mode),
                 }}
               >
                 <RotateCcw size={18} />

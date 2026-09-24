@@ -129,7 +129,13 @@ function RockPlatform({ player }: { player: LavaPlayer }) {
   const sinkY = useRef(getPlatformY(player.blocks));
   const [sinkingDone, setSinkingDone] = useState(false);
 
-  const stoneMat = useMemo(() => createProceduralStoneMaterial({ scale: 1.2, brightness: 0.14 }), []);
+  const stoneMat = useMemo(() => createProceduralStoneMaterial({
+    scale: 1.4,
+    brightness: 0.2,
+    glowStrength: 0.7,
+    glowHeight: 4.5,
+    glowBaseY: -1,
+  }), []);
 
   const glowMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: new THREE.Color('#220800'),

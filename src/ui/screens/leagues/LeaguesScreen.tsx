@@ -96,7 +96,7 @@ export function LeaguesScreen() {
       const avatarId = user.avatar_id || 1;
       setCurrentUser({
         nombre: user.nombre || 'Jugador',
-        avatar: `/images/avatares/${['gueguense.png','leon.png','mascara.png','mariposa.png','nacatamal.png','guardabarranco.png','sacuanjoche.png','madrono.png','ideay.png'][avatarId] || 'gueguense.png'}`,
+        avatar: `/images/avatares/${['gueguense.png','leon.png','mascara.png','mariposa.png','nacatamal.png','guardabarranco.png','sacuanjoche.png','madrono.png','ideay.png','presion.png','abismo.png','rumbo.png','pantano.png'][avatarId] || 'gueguense.png'}`,
       });
     }
   }, []);

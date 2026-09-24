@@ -48,7 +48,6 @@ export interface Estudiante {
 }
 
 export interface JuegoConfig {
-  tiempoLimite: number;
   cantidadNiveles: number;
   cantidadRondas: number;
 }
@@ -137,7 +136,6 @@ export interface RespuestaDetalleSala {
   correctAnswer: string;
   status: 'correct' | 'incorrect' | 'timeout';
   responseTime: number;
-  maxTime: number;
   puntosGanados: number;
   puntosPerdidos: number;
   puntosNetos: number;
@@ -186,7 +184,6 @@ export interface Sala {
   nombre: string;
   codigo: string;
   estado: EstadoSala;
-  tiempoPorPregunta: number;
   totalPreguntas: number;
   createdAt: string;
   startedAt: string | null;

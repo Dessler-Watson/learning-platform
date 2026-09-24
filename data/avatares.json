@@ -7,5 +7,9 @@
   { "id_avatar": 6, "nombre": "Guardabarranco", "imagen": "guardabarranco.png", "desbloqueado": true },
   { "id_avatar": 7, "nombre": "Sacuanjoche", "imagen": "sacuanjoche.png", "desbloqueado": true },
   { "id_avatar": 8, "nombre": "Madroño", "imagen": "madrono.png", "desbloqueado": true },
-  { "id_avatar": 9, "nombre": "Ideay", "imagen": "ideay.png", "desbloqueado": true }
+  { "id_avatar": 9, "nombre": "Ideay", "imagen": "ideay.png", "desbloqueado": true },
+  { "id_avatar": 10, "nombre": "presion", "imagen": "presion.png", "desbloqueado": true },
+  { "id_avatar": 11, "nombre": "abismo", "imagen": "abismo.png", "desbloqueado": true },
+  { "id_avatar": 12, "nombre": "rumbo", "imagen": "rumbo.png", "desbloqueado": true },
+  { "id_avatar": 13, "nombre": "pantano", "imagen": "pantano.png", "desbloqueado": true }
 ]

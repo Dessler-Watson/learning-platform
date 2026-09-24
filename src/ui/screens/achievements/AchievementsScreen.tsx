@@ -6,22 +6,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Trophy, Search, Route, Flame, CheckCircle, Lock, X,
   BookOpen, Compass, Medal, Star, Target, Zap, TrendingUp, Award,
-  Brain, Crown, Shield, Heart, GraduationCap, Sparkles
+  Brain, Crown, Shield, Heart, GraduationCap, Sparkles, Waves, Mountain
 } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { ModeLogo, MODE_THEME } from '@/shared/lib/game-modes';
 import { audioManager } from '@/shared/lib/audio';
 import { useAchievementStore } from '@/stores/achievement.store';
 import { ACHIEVEMENTS } from '@/shared/lib/achievements-data';
-import type { AchievementMode, AchievementDifficulty } from '@/shared/types/achievement';
+import type { AchievementDifficulty } from '@/shared/types/achievement';
 
 type FilterType = 'all' | 'unlocked' | 'locked';
-type ModeFilter = 'all' | 'decisiones' | 'lava';
+type ModeFilter = 'all' | 'decisiones' | 'lava' | 'tierras' | 'abismos';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ICON_MAP: Record<string, any> = {
   Route, CheckCircle, BookOpen, Compass, Flame, Star, Zap, TrendingUp,
   Target, Award, Brain, Medal, Trophy, Crown, Sparkles, Shield, Heart,
-  GraduationCap,
+  GraduationCap, Waves, Mountain,
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -30,11 +31,6 @@ const DIFFICULTY_COLORS: Record<AchievementDifficulty, string> = {
   medium: '#FFA000',
   hard: '#EB5D70',
   legendary: '#9C27B0',
-};
-
-const MODE_COLORS: Record<AchievementMode, string> = {
-  decisiones: '#FFA000',
-  lava: '#EB5D70',
 };
 
 function formatDate(ts: number): string {
@@ -126,6 +122,14 @@ export function AchievementsScreen() {
 
   const lavaAchievements = useMemo(() => {
     return filteredAchievements.filter((a) => a.mode === 'lava');
+  }, [filteredAchievements]);
+
+  const tierrasAchievements = useMemo(() => {
+    return filteredAchievements.filter((a) => a.mode === 'tierras');
+  }, [filteredAchievements]);
+
+  const abismosAchievements = useMemo(() => {
+    return filteredAchievements.filter((a) => a.mode === 'abismos');
   }, [filteredAchievements]);
 
   return (
@@ -240,21 +244,35 @@ export function AchievementsScreen() {
         </div>
 
         {/* Mode Filters */}
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <FilterChip label="Todos" active={modeFilter === 'all'} onClick={() => setModeFilter('all')} />
           <FilterChip
-            label="Camino"
+            label="Rumbo"
             active={modeFilter === 'decisiones'}
             onClick={() => setModeFilter('decisiones')}
-            color="#FFA000"
-            icon={<Route size={12} />}
+            color={MODE_THEME.decisiones.color}
+            icon={<ModeLogo mode="decisiones" size={16} shape="circle" showBox={false} />}
           />
           <FilterChip
-            label="Lava"
+            label="Bajo Presión"
             active={modeFilter === 'lava'}
             onClick={() => setModeFilter('lava')}
-            color="#EB5D70"
-            icon={<Flame size={12} />}
+            color={MODE_THEME.lava.color}
+            icon={<ModeLogo mode="lava" size={16} shape="circle" showBox={false} />}
+          />
+          <FilterChip
+            label="Tierras"
+            active={modeFilter === 'tierras'}
+            onClick={() => setModeFilter('tierras')}
+            color={MODE_THEME.tierras.color}
+            icon={<ModeLogo mode="tierras" size={16} shape="circle" showBox={false} />}
+          />
+          <FilterChip
+            label="Abismos"
+            active={modeFilter === 'abismos'}
+            onClick={() => setModeFilter('abismos')}
+            color={MODE_THEME.abismos.color}
+            icon={<ModeLogo mode="abismos" size={16} shape="circle" showBox={false} />}
           />
         </div>
 
@@ -293,14 +311,12 @@ export function AchievementsScreen() {
           </div>
         ) : (
           <motion.div variants={c} initial="hidden" animate="show" className="space-y-6">
-            {/* Camino de las Decisiones */}
+            {/* Rumbo */}
             {decisionesAchievements.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FFA000]/15">
-                    <Route size={14} className="text-[#FFA000]" />
-                  </div>
-                  <h2 className="text-sm font-black text-surface-700">Camino de las Decisiones</h2>
+                  <ModeLogo mode="decisiones" size={26} shape="square" imgScale={1} />
+                  <h2 className="text-sm font-black text-surface-700">Rumbo</h2>
                   <span className="text-[10px] font-bold text-surface-400">
                     ({decisionesAchievements.filter((a) => progressMap.get(a.id)?.completed).length}/{decisionesAchievements.length})
                   </span>
@@ -313,20 +329,54 @@ export function AchievementsScreen() {
               </div>
             )}
 
-            {/* La Lava del Conocimiento */}
+            {/* Bajo Presión */}
             {lavaAchievements.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#EB5D70]/15">
-                    <Flame size={14} className="text-[#EB5D70]" />
-                  </div>
-                  <h2 className="text-sm font-black text-surface-700">La Lava del Conocimiento</h2>
+                  <ModeLogo mode="lava" size={26} shape="square" imgScale={1} />
+                  <h2 className="text-sm font-black text-surface-700">Bajo Presión</h2>
                   <span className="text-[10px] font-bold text-surface-400">
                     ({lavaAchievements.filter((a) => progressMap.get(a.id)?.completed).length}/{lavaAchievements.length})
                   </span>
                 </div>
                 <div className="space-y-2">
                   {lavaAchievements.map((def) => (
+                    <AchievementCard key={def.id} definition={def} progress={progressMap.get(def.id)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tierras Hundidas */}
+            {tierrasAchievements.length > 0 && (
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <ModeLogo mode="tierras" size={26} shape="square" imgScale={1} />
+                  <h2 className="text-sm font-black text-surface-700">Tierras Hundidas</h2>
+                  <span className="text-[10px] font-bold text-surface-400">
+                    ({tierrasAchievements.filter((a) => progressMap.get(a.id)?.completed).length}/{tierrasAchievements.length})
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {tierrasAchievements.map((def) => (
+                    <AchievementCard key={def.id} definition={def} progress={progressMap.get(def.id)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Entre Abismos */}
+            {abismosAchievements.length > 0 && (
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <ModeLogo mode="abismos" size={26} shape="square" imgScale={1} />
+                  <h2 className="text-sm font-black text-surface-700">Entre Abismos</h2>
+                  <span className="text-[10px] font-bold text-surface-400">
+                    ({abismosAchievements.filter((a) => progressMap.get(a.id)?.completed).length}/{abismosAchievements.length})
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {abismosAchievements.map((def) => (
                     <AchievementCard key={def.id} definition={def} progress={progressMap.get(def.id)} />
                   ))}
                 </div>

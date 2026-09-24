@@ -1,8 +1,9 @@
 'use client';
 import { create } from 'zustand';
 import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
+import { userKey, readUserJson, writeUserJson } from '@/shared/lib/userStorage';
 
-const STORAGE_KEY = 'eduplay_stars';
+const STORAGE_BASE = 'eduplay_stars';
 
 interface LeagueStore {
   stars: number;
@@ -19,22 +20,11 @@ interface LeagueStore {
 }
 
 function loadStars(): number {
-  if (typeof window === 'undefined') return 0;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw !== null) {
-      const n = parseInt(raw, 10);
-      return isNaN(n) ? 0 : n;
-    }
-  } catch { /* ignore */ }
-  return 0;
+  return readUserJson<number>(STORAGE_BASE, 0);
 }
 
 function saveStars(stars: number) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, String(stars));
-  } catch { /* ignore */ }
+  writeUserJson(STORAGE_BASE, stars);
 }
 
 export const useLeagueStore = create<LeagueStore>((set, get) => ({

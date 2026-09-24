@@ -15,6 +15,9 @@ import { Textarea } from '../../ui/textarea';
 import { cn } from '../../utils';
 import { audioManager } from '../../lib/audio';
 import { generateQuestions, GeneratedQuestion } from '../../lib/aiGenerator';
+import { MAX_PREGUNTAS_POR_CURSO } from '../../services';
+
+const MAX_AI_QUESTIONS = MAX_PREGUNTAS_POR_CURSO;
 
 const LOADING_MESSAGES = [
   'Analizando el tema...',
@@ -90,9 +93,9 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
       setError('Ya existe un curso con ese nombre. Prueba con otro.');
       return;
     }
-    if (amount < 1 || amount > 50) {
+    if (amount < 1 || amount > MAX_AI_QUESTIONS) {
       audioManager.play('error');
-      setError('La cantidad debe estar entre 1 y 50.');
+      setError(`La cantidad debe estar entre 1 y ${MAX_AI_QUESTIONS}.`);
       return;
     }
 
@@ -215,7 +218,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                 <div className="space-y-2">
                   <Label>Cantidad de preguntas</Label>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {[5, 10, 15, 20, 25].map((n) => (
+                    {[5, 10, 15, 20, 25, 30].map((n) => (
                       <button
                         key={n}
                         onClick={() => { audioManager.play('select'); setAmount(n); }}
@@ -229,14 +232,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                         {n}
                       </button>
                     ))}
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={amount}
-                      onChange={(e) => setAmount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
-                      className="w-20 text-center"
-                    />
+                    <span className="text-xs text-gray-400">máx. {MAX_AI_QUESTIONS}</span>
                   </div>
                 </div>
 

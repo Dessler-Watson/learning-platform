@@ -9,6 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { useLeagueStore } from '@/stores/league.store';
 import { getLeagueByStars, getLeagueProgress, getNextLeague, getStarsToNextLeague } from '@/lib/leagues';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
+import { getCustomAvatar, setCustomAvatar, clearCustomAvatar } from '@/lib/custom-avatar';
 
 interface ProfileModalProps {
   open: boolean;
@@ -34,7 +35,7 @@ interface ProfileModalProps {
     };
   };
   isGuest?: boolean;
-  onAvatarChange?: (id_avatar: number, imagen: string, nombre: string) => void;
+  onAvatarChange?: (id_avatar: number, imagen: string, nombre: string, customPhoto?: string | null) => void;
 }
 
 const container = {
@@ -72,13 +73,15 @@ function formatFecha(iso?: string): string {
 export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }: ProfileModalProps) {
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState(perfil.usuario.avatar.id_avatar);
+  const [selectedAvatarId, setSelectedAvatarId] = useState<number | 'custom'>(perfil.usuario.avatar.id_avatar);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaved, setAvatarSaved] = useState(false);
+  const [customPhoto, setCustomPhotoState] = useState<string | null>(null);
+  const [pendingCustomPhoto, setPendingCustomPhoto] = useState<string | null>(null);
 
   const stars = useLeagueStore((s) => s.stars);
 
-  const avatarImagen = `/images/avatares/${perfil.usuario.avatar.imagen}`;
+  const avatarImagen = customPhoto ?? `/images/avatares/${perfil.usuario.avatar.imagen}`;
   const currentLeague = getLeagueByStars(stars);
   const progress = getLeagueProgress(stars);
   const nextLeague = getNextLeague(stars);
@@ -88,7 +91,10 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
   const maxRango = !nextLeague;
 
   useEffect(() => {
-    setSelectedAvatarId(perfil.usuario.avatar.id_avatar);
+    const savedCustom = getCustomAvatar();
+    setCustomPhotoState(savedCustom);
+    setSelectedAvatarId(savedCustom ? 'custom' : perfil.usuario.avatar.id_avatar);
+    setPendingCustomPhoto(null);
     setEditingAvatar(false);
     setAvatarError(null);
     setAvatarSaved(false);
@@ -105,13 +111,50 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
   }, [open, onClose]);
 
   const guardarAvatar = async () => {
-    if (selectedAvatarId === perfil.usuario.avatar.id_avatar) {
+    const wantsCustom = selectedAvatarId === 'custom';
+
+    // Nothing changed
+    if (!wantsCustom && selectedAvatarId === perfil.usuario.avatar.id_avatar && !customPhoto) {
       setEditingAvatar(false);
       return;
     }
+    if (wantsCustom && !pendingCustomPhoto && customPhoto) {
+      setEditingAvatar(false);
+      return;
+    }
+
+    // Save custom photo (device upload) — local only, like WhatsApp profile photo
+    if (wantsCustom && pendingCustomPhoto) {
+      setSavingAvatar(true);
+      setAvatarError(null);
+      setAvatarSaved(false);
+      setCustomAvatar(pendingCustomPhoto);
+      setCustomPhotoState(pendingCustomPhoto);
+      setPendingCustomPhoto(null);
+      if (onAvatarChange) {
+        onAvatarChange(
+          perfil.usuario.avatar.id_avatar,
+          perfil.usuario.avatar.imagen,
+          perfil.usuario.avatar.nombre,
+          pendingCustomPhoto
+        );
+      }
+      setAvatarSaved(true);
+      setSavingAvatar(false);
+      setTimeout(() => setEditingAvatar(false), 700);
+      return;
+    }
+
     setSavingAvatar(true);
     setAvatarError(null);
     setAvatarSaved(false);
+
+    // Picking a default avatar replaces any custom photo
+    const hadCustom = customPhoto !== null;
+    if (hadCustom) {
+      clearCustomAvatar();
+      setCustomPhotoState(null);
+    }
 
     const lookupAvatar = async (id: number) => {
       const res = await fetch('/api/avatares');
@@ -119,22 +162,24 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
       return list.find((a: any) => a.id_avatar === id) || null;
     };
 
+    const defaultId = wantsCustom ? perfil.usuario.avatar.id_avatar : (selectedAvatarId as number);
+
     try {
       if (isGuest) {
-        const avatar = await lookupAvatar(selectedAvatarId);
+        const avatar = await lookupAvatar(defaultId);
         const nextAvatar = {
-          id_avatar: selectedAvatarId,
-          imagen: avatar?.imagen || avatarFile(selectedAvatarId),
+          id_avatar: defaultId,
+          imagen: avatar?.imagen || avatarFile(defaultId),
           nombre: avatar?.nombre || 'Avatar',
         };
         const raw = localStorage.getItem('eduplay_user');
         if (raw) {
           localStorage.setItem('eduplay_user', JSON.stringify({
             ...JSON.parse(raw),
-            avatar_id: selectedAvatarId,
+            avatar_id: defaultId,
           }));
         }
-        if (onAvatarChange) onAvatarChange(nextAvatar.id_avatar, nextAvatar.imagen, nextAvatar.nombre);
+        if (onAvatarChange) onAvatarChange(nextAvatar.id_avatar, nextAvatar.imagen, nextAvatar.nombre, null);
         setAvatarSaved(true);
         setSavingAvatar(false);
         setTimeout(() => setEditingAvatar(false), 700);
@@ -146,7 +191,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           usuario_id: perfil.usuario.id_usuario,
-          avatar_id: selectedAvatarId,
+          avatar_id: defaultId,
         }),
       });
       const data = await res.json();
@@ -157,7 +202,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
       }
       const nuevo = data.usuario.avatar;
       if (onAvatarChange) {
-        onAvatarChange(nuevo.id_avatar, nuevo.imagen, nuevo.nombre);
+        onAvatarChange(nuevo.id_avatar, nuevo.imagen, nuevo.nombre, null);
       } else {
         window.location.reload();
       }
@@ -345,7 +390,20 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                       <p className="mb-3 text-center text-xs font-black text-surface-500">
                         Elige tu nuevo avatar
                       </p>
-                      <AvatarPicker selected={selectedAvatarId} onSelect={setSelectedAvatarId} compact />
+                      <AvatarPicker
+                        selected={selectedAvatarId === 'custom' ? -1 : (selectedAvatarId as number)}
+                        onSelect={setSelectedAvatarId}
+                        compact
+                        customPhoto={pendingCustomPhoto ?? customPhoto}
+                        customSelected={selectedAvatarId === 'custom'}
+                        onCustomSelect={() => setSelectedAvatarId('custom')}
+                        onUpload={(dataUrl) => {
+                          setPendingCustomPhoto(dataUrl);
+                          setSelectedAvatarId('custom');
+                          setAvatarError(null);
+                          setAvatarSaved(false);
+                        }}
+                      />
 
                       {(avatarError || avatarSaved) && (
                         <p className={`mt-3 text-center text-xs font-black ${avatarError ? 'text-edu-pink' : 'text-edu-green-dark'}`}>

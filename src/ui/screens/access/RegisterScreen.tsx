@@ -9,6 +9,7 @@ import { User, Mail, Lock, Calendar, ArrowLeft } from 'lucide-react';
 import { avatarUrl } from '@/lib/avatares';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
 
 const MESES = [
@@ -109,6 +110,7 @@ export function RegisterScreen() {
         correo: result.usuario.correo,
         modo: 'registrado',
       }));
+      grantAppEntry();
       window.location.href = '/inicio';
     } catch {
       setRegisterError('Error de conexion. Intenta de nuevo.');

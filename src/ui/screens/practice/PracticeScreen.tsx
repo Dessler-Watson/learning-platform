@@ -3,18 +3,19 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Brain, Route, Flame, Sparkles, ArrowLeft, CheckCircle2, AlertTriangle,
+  Brain, Sparkles, ArrowLeft, CheckCircle2, AlertTriangle,
   History, Trash2, Play, Globe, Search, Filter, Lock, LogIn, UserPlus,
   Eye, EyeOff, Users, BookOpen, X
 } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
+import { ModeLogo, MODE_THEME, modeButtonGradient, modeButtonShadow } from '@/shared/lib/game-modes';
 import { audioManager } from '@/shared/lib/audio';
 import { generateQuestions, GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
 import { usePracticeStore } from '@/stores/practice.store';
 import { initSimulatedPractices } from '@/app/panel/lib/publicPractices';
 import type { Practice, PracticeMode, StoredUser } from '@/shared/types/practice';
 
-type GameMode = 'decisiones' | 'lava' | null;
+type GameMode = 'decisiones' | 'lava' | 'tierras' | 'abismos' | null;
 type TabView = 'create' | 'public' | 'history';
 
 const USER_KEY = 'eduplay_user';
@@ -284,22 +285,28 @@ export function PracticeScreen() {
                 <h3 className="mb-3 text-sm font-black text-surface-700">Selecciona el modo de juego</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <ModeCard
-                    icon={<Route size={24} />}
-                    label="Camino de las Decisiones"
-                    description="Responde y avanza por el camino. +10 acierto, -5 error."
-                    color="#FFA000"
-                    bgColor="rgba(255, 160, 0, 0.1)"
+                    mode="decisiones"
+                    label="Rumbo"
                     selected={selectedMode === 'decisiones'}
                     onClick={() => { audioManager.play('select'); setSelectedMode('decisiones'); setError(null); }}
                   />
                   <ModeCard
-                    icon={<Flame size={24} />}
-                    label="La Lava del Conocimiento"
-                    description="Responde para subir tu torre. La lava avanza si fallas."
-                    color="#EB5D70"
-                    bgColor="rgba(235, 93, 112, 0.1)"
+                    mode="lava"
+                    label="Bajo Presion"
                     selected={selectedMode === 'lava'}
                     onClick={() => { audioManager.play('select'); setSelectedMode('lava'); setError(null); }}
+                  />
+                  <ModeCard
+                    mode="tierras"
+                    label="Tierras Hundidas"
+                    selected={selectedMode === 'tierras'}
+                    onClick={() => { audioManager.play('select'); setSelectedMode('tierras'); setError(null); }}
+                  />
+                  <ModeCard
+                    mode="abismos"
+                    label="Entre Abismos"
+                    selected={selectedMode === 'abismos'}
+                    onClick={() => { audioManager.play('select'); setSelectedMode('abismos'); setError(null); }}
                   />
                 </div>
               </div>
@@ -408,20 +415,15 @@ export function PracticeScreen() {
                 </p>
               </div>
 
-              <div className="card-game p-4 flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl"
-                  style={{
-                    background: selectedMode === 'decisiones' ? 'rgba(255, 160, 0, 0.15)' : 'rgba(235, 93, 112, 0.15)',
-                    color: selectedMode === 'decisiones' ? '#FFA000' : '#EB5D70',
-                  }}
-                >
-                  {selectedMode === 'decisiones' ? <Route size={20} /> : <Flame size={20} />}
-                </div>
+              <div className="card-game p-4 flex items-center gap-3" style={{ overflow: 'visible' }}>
+                <ModeLogo mode={selectedMode} size={40} shape="square" imgScale={1} />
                 <div>
                   <p className="text-xs font-bold text-surface-500">Jugarás en</p>
                   <p className="text-sm font-black text-surface-800">
-                    {selectedMode === 'decisiones' ? 'Camino de las Decisiones' : 'La Lava del Conocimiento'}
+                    {selectedMode === 'decisiones' ? 'Rumbo' :
+                     selectedMode === 'tierras' ? 'Tierras Hundidas' :
+                     selectedMode === 'abismos' ? 'Entre Abismos' :
+                     'Bajo Presión'}
                   </p>
                 </div>
                 <button
@@ -438,8 +440,8 @@ export function PracticeScreen() {
                 onClick={handleStartPracticeFromConfig}
                 className="w-full rounded-2xl px-6 py-4 text-base font-black text-white shadow-game"
                 style={{
-                  background: 'linear-gradient(90deg, #98C54E 0%, #6B9832 100%)',
-                  boxShadow: '0 6px 0 rgba(80, 130, 40, 0.35), 0 8px 24px rgba(152, 197, 78, 0.3)',
+                  background: modeButtonGradient(selectedMode ?? 'decisiones'),
+                  boxShadow: modeButtonShadow(selectedMode ?? 'decisiones'),
                 }}
               >
                 Iniciar practica
@@ -493,16 +495,28 @@ export function PracticeScreen() {
                   onClick={() => setFilterMode('all')}
                 />
                 <FilterChip
-                  label="Camino"
+                  label="Rumbo"
                   active={filterMode === 'decisiones'}
                   onClick={() => setFilterMode('decisiones')}
-                  color="#FFA000"
+                  color={MODE_THEME.decisiones.color}
                 />
                 <FilterChip
-                  label="Lava"
+                  label="Bajo Presión"
                   active={filterMode === 'lava'}
                   onClick={() => setFilterMode('lava')}
-                  color="#EB5D70"
+                  color={MODE_THEME.lava.color}
+                />
+                <FilterChip
+                  label="Tierras"
+                  active={filterMode === 'tierras'}
+                  onClick={() => setFilterMode('tierras')}
+                  color={MODE_THEME.tierras.color}
+                />
+                <FilterChip
+                  label="Abismos"
+                  active={filterMode === 'abismos'}
+                  onClick={() => setFilterMode('abismos')}
+                  color={MODE_THEME.abismos.color}
                 />
               </div>
 
@@ -630,22 +644,20 @@ function TabButton({
 }
 
 function ModeCard({
-  icon,
+  mode,
   label,
-  description,
-  color,
-  bgColor,
   selected,
   onClick,
 }: {
-  icon: React.ReactNode;
+  mode: 'decisiones' | 'lava' | 'tierras' | 'abismos';
   label: string;
-  description: string;
-  color: string;
-  bgColor: string;
   selected: boolean;
   onClick: () => void;
 }) {
+  const theme = MODE_THEME[mode];
+  const color = theme.color;
+  const bgColor = theme.bg;
+
   return (
     <motion.button
       whileHover={{ scale: 1.03, y: -2 }}
@@ -656,16 +668,11 @@ function ModeCard({
         border: selected ? `2px solid ${color}` : '2px solid transparent',
         background: selected ? bgColor : '#fff',
         boxShadow: selected ? `0 4px 0 ${color}30, 0 6px 20px ${color}20` : undefined,
+        overflow: 'visible',
       }}
     >
-      <div
-        className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl"
-        style={{ background: bgColor, color }}
-      >
-        {icon}
-      </div>
-      <p className="mb-1 text-xs font-black text-surface-800 leading-tight">{label}</p>
-      <p className="text-[10px] font-bold text-surface-500 leading-tight">{description}</p>
+      <ModeLogo mode={mode} size={40} shape="square" className="mb-2" imgScale={1} />
+      <p className="text-xs font-black text-surface-800 leading-tight">{label}</p>
       {selected && (
         <motion.div
           initial={{ scale: 0 }}
@@ -729,19 +736,12 @@ function PublicPracticeCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="card-game p-4"
+      style={{ overflow: 'visible' }}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-md"
-              style={{
-                background: practice.mode === 'decisiones' ? 'rgba(255, 160, 0, 0.15)' : 'rgba(235, 93, 112, 0.15)',
-                color: practice.mode === 'decisiones' ? '#FFA000' : '#EB5D70',
-              }}
-            >
-              {practice.mode === 'decisiones' ? <Route size={12} /> : <Flame size={12} />}
-            </span>
+            <ModeLogo mode={practice.mode} size={22} shape="square" imgScale={1} />
             <span className="text-sm font-black text-surface-800 truncate">{practice.title}</span>
           </div>
           <p className="text-[10px] font-bold text-surface-400 mb-1">
@@ -770,12 +770,8 @@ function PublicPracticeCard({
           onClick={onPlay}
           className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-white"
           style={{
-            background: practice.mode === 'decisiones'
-              ? 'linear-gradient(90deg, #FFA000, #FF8F00)'
-              : 'linear-gradient(90deg, #EB5D70, #C94A5A)',
-            boxShadow: practice.mode === 'decisiones'
-              ? '0 4px 0 rgba(255, 143, 0, 0.3)'
-              : '0 4px 0 rgba(201, 74, 90, 0.3)',
+            background: modeButtonGradient(practice.mode),
+            boxShadow: modeButtonShadow(practice.mode),
           }}
         >
           <Play size={14} />
@@ -806,19 +802,12 @@ function HistoryPracticeCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="card-game p-4"
+      style={{ overflow: 'visible' }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-md"
-              style={{
-                background: practice.mode === 'decisiones' ? 'rgba(255, 160, 0, 0.15)' : 'rgba(235, 93, 112, 0.15)',
-                color: practice.mode === 'decisiones' ? '#FFA000' : '#EB5D70',
-              }}
-            >
-              {practice.mode === 'decisiones' ? <Route size={12} /> : <Flame size={12} />}
-            </span>
+            <ModeLogo mode={practice.mode} size={22} shape="square" imgScale={1} />
             <span className="text-xs font-black text-surface-800 truncate">{practice.topic}</span>
           </div>
           <div className="flex items-center gap-3 text-[10px] font-bold text-surface-400">
@@ -846,7 +835,11 @@ function HistoryPracticeCard({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={onPlay}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#98C54E]/15 text-[#98C54E]"
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{
+              background: MODE_THEME[practice.mode].bg,
+              color: MODE_THEME[practice.mode].colorDark,
+            }}
             title="Jugar"
           >
             <Play size={14} />

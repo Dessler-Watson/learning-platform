@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Clock, BookOpen, Gamepad2, Search } from 'lucide-react';
+import { BookOpen, Gamepad2, Search } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Card, CardContent } from '../../ui/card';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { GameIcon, GAME_ICON_COLORS } from '../../ui/game-icons';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { BackButton } from '../../components/shared/BackButton';
 import { usePanelStore } from '../../store/usePanelStore';
 import { audioManager } from '../../lib/audio';
@@ -23,7 +23,6 @@ export default function CrearSalaPage() {
   const [nombre, setNombre] = useState('');
   const [juegoId, setJuegoId] = useState('');
   const [cursoId, setCursoId] = useState('');
-  const [tiempoPorPregunta, setTiempoPorPregunta] = useState(30);
   const [juegos, setJuegos] = useState<{ id: string; nombre: string; emoji: string }[]>([]);
   const [cursos, setCursos] = useState<{ id: string; nombre: string; gameModeId: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +62,6 @@ export default function CrearSalaPage() {
       juegoId,
       cursoId,
       nombre: nombre.trim() || `Sesión de ${cursos.find((c) => c.id === cursoId)?.nombre ?? 'Curso'}`,
-      tiempoPorPregunta,
     });
     audioManager.play('success');
     router.push(`/panel/salas/${sala.id}/lobby`);
@@ -99,23 +97,25 @@ export default function CrearSalaPage() {
               <Label>Modo de juego</Label>
               <div className="grid grid-cols-2 gap-3">
                 {juegos.map((j) => {
-                  const esLava = j.id === 'juego-2';
-                  const iconColors = GAME_ICON_COLORS[j.id];
+                  const modeId = toGameModeId(j.id);
+                  const theme = modeId ? MODE_THEME[modeId] : null;
+                  const selected = juegoId === j.id;
                   return (
                     <button
                       key={j.id}
                       onClick={() => { audioManager.play('select'); setJuegoId(j.id); setBusquedaCurso(''); }}
                       className={`rounded-2xl border-2 p-4 text-left transition-all ${
-                        juegoId === j.id
-                          ? esLava
-                            ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-200/40'
-                            : 'border-purple-400 bg-purple-50 shadow-md shadow-purple-200/40'
+                        selected && theme
+                          ? 'shadow-md'
                           : 'border-gray-100 bg-white hover:border-gray-200'
                       }`}
+                      style={selected && theme ? {
+                        borderColor: theme.color,
+                        background: theme.bg,
+                        boxShadow: `0 4px 14px ${theme.color}40`,
+                      } : undefined}
                     >
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconColors?.bg ?? 'bg-gray-50'}`}>
-                        <GameIcon juegoId={j.id} className={iconColors?.text ?? 'text-gray-400'} size={22} />
-                      </div>
+                      <ModeLogo mode={modeId} size={64} shape="square" showBox={false} imgScale={1} />
                       <p className="mt-2 text-sm font-bold text-foreground">{j.nombre}</p>
                     </button>
                   );
@@ -158,23 +158,17 @@ export default function CrearSalaPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Tiempo por pregunta</Label>
-              <div className="flex items-center gap-3">
-                {[15, 20, 30, 45, 60].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { audioManager.play('select'); setTiempoPorPregunta(t); }}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition-all ${tiempoPorPregunta === t ? 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E] text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                  >
-                    {t}
-                  </button>
-                ))}
-                <span className="text-xs text-gray-400">seg</span>
-              </div>
-            </div>
-
-            <Button className="w-full h-12 text-base font-bold" onClick={handleCreate} disabled={creating || !juegoId || !cursoId}>
+            <Button
+              className="w-full h-12 text-base font-bold"
+              style={(() => {
+                const modeId = toGameModeId(juegoId);
+                if (!modeId) return undefined;
+                const t = MODE_THEME[modeId];
+                return { background: `linear-gradient(90deg, ${t.color}, ${t.colorDark})`, border: 'none', color: '#fff' };
+              })()}
+              onClick={handleCreate}
+              disabled={creating || !juegoId || !cursoId}
+            >
               <Gamepad2 className="mr-2 h-4 w-4" />
               {creating ? 'Creando...' : 'Crear sala'}
             </Button>

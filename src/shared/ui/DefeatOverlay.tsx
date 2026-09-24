@@ -1,24 +1,27 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   show: boolean;
   onDone: () => void;
   duration?: number;
+  message?: string;
 }
 
-export function DefeatOverlay({ show, onDone, duration = 4000 }: Props) {
+export function DefeatOverlay({ show, onDone, duration = 4000, message = 'Caíste a la lava!' }: Props) {
   const [phase, setPhase] = useState<'idle' | 'enter' | 'hold' | 'exit'>('idle');
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
     if (!show) { setPhase('idle'); return; }
     setPhase('enter');
     const t1 = setTimeout(() => setPhase('hold'), 600);
     const t2 = setTimeout(() => setPhase('exit'), duration - 500);
-    const t3 = setTimeout(() => { setPhase('idle'); onDone(); }, duration);
+    const t3 = setTimeout(() => { setPhase('idle'); onDoneRef.current(); }, duration);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [show, duration, onDone]);
+  }, [show, duration]);
 
   if (phase === 'idle') return null;
 
@@ -56,9 +59,9 @@ export function DefeatOverlay({ show, onDone, duration = 4000 }: Props) {
           </svg>
         </motion.div>
 
-        {/* "Caíste a la lava!" text — letter-by-letter bounce */}
+        {/* Defeat text — letter-by-letter bounce */}
         <div style={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
-          {'Caíste a la lava!'.split('').map((char, i) => (
+          {message.split('').map((char, i) => (
             <motion.span
               key={i}
               initial={{ y: 50, opacity: 0, scale: 0.4 }}

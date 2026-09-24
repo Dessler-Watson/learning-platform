@@ -9,6 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { getLeagueByStars } from '@/lib/leagues';
 import { getMockRoom, MOCK_PLAYER_NAMES, type RoomData } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
+import { getCustomAvatar } from '@/lib/custom-avatar';
 
 interface Player {
   id: string;
@@ -29,7 +30,7 @@ function loadCurrentUser(): { nombre: string; avatar: string; stars: number } | 
     const avatarId = u.avatar_id || 1;
     const starsRaw = localStorage.getItem('eduplay_stars');
     const stars = starsRaw ? parseInt(starsRaw, 10) || 0 : 0;
-    return { nombre: u.nombre || 'Jugador', avatar: avatarUrl(avatarId), stars };
+    return { nombre: u.nombre || 'Jugador', avatar: getCustomAvatar() || avatarUrl(avatarId), stars };
   } catch {
     return null;
   }
@@ -51,6 +52,8 @@ export function WaitingRoomScreen() {
   const fullAnnounced = useRef(false);
 
   useEffect(() => {
+    // Entering a sala: clear any leftover practice flag so the game awards league stars
+    sessionStorage.removeItem('eduplay_practice');
     const current = loadCurrentUser();
     const yo: Player = {
       id: 'yo',
@@ -123,7 +126,11 @@ export function WaitingRoomScreen() {
     timers.current.push(tGo);
 
     const tRedirect = setTimeout(() => {
-      window.location.href = '/camino-decisiones';
+      if (room.juegoId === 1) window.location.href = '/camino-decisiones';
+      else if (room.juegoId === 2) window.location.href = '/lava-conocimiento';
+      else if (room.juegoId === 3) window.location.href = '/tierras-hundidas';
+      else if (room.juegoId === 4) window.location.href = '/entre-abismos';
+      else window.location.href = '/camino-decisiones';
     }, nums.length * 900 + 1500);
     timers.current.push(tRedirect);
   };

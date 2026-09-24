@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Dices, Pencil, Rocket, Sparkles } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 import { avatarUrl } from '@/lib/avatares';
 import { AvatarPicker } from '@/ui/components/AvatarPicker';
 
@@ -34,6 +35,7 @@ export function GuestNameScreen() {
       avatar_id: avatarId,
       modo: 'invitado',
     }));
+    grantAppEntry();
     window.location.href = '/inicio';
   };
 

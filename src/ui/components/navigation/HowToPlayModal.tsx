@@ -1,21 +1,20 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Gamepad2, Flame, Footprints, Move, MousePointerClick, Trophy, Heart, Star } from 'lucide-react';
+import { X, Gamepad2, Move } from 'lucide-react';
+import { ModeLogo } from '@/shared/lib/game-modes';
 
 interface HowToPlayModalProps {
   open: boolean;
   onClose: () => void;
-  mode: 'lava' | 'decisiones';
+  mode: 'lava' | 'decisiones' | 'tierras' | 'abismos';
 }
 
 function LavaInstructions() {
   return (
     <>
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
-          <Flame size={20} className="text-orange-400" />
-        </div>
-        <h3 className="text-lg font-bold text-white">La Lava del Conocimiento</h3>
+        <ModeLogo mode="lava" size={64} shape="square" imgScale={1} />
+        <h3 className="text-lg font-bold text-white">Bajo Presión</h3>
       </div>
 
       <div className="space-y-3 text-sm text-surface-300">
@@ -73,10 +72,8 @@ function DecisionesInstructions() {
   return (
     <>
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/20">
-          <Footprints size={20} className="text-teal-400" />
-        </div>
-        <h3 className="text-lg font-bold text-white">Camino de Decisiones</h3>
+        <ModeLogo mode="decisiones" size={64} shape="square" imgScale={1} />
+        <h3 className="text-lg font-bold text-white">Rumbo</h3>
       </div>
 
       <div className="space-y-3 text-sm text-surface-300">
@@ -123,6 +120,132 @@ function DecisionesInstructions() {
   );
 }
 
+function TierrasInstructions() {
+  return (
+    <>
+      <div className="mb-4 flex items-center gap-3">
+        <ModeLogo mode="tierras" size={64} shape="square" imgScale={1} />
+        <h3 className="text-lg font-bold text-white">Tierras Hundidas</h3>
+      </div>
+
+      <div className="space-y-3 text-sm text-surface-300">
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-1 font-semibold text-white">De que se trata</p>
+          <p>Un platformer educativo en un manglar inundado. Avanza por 15 pares de plataformas flotantes respondiendo correctamente. Si fallas, la plataforma se hunde y caes al agua — fin de la partida. Llega a la plataforma final con la mayor cantidad de puntos.</p>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Controles</p>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400" />
+              <span><b className="text-white">W / Flecha arriba</b> — Avanzar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 rotate-180" />
+              <span><b className="text-white">S / Flecha abajo</b> — Retroceder</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 -rotate-90" />
+              <span><b className="text-white">A / Flecha izquierda</b> — Izquierda</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 rotate-90" />
+              <span><b className="text-white">D / Flecha derecha</b> — Derecha</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={14} className="text-surface-400" />
+              <span><b className="text-white">Espacio</b> — Saltar (solo en el suelo; no se puede saltar en el aire)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Como responder</p>
+          <p>Cada pregunta presenta dos plataformas lado a lado: <span className="font-bold text-red-400">A</span> (roja, izquierda) y <span className="font-bold text-blue-400">B</span> (azul, derecha). Mueve tu personaje hasta la plataforma correcta. <b className="text-white">Tu posicion fisica ES la respuesta</b> — no hay botones de opcion. La tarjeta de pregunta y las opciones A/B se muestran tambien en el HUD para consultar.</p>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Que pasa al responder</p>
+          <div className="space-y-1.5">
+            <p><span className="font-bold text-green-400">Correcta:</span> +20 puntos, +20 XP. La plataforma se mantiene firme y avanzas a la siguiente pregunta.</p>
+            <p><span className="font-bold text-red-400">Incorrecta:</span> Sin puntos. La plataforma elegida se hunde en el manglar y caes al agua — partida terminada.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Cuidado con el agua</p>
+          <p>No hay barreras invisibles ni vidas adicionales. Si caes al agua del manglar por cualquier motivo (mala eleccion, salto fallido, etc.), la partida termina inmediatamente. La puntuacion acumulada hasta ese momento se conserva en los resultados.</p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AbismosInstructions() {
+  return (
+    <>
+      <div className="mb-4 flex items-center gap-3">
+        <ModeLogo mode="abismos" size={64} shape="square" imgScale={1} />
+        <h3 className="text-lg font-bold text-white">Entre Abismos</h3>
+      </div>
+
+      <div className="space-y-3 text-sm text-surface-300">
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-1 font-semibold text-white">De que se trata</p>
+          <p>Aventura en la noche con plataformas flotantes sobre un abismo. Primero responde 15 preguntas para construir un puente de plataformas; despues cruza libremente hasta la montana final y toca el cristal dorado. Si te quedas sin plataformas o caes al abismo, pierdes.</p>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Controles</p>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400" />
+              <span><b className="text-white">W / Flecha arriba</b> — Avanzar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 rotate-180" />
+              <span><b className="text-white">S / Flecha abajo</b> — Retroceder</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 -rotate-90" />
+              <span><b className="text-white">A / Flecha izquierda</b> — Izquierda</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Move size={14} className="text-surface-400 rotate-90" />
+              <span><b className="text-white">D / Flecha derecha</b> — Derecha</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={14} className="text-surface-400" />
+              <span><b className="text-white">Espacio</b> — Saltar (solo en el suelo; no se puede saltar en el aire)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Fase 1: Construir el puente (preguntas)</p>
+          <p>En la parte superior aparece la pregunta y dos tarjetas: <span className="font-bold text-red-400">A</span> y <span className="font-bold text-blue-400">B</span>. Toca o haz clic en la respuesta correcta — una vez elegida, no se puede cambiar. Cada acierto suma una plataforma al puente (maximo 5); cada fallo quita una. Si terminas las preguntas con <b className="text-red-400">0 plataformas</b>, es derrota inmediata.</p>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Fase 2: Cruzar el puente</p>
+          <p>Despues de las preguntas, controlas libremente al personaje para saltar de plataforma en plataforma hasta la montana final con el cristal dorado. <b className="text-white">Si caes al abismo, la puntuacion final es 0.</b></p>
+        </div>
+
+        <div className="rounded-xl bg-white/5 p-3">
+          <p className="mb-2 font-semibold text-white">Puntuacion</p>
+          <div className="space-y-1">
+            <p><span className="font-bold text-green-400">Correcta:</span> +20 puntos, +20 XP, +1 plataforma</p>
+            <p><span className="font-bold text-red-400">Incorrecta:</span> -1 plataforma (minimo 0), sin penalizacion de puntos (ganas 0 en esa pregunta)</p>
+            <p><span className="font-bold text-red-400">0 plataformas al terminar preguntas:</span> Derrota, puntuacion = 0</p>
+            <p><span className="font-bold text-red-400">Caer al abismo:</span> Puntuacion final = 0</p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function HowToPlayModal({ open, onClose, mode }: HowToPlayModalProps) {
   return (
     <AnimatePresence>
@@ -155,7 +278,7 @@ export function HowToPlayModal({ open, onClose, mode }: HowToPlayModalProps) {
               </button>
             </div>
 
-            {mode === 'lava' ? <LavaInstructions /> : <DecisionesInstructions />}
+            {mode === 'lava' ? <LavaInstructions /> : mode === 'tierras' ? <TierrasInstructions /> : mode === 'abismos' ? <AbismosInstructions /> : <DecisionesInstructions />}
           </motion.div>
         </motion.div>
       )}

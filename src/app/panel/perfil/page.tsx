@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Pencil, Mail, Building2, GraduationCap, Save, X, LogOut } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -10,11 +11,13 @@ import { usePanelStore } from '../store/usePanelStore';
 import { audioManager } from '../lib/audio';
 import { getInitials } from '../utils';
 import { useClickLock } from '../hooks/useClickLock';
+import { clearAppEntry } from '@/shared/lib/appEntry';
 
 const c = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const it = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } } };
 
 export default function PerfilPage() {
+  const router = useRouter();
   const { docente, updateProfile, logout } = usePanelStore();
   const clickLock = useClickLock();
   const [editing, setEditing] = useState(false);
@@ -45,6 +48,8 @@ export default function PerfilPage() {
   const handleLogout = () => {
     logout();
     audioManager.onLogout();
+    clearAppEntry();
+    router.push('/');
   };
 
   return (

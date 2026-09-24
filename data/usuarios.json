@@ -174,5 +174,17 @@
     "fecha_registro": "2026-09-19T00:58:27.341Z",
     "fecha_nacimiento": "2022-02-17",
     "sexo": "masculino"
+  },
+  {
+    "id_usuario": 17,
+    "avatar_id": 10,
+    "nombre": "P",
+    "apellido": "p",
+    "correo": "p@gmail.com",
+    "rol": "estudiante",
+    "estado": "activo",
+    "fecha_registro": "2026-09-20T08:35:33.204Z",
+    "fecha_nacimiento": "2014-03-14",
+    "sexo": "masculino"
   }
 ]

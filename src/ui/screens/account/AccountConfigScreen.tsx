@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Save, Key, LogOut, ChevronDown, Check, Mail, User } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { shouldBounceToWelcome, clearAppEntry } from '@/shared/lib/appEntry';
 
 interface StoredUser {
   id_usuario: number;
@@ -43,6 +44,10 @@ export function AccountConfigScreen() {
   const [savingPw, setSavingPw] = useState(false);
 
   useEffect(() => {
+    if (shouldBounceToWelcome()) {
+      window.location.href = '/';
+      return;
+    }
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
     if (!raw) {
       window.location.href = '/estudiante';
@@ -151,7 +156,8 @@ export function AccountConfigScreen() {
 
   const logout = () => {
     localStorage.removeItem('eduplay_user');
-    window.location.href = '/estudiante';
+    clearAppEntry();
+    window.location.href = '/';
   };
 
   if (loading) {

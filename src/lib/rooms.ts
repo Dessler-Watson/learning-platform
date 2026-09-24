@@ -12,7 +12,7 @@ export interface RoomData {
   curso: string;
   actividad: string;
   maxJugadores: number;
-  juegoId: number; // 1 = Camino de las Decisiones, 2 = Lava del Conocimiento
+  juegoId: number; // 1 = Rumbo, 2 = Bajo Presión, 3 = Tierras Hundidas, 4 = Entre Abismos
 }
 
 // Sala problema por defecto (valida para el codigo de prueba).
@@ -21,7 +21,7 @@ const DEFAULT_ROOM: RoomData = {
   nombre: 'Creciendo en Valores',
   docente: 'Carlos Martinez',
   curso: 'Derechos y Dignidad de la Mujer',
-  actividad: 'Camino de las Decisiones',
+  actividad: 'Rumbo',
   maxJugadores: 20,
   juegoId: 1,
 };
@@ -32,7 +32,7 @@ const MOCK_ROOMS: Record<string, RoomData> = {
     nombre: 'Creciendo en Valores',
     docente: 'Carlos Martinez',
     curso: 'Derechos y Dignidad de la Mujer',
-    actividad: 'Camino de las Decisiones',
+    actividad: 'Rumbo',
     maxJugadores: 20,
     juegoId: 1,
   },
@@ -41,7 +41,7 @@ const MOCK_ROOMS: Record<string, RoomData> = {
     nombre: 'Descubriendo Nuestros Derechos',
     docente: 'Prof. Luis Torres',
     curso: 'Ciudadania y Derechos',
-    actividad: 'Camino de las Decisiones',
+    actividad: 'Rumbo',
     maxJugadores: 20,
     juegoId: 1,
   },
@@ -50,7 +50,7 @@ const MOCK_ROOMS: Record<string, RoomData> = {
     nombre: 'Aprender Jugando',
     docente: 'Prof. Ana Garcia',
     curso: 'Derechos Humanos Basico',
-    actividad: 'Camino de las Decisiones',
+    actividad: 'Rumbo',
     maxJugadores: 20,
     juegoId: 1,
   },

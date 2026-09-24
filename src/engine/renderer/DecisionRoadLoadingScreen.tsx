@@ -147,17 +147,13 @@ export function DecisionRoadLoadingScreen({ complete, onComplete }: DecisionRoad
       }}>
         <div style={{
           width: 80, height: 80, borderRadius: 20,
-          background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-          border: '2px solid rgba(255,255,255,0.4)',
+          background: 'rgba(79, 195, 247, 0.35)', backdropFilter: 'blur(10px)',
+          border: '2px solid rgba(79, 195, 247, 0.55)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 24, animation: 'iconPulse 2s ease-in-out infinite',
           boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
         }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-            <path d="M12 2v4" />
-            <path d="M10 6h4" />
-          </svg>
+          <img src="/images/Logos_juegos/rumbo.png" alt="Rumbo"           width={78} height={78} style={{ width: 78, height: 78, objectFit: 'contain' }} draggable={false} />
         </div>
 
         <h1 style={{
@@ -165,7 +161,7 @@ export function DecisionRoadLoadingScreen({ complete, onComplete }: DecisionRoad
           textShadow: '0 2px 12px rgba(0,0,0,0.15)',
           margin: 0, letterSpacing: -0.5,
         }}>
-          Camino de Decisiones
+          Rumbo
         </h1>
 
         <p style={{

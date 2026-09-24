@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Sparkles, Gamepad2, Trophy, Brain } from 'lucide-react';
+import { Settings, Sparkles, Gamepad2, Trophy, Brain, Home } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
@@ -10,7 +10,9 @@ import { useLeagueStore } from '@/stores/league.store';
 import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
 import { audioManager } from '@/shared/lib/audio';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
+import { getCustomAvatar } from '@/lib/custom-avatar';
 import { useAchievementStore } from '@/stores/achievement.store';
+import { shouldBounceToWelcome } from '@/shared/lib/appEntry';
 import { AchievementNotification } from '@/ui/components/AchievementNotification';
 
 interface StoredUser {
@@ -98,6 +100,7 @@ export function DashboardScreen() {
   const [salaLoading, setSalaLoading] = useState(false);
   const [salaError, setSalaError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [customPhoto, setCustomPhoto] = useState<string | null>(null);
 
   const stars = useLeagueStore((s) => s.stars);
   const initStars = useLeagueStore((s) => s.initStars);
@@ -111,6 +114,10 @@ export function DashboardScreen() {
   }, [initStars, achievementInit]);
 
   useEffect(() => {
+    if (shouldBounceToWelcome()) {
+      window.location.href = '/';
+      return;
+    }
     const raw = typeof window !== 'undefined' ? localStorage.getItem('eduplay_user') : null;
     if (!raw) {
       window.location.href = '/estudiante';
@@ -118,6 +125,7 @@ export function DashboardScreen() {
     }
 
     const stored: StoredUser = JSON.parse(raw);
+    setCustomPhoto(getCustomAvatar());
 
     const t1 = setTimeout(() => {
       audioManager.playWelcome();
@@ -165,7 +173,7 @@ export function DashboardScreen() {
     window.location.href = `/sala-espera?codigo=${encodeURIComponent(codigo)}`;
   };
 
-  const avatarImagen = `/images/avatares/${perfil.usuario.avatar.imagen}`;
+  const avatarImagen = customPhoto ?? `/images/avatares/${perfil.usuario.avatar.imagen}`;
   const rankColor = perfil.rango.color;
 
   const currentLeague = getLeagueByStars(stars);
@@ -226,11 +234,28 @@ export function DashboardScreen() {
           </button>
 
           <div className="flex items-center gap-2">
+            <IconBtn
+              onClick={() => { audioManager.play('back'); window.location.href = '/'; }}
+              ariaLabel="Pantalla de inicio"
+            >
+              <Home size={20} />
+            </IconBtn>
             <IconBtn onClick={() => { audioManager.play('click'); window.location.href = '/configuracion'; }} ariaLabel="Configuracion">
               <Settings size={20} />
             </IconBtn>
-            <IconBtn onClick={() => { audioManager.play('click'); }} ariaLabel="Notificaciones" badge>
-              <Bell size={20} />
+            <IconBtn
+              onClick={() => {
+                audioManager.play('click');
+                if (isGuest) {
+                  setShowAuthModal(true);
+                } else {
+                  window.location.href = '/logros';
+                }
+              }}
+              ariaLabel="Logros"
+              badge={!isGuest && hasNewAchievements()}
+            >
+              <Trophy size={20} />
             </IconBtn>
           </div>
         </header>
@@ -388,37 +413,6 @@ export function DashboardScreen() {
             </motion.button>
           </div>
         </motion.div>
-
-        {/* Accesos rapidos */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-5 grid grid-cols-2 gap-4"
-        >
-          <QuickCard
-            icon={<Trophy size={22} />}
-            label="Logros"
-            color="#FFEF5A"
-            text="#8A6D00"
-            showDot={isGuest ? false : hasNewAchievements()}
-            onClick={() => {
-              audioManager.play('click');
-              if (isGuest) {
-                setShowAuthModal(true);
-              } else {
-                window.location.href = '/logros';
-              }
-            }}
-          />
-          <QuickCard
-            icon={<Sparkles size={22} />}
-            label="Proximos retos"
-            color="#B2E0EF"
-            text="#006A7A"
-            onClick={() => {}}
-          />
-        </motion.div>
       </motion.div>
 
       <ProfileModal
@@ -426,7 +420,8 @@ export function DashboardScreen() {
         onClose={() => setProfileOpen(false)}
         perfil={perfil}
         isGuest={isGuest}
-        onAvatarChange={(id_avatar, imagen, nombre) => {
+        onAvatarChange={(id_avatar, imagen, nombre, custom) => {
+          setCustomPhoto(custom ?? null);
           setPerfil(prev => ({
             ...prev,
             usuario: {
@@ -498,29 +493,6 @@ function IconBtn({ children, onClick, ariaLabel, badge }: { children: React.Reac
       {badge && (
         <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-edu-pink" />
       )}
-    </motion.button>
-  );
-}
-
-function QuickCard({ icon, label, color, text, onClick, showDot }: { icon: React.ReactNode; label: string; color: string; text: string; onClick: () => void; showDot?: boolean }) {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.03, y: -2 }}
-      whileTap={{ scale: 0.97, y: 2 }}
-      onClick={onClick}
-      className="card-game relative flex items-center gap-3 p-4 text-left"
-      style={{ borderLeft: `5px solid ${color}` }}
-    >
-      {showDot && (
-        <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#EB5D70]" style={{ boxShadow: '0 0 6px rgba(235, 93, 112, 0.5)' }} />
-      )}
-      <div
-        className="flex h-10 w-10 items-center justify-center rounded-xl"
-        style={{ background: color, color: text }}
-      >
-        {icon}
-      </div>
-      <span className="text-sm font-black text-surface-700">{label}</span>
     </motion.button>
   );
 }

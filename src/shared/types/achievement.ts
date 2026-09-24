@@ -1,4 +1,4 @@
-export type AchievementMode = 'decisiones' | 'lava';
+export type AchievementMode = 'decisiones' | 'lava' | 'tierras' | 'abismos';
 export type AchievementDifficulty = 'easy' | 'medium' | 'hard' | 'legendary';
 
 export interface AchievementDefinition {
@@ -22,7 +22,7 @@ export interface AchievementProgress {
 
 export interface AchievementEvent {
   type: 'correct_answer' | 'incorrect_answer' | 'game_completed' | 'game_defeated' | 'streak' | 'score' | 'xp' | 'accuracy' | 'perfect_streak' | 'elimination';
-  mode: 'decisiones' | 'lava';
+  mode: 'decisiones' | 'lava' | 'tierras' | 'abismos';
   value?: number;
   metadata?: {
     accuracy?: number;
@@ -32,5 +32,10 @@ export interface AchievementEvent {
     defeated?: boolean;
     isPractice?: boolean;
     ticks?: number;
+    fallenInWater?: boolean;
+    fellInAbyss?: boolean;
+    hadError?: boolean;
+    incorrectCount?: number;
+    platforms?: number;
   };
 }

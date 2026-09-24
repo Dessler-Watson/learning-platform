@@ -17,6 +17,8 @@ export interface League {
 export const STARS_PER_CORRECT: Record<string, number> = {
   'camino-decisiones': 10,
   'lava-conocimiento': 15,
+  'tierras-hundidas': 20,
+  'entre-abismos': 20,
 };
 
 // League definitions — ordered from lowest to highest

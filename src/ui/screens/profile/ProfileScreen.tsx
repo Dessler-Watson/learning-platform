@@ -6,6 +6,7 @@ import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
 import { ArrowLeft, Pencil, Camera, Star, Trophy, Clock, Gamepad2, Flame, BookOpen } from 'lucide-react';
 import { avatarUrl } from '@/lib/avatares';
+import { getCustomAvatar } from '@/lib/custom-avatar';
 
 const DATA = {
   name: 'Arthur',
@@ -21,9 +22,11 @@ const it = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1, transition
 
 export function ProfileScreen() {
   const [avatarId, setAvatarId] = useState(1);
+  const [customPhoto, setCustomPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     try {
+      setCustomPhoto(getCustomAvatar());
       const raw = localStorage.getItem('eduplay_user');
       if (raw) {
         const u = JSON.parse(raw);
@@ -60,7 +63,7 @@ export function ProfileScreen() {
             style={{ background: '#fff7ef' }}
           >
             <img
-              src={avatarUrl(avatarId)}
+              src={customPhoto ?? avatarUrl(avatarId)}
               alt="Tu avatar"
               className="h-full w-full object-cover"
               draggable={false}

@@ -4,10 +4,33 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 import { Gamepad2, GraduationCap, ChevronRight, Sparkles } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
+
+  const goStudent = () => {
+    audioManager.play('navigate');
+    const hasSession = !!localStorage.getItem('eduplay_user');
+    if (hasSession) {
+      grantAppEntry();
+      router.push('/inicio');
+    } else {
+      router.push('/estudiante');
+    }
+  };
+
+  const goTeacher = () => {
+    audioManager.play('navigate');
+    const hasSession = !!localStorage.getItem('panel-auth');
+    if (hasSession) {
+      grantAppEntry();
+      router.push('/panel');
+    } else {
+      router.push('/panel/login');
+    }
+  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center px-5 py-8">
@@ -65,7 +88,7 @@ export default function Home() {
             subtitle="Entra a jugar y aprender"
             color="#00A0B5"
             bg="#E8F7FE"
-            onClick={() => { audioManager.play('navigate'); router.push('/estudiante'); }}
+            onClick={goStudent}
           />
 
           <RoleCard
@@ -74,7 +97,7 @@ export default function Home() {
             subtitle="Gestiona tus clases y alumnos"
             color="#EB5D70"
             bg="#FDEBF3"
-            onClick={() => { audioManager.play('navigate'); router.push('/panel/login'); }}
+            onClick={goTeacher}
           />
         </motion.div>
       </motion.div>

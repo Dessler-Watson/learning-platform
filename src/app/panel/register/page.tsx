@@ -14,6 +14,7 @@ import { Card, CardContent } from '../ui/card';
 import { usePanelStore } from '../store/usePanelStore';
 import { audioManager } from '../lib/audio';
 import { AnimatedBackground } from '../components/shared/AnimatedBackground';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 
 const registerSchema = z.object({
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -57,6 +58,7 @@ export default function RegisterPage() {
     });
     setLoading(false);
     if (result.success) {
+      grantAppEntry();
       router.push('/panel');
       router.refresh();
     } else {

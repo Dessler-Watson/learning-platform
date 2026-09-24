@@ -15,6 +15,7 @@ import { usePanelStore } from '../../store/usePanelStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { audioManager } from '../../lib/audio';
 import { useClickLock } from '../../hooks/useClickLock';
+import { clearAppEntry } from '@/shared/lib/appEntry';
 
 const navItems = [
   { label: 'Inicio', href: '/panel', icon: House, color: 'text-[#00A0B5]' },
@@ -50,10 +51,17 @@ export function Sidebar() {
     [pathname]
   );
 
+  const handleGoHome = useCallback(() => {
+    audioManager.play('navigate');
+    router.push('/');
+    if (isMobile) setSidebarOpen(false);
+  }, [router, isMobile, setSidebarOpen]);
+
   const handleLogout = useCallback(() => {
     audioManager.onLogout();
     logout();
-    router.push('/panel/login');
+    clearAppEntry();
+    router.push('/');
     router.refresh();
   }, [logout, router]);
 
@@ -130,6 +138,27 @@ export function Sidebar() {
 
       <div className="border-t border-gray-100/60 p-3 space-y-1">
         <button
+          onClick={() => { if (!clickLock()) return; handleGoHome(); }}
+          className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 text-gray-500 hover:bg-white/50 hover:text-foreground"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 group-hover:bg-gray-100/60">
+            <House className="h-[18px] w-[18px] shrink-0 transition-colors duration-200 text-gray-400 group-hover:text-foreground" />
+          </div>
+          <AnimatePresence mode="wait">
+            {showLabels && (
+              <motion.span
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.15 }}
+                className="flex-1 text-left"
+              >
+                Volver al inicio
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+        <button
           onClick={() => { if (!clickLock()) return; audioManager.play('delete'); handleLogout(); }}
           className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 text-rose-500 hover:bg-rose-50/60"
         >
@@ -153,7 +182,7 @@ export function Sidebar() {
       </div>
       </div>
     </div>
-  ), [isActive, handleNavClick, handleLogout, showLabels, clickLock, isAdmin]);
+  ), [isActive, handleNavClick, handleGoHome, handleLogout, showLabels, clickLock, isAdmin]);
 
   if (isMobile) {
     return (

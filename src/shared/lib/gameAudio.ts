@@ -21,7 +21,7 @@ export function initAudio() {
 }
 
 /* ---- volume state ---- */
-let sfxVol = 0.6;
+let sfxVol = 0.85;
 let masterEnabled = true;
 
 /* ---- active nodes for cleanup ---- */
@@ -361,6 +361,14 @@ const MUSIC_FILES: Record<string, string[]> = {
   league: [
     '/songs/Leage_song/idoberg-space-chords-loop-310493.mp3',
   ],
+  tierras: [
+    '/songs/new_modes/capaholiczsfx-countryside-swamp-insects-environment-402579.mp3',
+    '/songs/new_modes/freesound_community-mysterious-ambient-pad-loop-84-bpm-dm-100772.mp3',
+  ],
+  abismos: [
+    '/songs/new_modes/freesound_community-vocal-harmony-19821.mp3',
+    '/songs/new_modes/nickpanek-whiteout-valley-blizzard-ambient-loop-with-howling-hillside-winds-563822.mp3',
+  ],
 };
 
 interface LoopTrack {
@@ -372,7 +380,7 @@ interface LoopTrack {
   fadeId: ReturnType<typeof setTimeout> | null;
 }
 
-const MUSIC_VOL = 0.18;
+const MUSIC_VOL = 0.35;
 let activeTracks: LoopTrack[] = [];
 
 function fadeAudio(el: HTMLAudioElement, from: number, to: number, ms: number) {
@@ -444,7 +452,7 @@ function createSeamlessLoop(file: string): LoopTrack {
   return track;
 }
 
-function startMusic(mode: 'decisiones' | 'lava' | 'league') {
+function startMusic(mode: 'decisiones' | 'lava' | 'league' | 'tierras' | 'abismos') {
   stopMusic();
   if (!masterEnabled) return;
   const files = MUSIC_FILES[mode];
@@ -502,6 +510,8 @@ export const gameAudio = {
   startDecisionMusic: () => startMusic('decisiones'),
   startLavaMusic: () => startMusic('lava'),
   startLeagueMusic: () => startMusic('league'),
+  startTierrasMusic: () => startMusic('tierras'),
+  startAbismosMusic: () => startMusic('abismos'),
   stopMusic,
 
   // ---- Cleanup ----

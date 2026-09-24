@@ -17,14 +17,14 @@ import { SearchBar } from '../components/shared/SearchBar';
 import { EmptyState } from '../components/shared/EmptyState';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { BackButton } from '../components/shared/BackButton';
-import { GameIcon, GAME_ICON_COLORS } from '../ui/game-icons';
+import { ModeLogo, toGameModeId } from '@/shared/lib/game-modes';
 import { AIGenerateModal } from '../components/shared/AIGenerateModal';
 import { GeneratedQuestion } from '../lib/aiGenerator';
 import { usePanelStore } from '../store/usePanelStore';
 import { useToast } from '../ui/toast';
 import { audioManager } from '../lib/audio';
 import { useClickLock } from '../hooks/useClickLock';
-import { cursosService, juegosService, preguntasService } from '../services';
+import { cursosService, juegosService, preguntasService, MAX_PREGUNTAS_POR_CURSO } from '../services';
 import { Curso, Juego } from '../types';
 import { formatDateTime } from '../utils';
 
@@ -192,7 +192,7 @@ export default function CursosPage() {
       gameModeId: juegos[0]?.id ?? '',
     });
 
-    for (const q of generated) {
+    for (const q of generated.slice(0, MAX_PREGUNTAS_POR_CURSO)) {
       const opciones: [string, string] = [q.optionA, q.optionB];
       const respuestaCorrecta = q.correctAnswer === 'A' ? opciones[0] : opciones[1];
       await preguntasService.crear(teacherId, {
@@ -205,7 +205,7 @@ export default function CursosPage() {
       });
     }
 
-    toast(`Curso generado correctamente. Se agregaron ${generated.length} preguntas.`);
+    toast(`Curso generado correctamente. Se agregaron ${Math.min(generated.length, MAX_PREGUNTAS_POR_CURSO)} preguntas.`);
     audioManager.play('success');
     const refreshed = await cursosService.obtenerTodos(teacherId);
     setCursos(refreshed);
@@ -274,7 +274,7 @@ export default function CursosPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
               {filtered.map((curso) => {
-                const iconColors = GAME_ICON_COLORS[curso.gameModeId];
+                const modeId = toGameModeId(curso.gameModeId);
                 const juegoNombre = getJuegoNombre(curso.gameModeId);
                 return (
                   <motion.div
@@ -326,8 +326,8 @@ export default function CursosPage() {
                     <p className="mt-1 text-sm text-gray-400 line-clamp-2">{curso.descripcion || 'Sin descripcion'}</p>
                     <div className="mt-3 flex items-center gap-2">
                       {curso.gameModeId && (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${iconColors?.bg ?? 'bg-gray-50'} ${iconColors?.text ?? 'text-gray-500'}`}>
-                          <GameIcon juegoId={curso.gameModeId} size={12} />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-500">
+                          <ModeLogo mode={modeId} size={16} shape="circle" showBox={false} />
                           {juegoNombre}
                         </span>
                       )}
@@ -458,7 +458,7 @@ export default function CursosPage() {
       <AIGenerateModal
         open={aiModalOpen}
         onOpenChange={setAiModalOpen}
-        gameModeName={juegos[0]?.nombre ?? 'Camino de Decisiones'}
+        gameModeName={juegos[0]?.nombre ?? 'Rumbo'}
         onQuestionsGenerated={handleAiQuestionsGenerated}
         cursosExistentes={cursos}
       />

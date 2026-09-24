@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { usePanelStore } from '../store/usePanelStore';
 import { audioManager } from '../lib/audio';
 import { AnimatedBackground } from '../components/shared/AnimatedBackground';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 import { RolUsuario } from '../types';
 
 export default function LoginPage() {
@@ -44,18 +45,13 @@ export default function LoginPage() {
     const result = login(email, password, institucion, rol);
     setLoading(false);
     if (result.success) {
+      grantAppEntry();
       router.push('/panel');
       router.refresh();
     } else {
       setErrors({ general: result.error || 'Credenciales incorrectas' });
     }
   };
-
-  const demoAccounts = [
-    { email: 'roberto.admin@gmail.com', password: 'admin123', name: 'Roberto Admin', role: 'admin' as RolUsuario, institucion: 'Universidad Nacional' },
-    { email: 'ana.garcia@gmail.com', password: 'demo123', name: 'Ana García', role: 'docente' as RolUsuario, institucion: 'Universidad Nacional' },
-    { email: 'carlos.lopez@gmail.com', password: 'demo123', name: 'Carlos López', role: 'docente' as RolUsuario, institucion: 'Instituto Tecnológico' },
-  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ backgroundColor: '#FFF7F2', isolation: 'isolate' }}>
@@ -195,48 +191,6 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-                <div className="mt-6 border-t border-gray-100 pt-6 text-center">
-                  <p className="text-xs text-gray-400 mb-4">Cuentas de demostración</p>
-                  <div className="space-y-2">
-                    {demoAccounts.map((account, i) => (
-                      <motion.div
-                        key={account.email}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
-                      >
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start gap-3 h-12"
-                          onClick={() => {
-                            audioManager.play('select');
-                            setEmail(account.email);
-                            setPassword(account.password);
-                            setInstitucion(account.institucion);
-                            setRol(account.role);
-                            setErrors({});
-                          }}
-                          disabled={loading}
-                        >
-                          <div className={cn(
-                            'flex h-8 w-8 items-center justify-center rounded-xl',
-                             account.role === 'admin' ? 'bg-amber-50' : 'bg-[#00A0B5]/10'
-                          )}>
-                            {account.role === 'admin'
-                              ? <Shield className="h-4 w-4 text-amber-500" />
-                               : <Mail className="h-4 w-4 text-[#00A0B5]" />
-                            }
-                          </div>
-                          <div className="text-left">
-                            <p className="font-semibold text-sm">{account.name}</p>
-                            <p className="text-xs text-gray-400">{account.email} · {account.role === 'admin' ? 'Admin' : 'Docente'}</p>
-                          </div>
-                        </Button>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="mt-6 text-center space-y-3">
                   <p className="text-sm text-gray-400">
                     ¿Olvidaste tu contraseña?
@@ -267,6 +221,3 @@ export default function LoginPage() {
   );
 }
 
-function cn(...classes: (string | undefined | false)[]) {
-  return classes.filter(Boolean).join(' ');
-}

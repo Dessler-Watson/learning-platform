@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, DoorOpen, Trash2, Flame } from 'lucide-react';
+import { Plus, DoorOpen, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { PageHeader } from '../components/shared/PageHeader';
 import { SearchBar } from '../components/shared/SearchBar';
 import { EmptyState } from '../components/shared/EmptyState';
 import { StatusBadge } from '../components/shared/StatusBadge';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { salasService } from '../services';
 import { usePanelStore } from '../store/usePanelStore';
 import { audioManager } from '../lib/audio';
@@ -87,6 +88,8 @@ export default function SalasPage() {
             <AnimatePresence>
               {filtered.map((sala) => {
                 const esLava = sala.juegoId === 'juego-2';
+                const modeId = toGameModeId(sala.juegoId);
+                const theme = modeId ? MODE_THEME[modeId] : null;
                 return (
                   <motion.div
                     key={sala.id}
@@ -115,9 +118,13 @@ export default function SalasPage() {
                             label={ESTADO_SALA_LABEL[sala.estado]}
                             className={ESTADO_SALA_COLOR[sala.estado]}
                           />
-                          {esLava && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-600">
-                              <Flame className="h-3 w-3" /> Lava
+                          {theme && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                              style={{ background: theme.bg, color: theme.colorDark }}
+                            >
+                              <ModeLogo mode={modeId} size={14} shape="circle" showBox={false} />
+                              {theme.label}
                             </span>
                           )}
                           <span className="text-xs text-gray-400 font-medium">{formatDateTime(sala.createdAt)}</span>

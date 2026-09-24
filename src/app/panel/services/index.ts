@@ -9,6 +9,8 @@ import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJue
 
 const delay = () => new Promise((r) => setTimeout(r, 60));
 
+export const MAX_PREGUNTAS_POR_CURSO = 30;
+
 // ─── Cursos ───
 
 export interface CursoConDetalles extends Curso {
@@ -71,7 +73,7 @@ export const cursosService = {
     const nuevoCursoId = `cur-${Date.now()}`;
     const nuevoCurso: Curso = { id: nuevoCursoId, teacherId, nombre: nombrePersonalizado ?? `${datos.curso.nombre} (Copia)`, descripcion: datos.curso.descripcion, estado: datos.curso.estado, fechaCreacion: new Date().toISOString().split('T')[0], gameModeId };
     cursos.push(nuevoCurso);
-    datos.preguntas.forEach((pregunta, idx) => {
+    datos.preguntas.slice(0, MAX_PREGUNTAS_POR_CURSO).forEach((pregunta, idx) => {
       const nuevaPregunta: Pregunta = { id: `pre-${Date.now()}-${idx}`, teacherId, juegoId: gameModeId, cursoId: nuevoCursoId, enunciado: pregunta.enunciado, opciones: [...pregunta.opciones], respuestaCorrecta: pregunta.respuestaCorrecta, estado: pregunta.estado };
       preguntas.push(nuevaPregunta);
     });
@@ -120,6 +122,10 @@ export const preguntasService = {
   },
   async crear(teacherId: string, data: Omit<Pregunta, 'id' | 'teacherId'>): Promise<Pregunta> {
     await delay();
+    const totalCurso = preguntas.filter((p) => p.teacherId === teacherId && p.cursoId === data.cursoId).length;
+    if (totalCurso >= MAX_PREGUNTAS_POR_CURSO) {
+      throw new Error('Se alcanzo el limite de 30 preguntas en este curso.');
+    }
     const nueva: Pregunta = { ...data, teacherId, id: `pre-${Date.now()}` };
     preguntas.push(nueva);
     return nueva;
@@ -224,13 +230,13 @@ function aplicarRespuesta(estado: SimulacionEstado, correcta: boolean, modo: Mod
 export const salasService = {
   async obtenerTodas(teacherId: string): Promise<Sala[]> { await delay(); return salas.filter((s) => s.teacherId === teacherId); },
   async obtenerPorId(salaId: string): Promise<Sala | undefined> { await delay(); return salas.find((s) => s.id === salaId); },
-  async crear(data: { teacherId: string; juegoId: string; cursoId: string; nombre: string; tiempoPorPregunta: number }): Promise<Sala> {
+  async crear(data: { teacherId: string; juegoId: string; cursoId: string; nombre: string }): Promise<Sala> {
     await delay();
     const codigos = salas.map((s) => s.codigo);
     const codigo = generarCodigoSalas(codigos);
     const curso = cursos.find((c) => c.id === data.cursoId);
     const totalPreguntas = preguntas.filter((p) => p.teacherId === data.teacherId && p.juegoId === data.juegoId && p.cursoId === data.cursoId).length;
-    const nuevaSala: Sala = { id: `sala-${Date.now()}`, teacherId: data.teacherId, juegoId: data.juegoId, cursoId: data.cursoId, nombre: data.nombre || `Sesión de ${curso?.nombre ?? 'Curso'}`, codigo, estado: 'esperando', tiempoPorPregunta: data.tiempoPorPregunta, totalPreguntas: totalPreguntas || 4, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, participantes: [] };
+    const nuevaSala: Sala = { id: `sala-${Date.now()}`, teacherId: data.teacherId, juegoId: data.juegoId, cursoId: data.cursoId, nombre: data.nombre || `Sesión de ${curso?.nombre ?? 'Curso'}`, codigo, estado: 'esperando', totalPreguntas: totalPreguntas || 4, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null, participantes: [] };
     salas.push(nuevaSala);
     return nuevaSala;
   },
@@ -293,7 +299,6 @@ export const salasService = {
     let eliminado = false;
     for (let idx = 0; idx < totalQuestions; idx++) {
       const pregunta = preguntasUsar[idx];
-      const maxTime = sala.tiempoPorPregunta;
       let esCorrecta: boolean;
       let status: 'correct' | 'incorrect' | 'timeout';
       let selectedAnswer: string | null;
@@ -303,8 +308,8 @@ export const salasService = {
       else { esCorrecta = false; status = 'timeout'; selectedAnswer = null; }
       const puntos = calcularPuntos(esCorrecta, modo);
       if (esLava && !eliminado) { distanciaLavaActual = esCorrecta ? Math.min(distanciaLavaActual + 1, 3) : distanciaLavaActual - 1; if (distanciaLavaActual <= 0) eliminado = true; }
-      const responseTime = status === 'timeout' ? maxTime : status === 'correct' ? Math.floor(Math.random() * (maxTime * 0.7)) + 3 : Math.floor(Math.random() * (maxTime * 0.6)) + Math.floor(maxTime * 0.4);
-      answers.push({ questionId: pregunta.id, questionText: pregunta.enunciado, selectedAnswer, correctAnswer: pregunta.respuestaCorrecta, status, responseTime, maxTime, puntosGanados: puntos.ganados, puntosPerdidos: puntos.perdidos, puntosNetos: puntos.ganados - puntos.perdidos, distanciaLava: distanciaLavaActual });
+      const responseTime = status === 'timeout' ? 0 : status === 'correct' ? Math.floor(Math.random() * 8) + 3 : Math.floor(Math.random() * 10) + 5;
+      answers.push({ questionId: pregunta.id, questionText: pregunta.enunciado, selectedAnswer, correctAnswer: pregunta.respuestaCorrecta, status, responseTime, puntosGanados: puntos.ganados, puntosPerdidos: puntos.perdidos, puntosNetos: puntos.ganados - puntos.perdidos, distanciaLava: distanciaLavaActual });
     }
     const correctAnswers = answers.filter((a) => a.status === 'correct').length;
     const incorrectAnswers = answers.filter((a) => a.status === 'incorrect').length;

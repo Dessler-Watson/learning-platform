@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, AlertTriangle } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Label } from '../../../ui/label';
@@ -19,7 +19,7 @@ import { usePanelStore } from '../../../store/usePanelStore';
 import { useToast } from '../../../ui/toast';
 import { audioManager } from '../../../lib/audio';
 import { useClickLock } from '../../../hooks/useClickLock';
-import { preguntasService, cursosService } from '../../../services';
+import { preguntasService, cursosService, MAX_PREGUNTAS_POR_CURSO } from '../../../services';
 import { Pregunta, Curso } from '../../../types';
 
 const c = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
@@ -54,6 +54,7 @@ export default function PreguntasPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Pregunta | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
 
   const [preguntaError, setPreguntaError] = useState('');
   const [opcionesError, setOpcionesError] = useState('');
@@ -75,6 +76,11 @@ export default function PreguntasPage() {
     .sort((a, b) => sortNewest ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id));
 
   const openCreate = () => {
+    if (preguntas.length >= MAX_PREGUNTAS_POR_CURSO) {
+      audioManager.play('error');
+      setLimitOpen(true);
+      return;
+    }
     setEditingPregunta(null);
     setForm(DEFAULT_FORM);
     setPreguntaError('');
@@ -97,6 +103,11 @@ export default function PreguntasPage() {
 
   const handleSave = async () => {
     if (!teacherId || !clickLock()) return;
+    if (!editingPregunta && preguntas.length >= MAX_PREGUNTAS_POR_CURSO) {
+      audioManager.play('error');
+      setLimitOpen(true);
+      return;
+    }
     if (!form.enunciado.trim() || !form.opcionA.trim() || !form.opcionB.trim()) {
       toast('Completa todos los campos.', 'error');
       return;
@@ -163,7 +174,10 @@ export default function PreguntasPage() {
     <div className="relative z-10">
       <motion.div variants={c} initial="hidden" animate="show" className="space-y-6">
         <motion.div variants={it}>
-          <PageHeader title={curso?.nombre ?? 'Curso'} description={`${preguntas.length} preguntas`}>
+          <PageHeader
+            title={curso?.nombre ?? 'Curso'}
+            description={`${preguntas.length} de ${MAX_PREGUNTAS_POR_CURSO} preguntas`}
+          >
             <div className="flex items-center gap-2">
               <Button onClick={() => { if (clickLock()) { audioManager.play('click'); openCreate(); } }}>
                 <Plus className="mr-1 h-4 w-4" /> Nueva pregunta
@@ -191,7 +205,7 @@ export default function PreguntasPage() {
               iconComponent={Plus}
               title="No hay preguntas"
               description={search ? 'No se encontraron preguntas.' : 'Agrega preguntas a este curso.'}
-              action={!search ? <Button variant="outline" onClick={openCreate}><Plus className="mr-1 h-4 w-4" /> Crear pregunta</Button> : undefined}
+              action={!search && preguntas.length < MAX_PREGUNTAS_POR_CURSO ? <Button variant="outline" onClick={openCreate}><Plus className="mr-1 h-4 w-4" /> Crear pregunta</Button> : undefined}
             />
           </motion.div>
         ) : (
@@ -311,6 +325,26 @@ export default function PreguntasPage() {
         confirmLabel="Eliminar"
         onConfirm={handleDelete}
       />
+
+      {/* Limit Alert */}
+      <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              </span>
+              Limite de preguntas alcanzado
+            </DialogTitle>
+            <DialogDescription>
+              Se alcanzo el limite de {MAX_PREGUNTAS_POR_CURSO} preguntas en este curso. No se pueden agregar mas preguntas.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => { audioManager.play('confirm'); setLimitOpen(false); }}>Entendido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -6,12 +6,16 @@ import { audioManager } from '@/shared/lib/audio';
 import type { GameQuestion } from '@/games/decision-road/types';
 import { useGameStore } from '@/stores/game.store';
 import { useLavaStore } from '@/stores/lava.store';
+import { useTierrasStore } from '@/stores/tierras.store';
+import { useAbismosStore } from '@/stores/abismos.store';
 
 const GameCanvas = dynamic(() => import('@/engine/renderer/GameCanvas').then((m) => m.GameCanvas), { ssr: false });
 const LavaCanvas = dynamic(() => import('@/engine/renderer/LavaCanvas').then((m) => m.LavaCanvas), { ssr: false });
+const TierrasCanvas = dynamic(() => import('@/engine/renderer/TierrasCanvas').then((m) => m.TierrasCanvas), { ssr: false });
+const AbismosCanvas = dynamic(() => import('@/engine/renderer/AbismosCanvas').then((m) => m.AbismosCanvas), { ssr: false });
 
 interface PracticeData {
-  mode: 'decisiones' | 'lava';
+  mode: 'decisiones' | 'lava' | 'tierras' | 'abismos';
   questions: GameQuestion[];
   topic: string;
   practiceId?: string;
@@ -43,7 +47,7 @@ function savePracticeResults(mode: string, questions: GameQuestion[]) {
         isCorrect: ans?.correct ?? false,
       };
     });
-  } else {
+  } else if (mode === 'lava') {
     const state = useLavaStore.getState();
     const localPlayer = state.players[0];
     const wasEliminated = localPlayer?.eliminated ?? false;
@@ -61,6 +65,38 @@ function savePracticeResults(mode: string, questions: GameQuestion[]) {
         deathQuestion: i === deathIdx,
       };
     });
+  } else if (mode === 'abismos') {
+    const state = useAbismosStore.getState();
+    const wasFallen = state.fellInAbyss;
+    const deathIdx = wasFallen ? state.currentQuestionIndex : -1;
+    answered = questions.map((q, i) => {
+      const ans = state.answers.find((a) => a.questionId === q.id);
+      return {
+        question: q.statement || (q as GameQuestion & { question?: string }).question || '',
+        optionA: q.optionA,
+        optionB: q.optionB,
+        correctAnswer: q.correctAnswer,
+        playerChoice: ans?.choice ?? null,
+        isCorrect: ans?.correct ?? false,
+        deathQuestion: i === deathIdx,
+      };
+    });
+  } else {
+    const state = useTierrasStore.getState();
+    const wasFallen = state.fallenInWater;
+    const deathIdx = wasFallen ? state.currentQuestionIndex : -1;
+    answered = questions.map((q, i) => {
+      const ans = state.answers.find((a) => a.questionId === q.id);
+      return {
+        question: q.statement || (q as GameQuestion & { question?: string }).question || '',
+        optionA: q.optionA,
+        optionB: q.optionB,
+        correctAnswer: q.correctAnswer,
+        playerChoice: ans?.choice ?? null,
+        isCorrect: ans?.correct ?? false,
+        deathQuestion: i === deathIdx,
+      };
+    });
   }
 
   sessionStorage.setItem('eduplay_practice_results', JSON.stringify(answered));
@@ -71,6 +107,8 @@ export function PracticeGameWrapper() {
   const [error, setError] = useState<string | null>(null);
   const gamePhase = useGameStore((s) => s.phase);
   const lavaPhase = useLavaStore((s) => s.phase);
+  const tierrasPhase = useTierrasStore((s) => s.phase);
+  const abismosPhase = useAbismosStore((s) => s.phase);
 
   useEffect(() => {
     audioManager.playWelcome();
@@ -104,8 +142,12 @@ export function PracticeGameWrapper() {
       if (parsed.mode === 'decisiones') {
         useGameStore.getState().setQuestions(mappedQuestions);
         useGameStore.getState().setPhase('intro');
-      } else {
+      } else if (parsed.mode === 'lava') {
         useLavaStore.getState().setQuestions(mappedQuestions);
+      } else if (parsed.mode === 'abismos') {
+        useAbismosStore.getState().setQuestions(mappedQuestions);
+      } else {
+        useTierrasStore.getState().setQuestions(mappedQuestions);
       }
     } catch {
       setError('Error al cargar la practica. Volviendo al inicio...');
@@ -120,7 +162,9 @@ export function PracticeGameWrapper() {
 
     const shouldSave =
       (data.mode === 'decisiones' && (gamePhase === 'results' || gamePhase === 'completed')) ||
-      (data.mode === 'lava' && lavaPhase === 'completed');
+      (data.mode === 'lava' && lavaPhase === 'completed') ||
+      (data.mode === 'tierras' && tierrasPhase === 'completed') ||
+      (data.mode === 'abismos' && (abismosPhase === 'completed' || abismosPhase === 'defeat'));
 
     if (shouldSave) {
       const mappedQuestions: GameQuestion[] = data.questions.map((q: GameQuestion & { question?: string }, i: number) => ({
@@ -134,7 +178,7 @@ export function PracticeGameWrapper() {
       }));
       savePracticeResults(data.mode, mappedQuestions);
     }
-  }, [gamePhase, lavaPhase, data]);
+  }, [gamePhase, lavaPhase, tierrasPhase, abismosPhase, data]);
 
   if (error) {
     return (
@@ -157,5 +201,8 @@ export function PracticeGameWrapper() {
     );
   }
 
-  return data.mode === 'decisiones' ? <GameCanvas /> : <LavaCanvas />;
+  if (data.mode === 'decisiones') return <GameCanvas />;
+  if (data.mode === 'lava') return <LavaCanvas />;
+  if (data.mode === 'abismos') return <AbismosCanvas />;
+  return <TierrasCanvas />;
 }

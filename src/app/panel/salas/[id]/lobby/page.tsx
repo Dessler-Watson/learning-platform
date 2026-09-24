@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, UserPlus, Play, Users, Flame } from 'lucide-react';
+import { Copy, Check, UserPlus, Play, Users } from 'lucide-react';
+import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { Button } from '../../../ui/button';
 import { Card, CardContent } from '../../../ui/card';
 import { PageHeader } from '../../../components/shared/PageHeader';
@@ -85,6 +86,8 @@ export default function LobbyPage() {
   }
 
   const esLava = sala.juegoId === 'juego-2';
+  const modeId = toGameModeId(sala.juegoId);
+  const theme = modeId ? MODE_THEME[modeId] : null;
 
   return (
     <div className="relative z-10 space-y-6">
@@ -98,9 +101,13 @@ export default function LobbyPage() {
           <CardContent className="p-6 text-center space-y-4">
             <div className="flex items-center justify-center gap-2">
               <p className="text-sm text-gray-400">Código de la sala</p>
-              {esLava && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-600">
-                  <Flame className="h-3 w-3" /> Modo Lava
+              {theme && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                  style={{ background: theme.bg, color: theme.colorDark }}
+                >
+                  <ModeLogo mode={modeId} size={14} shape="circle" showBox={false} />
+                  {theme.label}
                 </span>
               )}
             </div>
@@ -156,7 +163,8 @@ export default function LobbyPage() {
             <UserPlus className="mr-2 h-4 w-4" /> Simular entrada
           </Button>
           <Button
-            className={`flex-1 ${esLava ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
+            className="flex-1"
+            style={theme ? { background: `linear-gradient(90deg, ${theme.color}, ${theme.colorDark})`, border: 'none', color: '#fff' } : undefined}
             onClick={handleStart}
             disabled={sala.participantes.length === 0 || sala.estado !== 'esperando'}
           >

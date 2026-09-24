@@ -52,42 +52,110 @@ Formato de respuesta JSON:
 }`;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Genera preguntas usando Gemini a traves de un proxy server-side.
+ * Reintenta automaticamente en caso de rate limit o errores temporales.
  */
+const MAX_RETRIES = 5;
+const RETRY_DELAYS = [5000, 15000, 30000, 60000, 60000];
+
+let generationLock = false;
+
 export async function generateQuestions(
   topic: string,
   description: string,
   amount: number,
   existingQuestions: string[] = []
 ): Promise<GeneratedQuestion[]> {
-  const prompt = buildPrompt(topic, description, amount, existingQuestions);
-
-  const res = await fetch('/api/ai/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
-  });
-
-  const data: GeminiResponse = await res.json();
-
-  if (!res.ok) {
-    throw new Error(
-      data.error ?? 'No fue posible generar las preguntas. Verifica la conexion e intentalo nuevamente.'
-    );
+  if (generationLock) {
+    throw new Error('Ya hay una generacion en curso. Espera unos segundos antes de intentar de nuevo.');
   }
+  generationLock = true;
 
-  const content = data.content;
-  if (!content) {
-    throw new Error('Gemini devolvio una respuesta vacia.');
+  const allQuestions: GeneratedQuestion[] = [];
+  const usedTexts = new Set<string>();
+  let lastError: string | null = null;
+
+  try {
+    for (let attempt = 0; attempt < MAX_RETRIES && allQuestions.length < amount; attempt++) {
+      if (attempt > 0) {
+        const delay = RETRY_DELAYS[Math.min(attempt - 1, RETRY_DELAYS.length - 1)];
+        console.log(`[AI Generate] Reintento ${attempt + 1}/${MAX_RETRIES}, esperando ${delay / 1000}s...`);
+        await sleep(delay);
+      }
+
+      const remaining = amount - allQuestions.length;
+      const requestAmount = Math.min(remaining + 2, 30);
+      const avoided = [
+        ...existingQuestions,
+        ...Array.from(usedTexts),
+      ];
+      const prompt = buildPrompt(topic, description, requestAmount, avoided);
+
+      try {
+        const res = await fetch('/api/ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+
+        const data: GeminiResponse = await res.json();
+
+        if (!res.ok) {
+          const isRateLimit = res.status === 429 || data.type === 'rate_limit';
+          const isServerError = res.status === 503 || res.status === 502;
+
+          if (isRateLimit || isServerError) {
+            lastError = data.error ?? 'Error temporal del servicio de IA.';
+            console.warn(`[AI Generate] Error temporal (${res.status}), reintentando...`);
+            continue;
+          }
+
+          throw new Error(
+            data.error ?? 'No fue posible generar las preguntas. Verifica la conexion e intentalo nuevamente.'
+          );
+        }
+
+        const content = data.content;
+        if (!content) {
+          lastError = 'Gemini devolvio una respuesta vacia.';
+          console.warn('[AI Generate] Respuesta vacia, reintentando...');
+          continue;
+        }
+
+        const parsed = parseResponse(content);
+        for (const q of parsed) {
+          if (allQuestions.length >= amount) break;
+          if (usedTexts.has(q.question)) continue;
+          usedTexts.add(q.question);
+          allQuestions.push(q);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('conexion')) {
+          lastError = err.message;
+          console.warn('[AI Generate] Error de conexion, reintentando...');
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (allQuestions.length === 0) {
+      throw new Error(
+        lastError
+          ? `${lastError} Espera un minuto y vuelve a intentar.`
+          : 'Gemini devolvio un formato inesperado. Intenta generar nuevamente.'
+      );
+    }
+
+    return allQuestions.slice(0, amount);
+  } finally {
+    generationLock = false;
   }
-
-  const parsed = parseResponse(content);
-  if (parsed.length === 0) {
-    throw new Error('Gemini devolvio un formato inesperado. Intenta generar nuevamente.');
-  }
-
-  return parsed;
 }
 
 function normalizeText(text: string): string {

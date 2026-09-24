@@ -8,6 +8,10 @@ export const AVATARES = [
   { id_avatar: 7, nombre: 'Sacuanjoche', imagen: 'sacuanjoche.png' },
   { id_avatar: 8, nombre: 'Madroño', imagen: 'madrono.png' },
   { id_avatar: 9, nombre: 'Ideay', imagen: 'ideay.png' },
+  { id_avatar: 10, nombre: 'presion', imagen: 'presion.png' },
+  { id_avatar: 11, nombre: 'abismo', imagen: 'abismo.png' },
+  { id_avatar: 12, nombre: 'rumbo', imagen: 'rumbo.png' },
+  { id_avatar: 13, nombre: 'pantano', imagen: 'pantano.png' },
 ] as const;
 
 export function avatarImagen(id: number): string {

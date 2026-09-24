@@ -10,6 +10,7 @@ import { audioManager } from '../../lib/audio';
 import { cn } from '../../utils';
 import { ToastProvider } from '../../ui/toast';
 import { AnimatedBackground } from '../shared/AnimatedBackground';
+import { grantAppEntry, shouldBounceToWelcome } from '@/shared/lib/appEntry';
 
 export function PanelLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -29,10 +30,16 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = docente?.rol === 'admin';
 
   useEffect(() => {
-    if (!isAuthenticated && !isPublicPage) {
+    if (!hydrated || isPublicPage) return;
+    // Entrada en frío (nueva pestaña/URL escrita a mano): siempre pasar por la bienvenida
+    if (shouldBounceToWelcome()) {
+      router.replace('/');
+      return;
+    }
+    if (!isAuthenticated) {
       router.push('/panel/login');
     }
-  }, [isAuthenticated, isPublicPage, router]);
+  }, [hydrated, isAuthenticated, isPublicPage, router]);
 
   useEffect(() => {
     if (isAuthenticated && isAdminRoute && !isAdmin) {
@@ -42,6 +49,7 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (hydrated && isAuthenticated && isPublicPage) {
+      grantAppEntry();
       router.replace('/panel');
     }
   }, [hydrated, isAuthenticated, isPublicPage, router]);

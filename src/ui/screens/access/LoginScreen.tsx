@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, ArrowLeft } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { audioManager } from '@/shared/lib/audio';
+import { grantAppEntry } from '@/shared/lib/appEntry';
 
 const schema = z.object({
   email: z.string().min(1, 'El correo es obligatorio').email('Correo no valido'),
@@ -44,6 +45,7 @@ export function LoginScreen() {
         modo: 'registrado',
       }));
 
+      grantAppEntry();
       window.location.href = '/inicio';
     } catch {
       setLoginError('Error al iniciar sesion. Intenta de nuevo.');

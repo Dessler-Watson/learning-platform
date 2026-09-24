@@ -1,38 +1,53 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import { useAchievementStore } from '@/stores/achievement.store';
 import { ACHIEVEMENTS } from '@/shared/lib/achievements-data';
 
-const DISPLAY_DURATION = 4000;
+const DISPLAY_DURATION = 5000;
+const EXIT_DURATION = 500;
 
 export function AchievementNotification() {
   const currentNotification = useAchievementStore((s) => s.currentNotification);
   const dismissNotification = useAchievementStore((s) => s.dismissNotification);
   const [visible, setVisible] = useState(false);
   const [displayId, setDisplayId] = useState<string | null>(null);
+  const displayedRef = useRef<string | null>(null);
+  const timersRef = useRef<{ main: ReturnType<typeof setTimeout>; exit: ReturnType<typeof setTimeout> } | null>(null);
 
   useEffect(() => {
-    if (currentNotification && !visible) {
-      setDisplayId(currentNotification);
-      setVisible(true);
+    if (!currentNotification || currentNotification === displayedRef.current) return;
 
-      let exitTimer: ReturnType<typeof setTimeout>;
-      const mainTimer = setTimeout(() => {
-        setVisible(false);
-        exitTimer = setTimeout(() => {
-          dismissNotification();
-        }, 400);
-      }, DISPLAY_DURATION);
-
-      return () => {
-        clearTimeout(mainTimer);
-        clearTimeout(exitTimer);
-      };
+    if (timersRef.current) {
+      clearTimeout(timersRef.current.main);
+      clearTimeout(timersRef.current.exit);
     }
-  }, [currentNotification, visible, dismissNotification]);
+
+    displayedRef.current = currentNotification;
+    setDisplayId(currentNotification);
+    setVisible(true);
+
+    const mainTimer = setTimeout(() => {
+      setVisible(false);
+      const exitTimer = setTimeout(() => {
+        dismissNotification();
+        displayedRef.current = null;
+        timersRef.current = null;
+      }, EXIT_DURATION);
+      timersRef.current = { main: mainTimer, exit: exitTimer };
+    }, DISPLAY_DURATION);
+
+    timersRef.current = { main: mainTimer, exit: timersRef.current?.exit ?? mainTimer };
+
+    return () => {
+      clearTimeout(mainTimer);
+      if (timersRef.current) {
+        clearTimeout(timersRef.current.exit);
+      }
+    };
+  }, [currentNotification, dismissNotification]);
 
   const achievement = displayId ? ACHIEVEMENTS.find((a) => a.id === displayId) : null;
 
@@ -41,6 +56,7 @@ export function AchievementNotification() {
       <AnimatePresence>
         {visible && achievement && (
           <motion.div
+            key={displayId}
             initial={{ opacity: 0, y: 40, x: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, x: 40, scale: 0.95 }}

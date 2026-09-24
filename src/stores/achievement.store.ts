@@ -5,10 +5,10 @@ import type { AchievementProgress, AchievementEvent } from '@/shared/types/achie
 import { ACHIEVEMENTS } from '@/shared/lib/achievements-data';
 import { onAchievementEvent } from '@/shared/lib/achievement-service';
 import { audioManager } from '@/shared/lib/audio';
+import { userKey, readUserJson, writeUserJson, getUserId, isRegisteredUser } from '@/shared/lib/userStorage';
 
-const STORAGE_KEY = 'eduplay_achievements';
-const STATS_KEY = 'eduplay_achievement_stats';
-const USER_KEY = 'eduplay_user';
+const STORAGE_BASE = 'eduplay_achievements';
+const STATS_BASE = 'eduplay_achievement_stats';
 
 interface AchievementStats {
   [key: string]: number;
@@ -32,43 +32,20 @@ interface AchievementStore {
   resetForTesting: () => void;
 }
 
-function getUser(): { id_usuario: number; modo: string } | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 function loadProgress(): AchievementProgress[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readUserJson<AchievementProgress[]>(STORAGE_BASE, []);
 }
 
 function saveProgress(progress: AchievementProgress[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  writeUserJson(STORAGE_BASE, progress);
 }
 
 function loadStats(): AchievementStats {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STATS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+  return readUserJson<AchievementStats>(STATS_BASE, {});
 }
 
 function saveStats(stats: AchievementStats) {
-  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  writeUserJson(STATS_BASE, stats);
 }
 
 function initProgress(): AchievementProgress[] {
@@ -146,8 +123,8 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
   },
 
   processEvent: (event) => {
-    const user = getUser();
-    if (!user || user.modo !== 'registrado') return;
+    const user = isRegisteredUser();
+    if (!user) return;
 
     const state = get();
     let newStats = { ...state.stats };
@@ -253,32 +230,130 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
       }
     }
 
-    // Check each achievement
-    for (let i = 0; i < ACHIEVEMENTS.length; i++) {
-      const def = ACHIEVEMENTS[i];
-      const prog = newProgress[i];
-      if (!prog || prog.completed) continue;
-
-      const currentStat = newStats[def.statKey] || 0;
-      const newProgressVal = Math.min(currentStat, def.goal);
-
-      if (newProgressVal !== prog.progress || (currentStat >= def.goal && !prog.completed)) {
-        newProgress[i] = {
-          ...prog,
-          progress: newProgressVal,
-        };
-
-        if (currentStat >= def.goal && !prog.completed) {
-          newProgress[i] = {
-            ...newProgress[i],
-            completed: true,
-            unlockedAt: Date.now(),
-            isNew: true,
-          };
-          newlyUnlocked.push(def.id);
+    // Tierras Hundidas / Entre Abismos stats (keys: tierras_*, abismos_*)
+    if (event.mode === 'tierras' || event.mode === 'abismos') {
+      const m = event.mode;
+      switch (event.type) {
+        case 'correct_answer': {
+          newStats = incrementStat(newStats, `${m}_correct_answers`);
+          if (event.metadata?.streak !== undefined) {
+            newStats = updateStatMax(newStats, `${m}_best_streak`, event.metadata.streak);
+          }
+          break;
+        }
+        case 'streak': {
+          if (event.metadata?.streak !== undefined) {
+            newStats = updateStatMax(newStats, `${m}_best_streak`, event.metadata.streak);
+          }
+          break;
+        }
+        case 'score': {
+          if (event.metadata?.score !== undefined) {
+            newStats = updateStatMax(newStats, `${m}_best_score`, event.metadata.score);
+          }
+          break;
+        }
+        case 'xp': {
+          break;
+        }
+        case 'game_completed': {
+          newStats = incrementStat(newStats, `${m}_games_played`);
+          newStats = incrementStat(newStats, `${m}_games_won`);
+          newStats = incrementStat(newStats, `${m}_games_survived`);
+          if (event.metadata?.accuracy !== undefined && event.metadata.accuracy >= 100) {
+            newStats = incrementStat(newStats, `${m}_perfect_games`);
+          }
+          if (event.metadata?.hadError) {
+            newStats = incrementStat(newStats, `${m}_games_after_error`);
+          }
+          const currentWinStreak = (newStats[`${m}_current_win_streak`] || 0) + 1;
+          newStats = { ...newStats, [`${m}_current_win_streak`]: currentWinStreak };
+          newStats = updateStatMax(newStats, `${m}_best_win_streak`, currentWinStreak);
+          if (newStats[`${m}_after_loss`]) {
+            newStats = incrementStat(newStats, `${m}_wins_after_loss`);
+            newStats = { ...newStats, [`${m}_after_loss`]: 0 };
+          }
+          if (event.metadata?.score !== undefined) {
+            newStats = incrementStat(newStats, `${m}_total_score`, event.metadata.score);
+            newStats = updateStatMax(newStats, `${m}_best_score`, event.metadata.score);
+          }
+          break;
+        }
+        case 'game_defeated': {
+          newStats = incrementStat(newStats, `${m}_games_played`);
+          if (event.metadata?.hadError) {
+            newStats = incrementStat(newStats, `${m}_games_after_error`);
+          }
+          if (event.metadata?.score !== undefined) {
+            newStats = incrementStat(newStats, `${m}_total_score`, event.metadata.score);
+            newStats = updateStatMax(newStats, `${m}_best_score`, event.metadata.score);
+          }
+          newStats = { ...newStats, [`${m}_current_win_streak`]: 0, [`${m}_after_loss`]: 1 };
+          break;
+        }
+        case 'incorrect_answer':
+        case 'accuracy':
+        case 'perfect_streak':
+        case 'elimination': {
+          break;
         }
       }
     }
+
+    const updateMetaStats = (stats: AchievementStats): AchievementStats => {
+      const updated = { ...stats };
+      for (const def of ACHIEVEMENTS) {
+        if (def.statKey !== 'tierras_all_unlocked' && def.statKey !== 'abismos_all_unlocked') continue;
+        const others = ACHIEVEMENTS.filter(
+          (d) => d.mode === def.mode && d.statKey !== def.statKey
+        );
+        const completedCount = others.filter((d) => {
+          const idx = ACHIEVEMENTS.findIndex((a) => a.id === d.id);
+          return newProgress[idx]?.completed;
+        }).length;
+        updated[def.statKey] = completedCount;
+      }
+      return updated;
+    };
+
+    const checkAchievements = (
+      stats: AchievementStats,
+      progress: AchievementProgress[],
+      unlocked: string[],
+      onlyMeta: boolean
+    ): AchievementProgress[] => {
+      const next = [...progress];
+      for (let i = 0; i < ACHIEVEMENTS.length; i++) {
+        const def = ACHIEVEMENTS[i];
+        const isMeta = def.statKey === 'tierras_all_unlocked' || def.statKey === 'abismos_all_unlocked';
+        if (onlyMeta !== isMeta) continue;
+        const prog = next[i];
+        if (!prog || prog.completed) continue;
+
+        const currentStat = stats[def.statKey] || 0;
+        const newProgressVal = Math.min(currentStat, def.goal);
+
+        if (newProgressVal !== prog.progress || (currentStat >= def.goal && !prog.completed)) {
+          next[i] = { ...prog, progress: newProgressVal };
+
+          if (currentStat >= def.goal && !prog.completed) {
+            next[i] = {
+              ...next[i],
+              completed: true,
+              unlockedAt: Date.now(),
+              isNew: true,
+            };
+            unlocked.push(def.id);
+          }
+        }
+      }
+      return next;
+    };
+
+    // Check each achievement (non-meta first, then recompute meta and check again)
+    newProgress = checkAchievements(newStats, newProgress, newlyUnlocked, false);
+    newStats = updateMetaStats(newStats);
+    newProgress = checkAchievements(newStats, newProgress, newlyUnlocked, true);
 
     if (newlyUnlocked.length > 0) {
       const queue = [...state.notificationQueue, ...newlyUnlocked];
@@ -336,7 +411,7 @@ export const useAchievementStore = create<AchievementStore>((set, get) => ({
       isNew: false,
     }));
     saveProgress(fresh);
-    localStorage.removeItem(STATS_KEY);
+    writeUserJson(STATS_BASE, {});
     set({
       progress: fresh,
       stats: {},

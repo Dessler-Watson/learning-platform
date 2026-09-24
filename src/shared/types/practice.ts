@@ -1,6 +1,6 @@
 import type { GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
 
-export type PracticeMode = 'decisiones' | 'lava';
+export type PracticeMode = 'decisiones' | 'lava' | 'tierras' | 'abismos';
 
 export interface Practice {
   id: string;

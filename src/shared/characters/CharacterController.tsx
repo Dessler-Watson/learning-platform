@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { RigidBody, CapsuleCollider } from '@react-three/rapier';
+import { RigidBody, CapsuleCollider, useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useKeyboard } from '@/shared/hooks/useKeyboard';
@@ -17,13 +17,30 @@ export function CharacterController() {
   const keysRef = useKeyboard();
   const grounded = useRef(false);
   const jumpRequested = useRef(false);
+  const jumpLocked = useRef(false);
+  const leftGroundSinceJump = useRef(false);
+  const lastJumpAt = useRef(0);
+  const JUMP_COOLDOWN = 250;
   const completedAt = useRef(0);
+  const { world, rapier } = useRapier();
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); jumpRequested.current = true; } };
+    const h = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!jumpLocked.current) jumpRequested.current = true;
+      }
+    };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+
+  const isOnSurface = (body: RapierRigidBody): boolean => {
+    const t = body.translation();
+    const ray = new rapier.Ray({ x: t.x, y: t.y + 0.12, z: t.z }, { x: 0, y: -1, z: 0 });
+    const hit = world.castRay(ray, 0.2, true, undefined, undefined, undefined, body);
+    return !!hit;
+  };
 
   useFrame(({ camera }, delta) => {
     if (!rb.current) return;
@@ -56,10 +73,22 @@ export function CharacterController() {
       rb.current.setLinvel({ x: blockedX ? 0 : bv.x, y: blockedY ? 0 : bv.y, z: blockedZ ? 0 : bv.z }, true);
     }
 
-    grounded.current = Math.abs(vel.y) < 0.05;
+    let yv = vel.y;
     if (blocked) {
       rb.current.setLinvel({ x: 0, y: vel.y, z: 0 }, true);
       return;
+    }
+    const onSurface = isOnSurface(rb.current);
+    grounded.current = onSurface;
+    if (jumpLocked.current) {
+      if (!onSurface) leftGroundSinceJump.current = true;
+      if (onSurface && leftGroundSinceJump.current) {
+        jumpLocked.current = false;
+        leftGroundSinceJump.current = false;
+      }
+      jumpRequested.current = false;
+    } else if (!onSurface) {
+      jumpRequested.current = false;
     }
     const cf = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); cf.y = 0; cf.normalize();
     const cr = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); cr.y = 0; cr.normalize();
@@ -71,8 +100,19 @@ export function CharacterController() {
     const acc = hasInput ? CHARACTER.acceleration : CHARACTER.deceleration;
     const t = Math.min(acc * delta, 1);
     const nx = THREE.MathUtils.lerp(vel.x, tgtX, t); const nz = THREE.MathUtils.lerp(vel.z, tgtZ, t);
-    let yv = vel.y;
-    if (jumpRequested.current && grounded.current) { yv = CHARACTER.jumpForce; jumpRequested.current = false; gameAudio.decisionJump(); }
+    if (
+      jumpRequested.current &&
+      !jumpLocked.current &&
+      grounded.current &&
+      performance.now() - lastJumpAt.current > JUMP_COOLDOWN
+    ) {
+      yv = CHARACTER.jumpForce;
+      jumpRequested.current = false;
+      jumpLocked.current = true;
+      leftGroundSinceJump.current = false;
+      lastJumpAt.current = performance.now();
+      gameAudio.decisionJump();
+    }
     rb.current.setLinvel({ x: nx, y: yv, z: nz }, true);
     if (hasInput && avatarRef.current) {
       const ta = Math.atan2(dir.x, dir.z); const ca = avatarRef.current.rotation.y;

@@ -202,16 +202,13 @@ export function LavaLoadingScreen({ complete, onComplete }: LavaLoadingScreenPro
       }}>
         <div style={{
           width: 80, height: 80, borderRadius: 20,
-          background: 'rgba(255,60,0,0.15)', backdropFilter: 'blur(10px)',
-          border: '2px solid rgba(255,80,0,0.4)',
+          background: 'rgba(239, 68, 68, 0.35)', backdropFilter: 'blur(10px)',
+          border: '2px solid rgba(239, 68, 68, 0.55)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 24, animation: 'iconPulse 2s ease-in-out infinite',
-          boxShadow: '0 0 30px rgba(255,60,0,0.2), 0 8px 32px rgba(0,0,0,0.3)',
+          boxShadow: '0 0 30px rgba(239,68,68,0.2), 0 8px 32px rgba(0,0,0,0.3)',
         }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FF6600" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2c-4 4-6 7-6 11a6 6 0 0 0 12 0c0-4-2-7-6-11z" fill="rgba(255,80,0,0.3)" />
-            <path d="M12 22a4 4 0 0 1-4-4c0-2 2-4 4-8 2 4 4 6 4 8a4 4 0 0 1-4 4z" fill="rgba(255,40,0,0.2)" />
-          </svg>
+          <img src="/images/Logos_juegos/bajo_presion.png" alt="Bajo Presión"           width={78} height={78} style={{ width: 78, height: 78, objectFit: 'contain' }} draggable={false} />
         </div>
 
         <h1 style={{
@@ -220,7 +217,7 @@ export function LavaLoadingScreen({ complete, onComplete }: LavaLoadingScreenPro
           textShadow: '0 0 20px rgba(255,80,0,0.5), 0 2px 8px rgba(0,0,0,0.5)',
           margin: 0, letterSpacing: -0.5,
         }}>
-          La Lava del Conocimiento
+          Bajo Presión
         </h1>
 
         <p style={{
