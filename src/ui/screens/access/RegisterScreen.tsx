@@ -110,17 +110,12 @@ export function RegisterScreen() {
         const guest = guestRaw ? JSON.parse(guestRaw) : null;
         if (guest?.modo === 'invitado') {
           const guestId = guest.id_usuario ? String(guest.id_usuario) : null;
-          const achievementsRaw = localStorage.getItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
           await fetch('/api/auth/migrate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              guest_id: guestId,
-              achievements: achievementsRaw ? JSON.parse(achievementsRaw) : null,
-            }),
+            body: JSON.stringify({ guest_id: guestId }),
           });
           localStorage.removeItem('eduplay_user');
-          localStorage.removeItem(`eduplay_achievements_u${guest.id_usuario ?? 0}`);
         }
       } catch {
         /* best-effort */

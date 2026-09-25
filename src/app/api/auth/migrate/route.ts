@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, getPool } from '@/lib/db';
+import { evaluateAchievements, getSessionUser, getPool } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,8 +7,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * Migrate guest account state into the registered account (server-side only).
- * Body: { guest_id?: string, achievements?: Record<string, unknown> }
- * Stars always come from PostgreSQL for the given guest_id — never from the client body.
+ * Body: { guest_id?: string }
+ * Estrellas y logros se derivan SIEMPRE de PostgreSQL (partidas del invitado):
+ * nunca del body del cliente.
  */
 export async function POST(req: NextRequest) {
   const pool = getPool();
@@ -24,13 +25,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const guestId = body.guest_id ? String(body.guest_id) : null;
-    const achievements =
-      body.achievements && typeof body.achievements === 'object' && !Array.isArray(body.achievements)
-        ? (body.achievements as Record<string, unknown>)
-        : null;
 
     if (!guestId) {
-      return NextResponse.json({ ok: true, migrated_stars: 0 });
+      return NextResponse.json({ ok: true, migrated_stars: 0, migrated_achievements: 0 });
     }
     if (!UUID_RE.test(guestId)) {
       return NextResponse.json({ error: 'guest_id inválido' }, { status: 400 });
@@ -100,29 +97,13 @@ export async function POST(req: NextRequest) {
       [user.id, guestId]
     );
 
-    if (achievements) {
-      const rows = await client.query<{ id: string; code: string; goal: number }>(
-        `SELECT id, code, goal FROM achievements WHERE active`
-      );
-      for (const a of rows.rows) {
-        const local = achievements[a.code];
-        if (local && typeof local === 'object') {
-          const prog = Number((local as { progress?: number }).progress ?? 0);
-          const done = Boolean((local as { completed?: boolean }).completed) || prog >= a.goal;
-          if (Number.isFinite(prog) && (prog > 0 || done)) {
-            await client.query(
-              `INSERT INTO achievement_progress (user_id, achievement_id, progress, completed, unlocked_at)
-               VALUES ($1, $2, $3, $4, CASE WHEN $4 THEN now() ELSE NULL END)
-               ON CONFLICT (user_id, achievement_id) DO UPDATE SET
-                 progress = GREATEST(achievement_progress.progress, EXCLUDED.progress),
-                 completed = achievement_progress.completed OR EXCLUDED.completed,
-                 unlocked_at = COALESCE(achievement_progress.unlocked_at, EXCLUDED.unlocked_at)`,
-              [user.id, a.id, Math.max(0, Math.min(prog, a.goal)), done]
-            );
-          }
-        }
-      }
-    }
+    // Logros: evaluar las partidas que JUGÓ el invitado en PostgreSQL y
+    // volcarlas a la cuenta (GREATEST + completed sticky, sin duplicados).
+    const evalResult = await evaluateAchievements({
+      targetUserId: user.id,
+      subjectUserId: guestId,
+      client,
+    });
 
     await client.query(
       `UPDATE users SET deleted_at = now(), status = 'inactive', merged_into_user_id = $2
@@ -134,7 +115,11 @@ export async function POST(req: NextRequest) {
     ]);
 
     await client.query('COMMIT');
-    return NextResponse.json({ ok: true, migrated_stars: migratedStars });
+    return NextResponse.json({
+      ok: true,
+      migrated_stars: migratedStars,
+      migrated_achievements: evalResult.nuevos.length,
+    });
   } catch (err) {
     try {
       await client.query('ROLLBACK');

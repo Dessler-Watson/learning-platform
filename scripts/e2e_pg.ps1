@@ -12,7 +12,7 @@ function J($res) {
 
 $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
-# ═══ 1. LOGROS BATCH ═══
+# ═══ 1. LOGROS (Paso 6: servidor evalúa desde PostgreSQL, cliente no confiable) ═══
 $r = $null
 try {
   $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
@@ -25,20 +25,51 @@ $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $s1 -UseBasicParsing
 $logros = J $r
 Ok 'logros: catalogo 150' (($logros.logros | Measure-Object).Count -eq 150) (($logros.logros | Measure-Object).Count)
 
+# 1) Sin desbloqueos antes de tiempo: usuario sin partidas → todo en 0
+$pendientes0 = @($logros.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
+Ok 'logros: sin progreso inicial' ($pendientes0.Count -eq 0) "dirty=$($pendientes0.Count)"
+Ok 'logros: sin nuevos inicial' (@($logros.nuevos).Count -eq 0) "nuevos=$(@($logros.nuevos).Count)"
+
+# 2) Contrato de sync: {action:'sync'} → estado evaluado + nuevos
+$r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+  action = 'sync'
+} | ConvertTo-Json) -UseBasicParsing
+$sync0 = J $r
+Ok 'logros: sync contrato' ($r.StatusCode -eq 200 -and $sync0.ok -and (@($sync0.logros).Count -eq 150) -and ($null -ne $sync0.nuevos)) "code=$($r.StatusCode) n=$(@($sync0.logros).Count)"
+Ok 'logros: sync sin desbloqueos' (@($sync0.nuevos).Count -eq 0) "nuevos=$(@($sync0.nuevos).Count)"
+
+# 3) Spoof: el progreso del cliente se IGNORA por completo
 $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
   items = @(
     @{ code = 'ach_001'; progress = 3; completed = $false },
-    @{ code = 'ach_002'; progress = 1; completed = $true }
+    @{ code = 'ach_002'; progress = 1; completed = $true },
+    @{ code = 'ach_150'; progress = 999; completed = $true }
   )
 } | ConvertTo-Json -Depth 5) -UseBasicParsing
-Ok 'logros: batch upsert' ($r.StatusCode -eq 200) $r.StatusCode
-
+Ok 'logros: spoof 200' ($r.StatusCode -eq 200) $r.StatusCode
 $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $s1 -UseBasicParsing
 $logros2 = J $r
 $a1 = $logros2.logros | Where-Object { $_.code -eq 'ach_001' }
 $a2 = $logros2.logros | Where-Object { $_.code -eq 'ach_002' }
-Ok 'logros: progress persist' ($a1.progreso -eq 3) "ach_001=$($a1.progreso)"
-Ok 'logros: completed persist' (($a2.completado -eq $true) -and $a2.desbloqueado_en) "completed=$($a2.completado)"
+$a150 = $logros2.logros | Where-Object { $_.code -eq 'ach_150' }
+Ok 'logros: cliente no confiable' ([int]$a1.progreso -eq 0 -and $a1.completado -eq $false -and [int]$a2.progreso -eq 0 -and $a2.completado -eq $false -and [int]$a150.progreso -eq 0 -and $a150.completado -eq $false) "a1=$($a1.progreso) a2=$($a2.completado) a150=$($a150.progreso)"
+Ok 'logros: a150 sin meta falsa' ([int]$a150.progreso -eq 0 -and $a150.desbloqueado_en -eq $null) "p=$($a150.progreso) unlocked=$($a150.desbloqueado_en)"
+
+# 4) Invitado: catálogo en cero (sin eval) y sync bloqueado
+$r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{ nombre = 'GuestLogros1' } | ConvertTo-Json) -UseBasicParsing -SessionVariable sgl
+Ok 'logros: guest create' ($r.StatusCode -eq 201) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $sgl -UseBasicParsing
+$logrosG = J $r
+$dirtyG = @($logrosG.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
+Ok 'logros: guest progreso 0' (($logrosG.logros | Measure-Object).Count -eq 150 -and $dirtyG.Count -eq 0) "dirty=$($dirtyG.Count)"
+$guest403 = $false; $guest403code = 0
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $sgl -Body (@{ action = 'sync' } | ConvertTo-Json) -UseBasicParsing
+  $guest403code = $r.StatusCode
+} catch {
+  $guest403code = [int]$_.Exception.Response.StatusCode
+}
+Ok 'logros: guest sync 403' ($guest403code -eq 403) "code=$guest403code"
 
 # ═══ 2. PRACTICA guest/registrado ═══
 $r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{ nombre = 'GuestPrac' } | ConvertTo-Json) -UseBasicParsing -SessionVariable sg
@@ -97,6 +128,12 @@ Ok 'practica: submit' ($r.StatusCode -eq 201 -or $r.StatusCode -eq 200) $r.Statu
 $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
 $st2 = J $r
 Ok 'practica: registrada estrellas 0 tras play' ([int]$st2.estrellas -eq 0) "stars=$($st2.estrellas)"
+
+# La práctica no es partida en sala: no cuenta para logros
+$r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $s1 -UseBasicParsing
+$logrosPrac = J $r
+$dirtyPrac = @($logrosPrac.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
+Ok 'logros: practica no cuenta' ($dirtyPrac.Count -eq 0) "dirty=$($dirtyPrac.Count)"
 
 # ═══ 3. ESTRELLAS SOLO SALA (panel teacher + student play) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
@@ -1951,6 +1988,234 @@ if ($cursoE2E) {
 } else {
   Ok 'cursos: list contains' $false 'no curso id'
   Ok 'preguntas: create' $false 'no curso'
+}
+
+# ═══ 12. LOGROS PARTIDA REAL (Paso 6: desbloqueo server-side + invitado) ═══
+if ($curso) {
+  # Opción correcta por pregunta (fuente: PostgreSQL, no el cliente)
+  $correctMap = @{}
+  if (Test-Path $psqlExe) {
+    $mapRows = & $psqlExe -U postgres -d eduplay_db -t -A -F '|' -c "SELECT q.id, qo.id FROM questions q JOIN question_options qo ON qo.question_id = q.id AND qo.is_correct WHERE q.course_id = '$($curso.id)' AND q.status = 'active' AND q.deleted_at IS NULL" 2>$null
+    foreach ($line in @($mapRows)) {
+      if ($line) {
+        $mp = "$line".Split('|')
+        if ($mp.Count -eq 2) { $correctMap[$mp[0].Trim()] = $mp[1].Trim() }
+      }
+    }
+  }
+  Ok 'logros: mapa correctas' ($correctMap.Count -ge 1) "n=$($correctMap.Count)"
+
+  # Sala controlada: s1 responde TODAS correctamente → run completada
+  $r = $null; $salaL = $null; $codeL = $null
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; name = "Sala Logros $stamp"; mode = 'decisiones'; course_id = $curso.id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: sala create' ($r.StatusCode -eq 201) $r.StatusCode
+    $salaL = (J $r).sala.id
+    $codeL = (J $r).sala.code
+  } catch { Ok 'logros: sala create' $false $_.Exception.Message }
+
+  if ($salaL) {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'join'; code = $codeL
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: s1 join' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'start'; room_id = $salaL
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: start' ($r.StatusCode -eq 200) $r.StatusCode
+
+    $qs = @()
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaL" -WebSession $s1 -UseBasicParsing
+      $partL = J $r
+      $qs = @($partL.preguntas)
+      Ok 'logros: preguntas cargadas' ($qs.Count -ge 1 -and $qs.Count -eq [int]$partL.partida.question_count) "qs=$($qs.Count) qc=$($partL.partida.question_count)"
+    } catch { Ok 'logros: preguntas cargadas' $false $_.Exception.Message }
+
+    $answeredAll = $qs.Count -ge 1
+    foreach ($q in $qs) {
+      $optId = $correctMap[[string]$q.id]
+      if (-not $optId) { $optId = @($q.options)[0].id }
+      try {
+        $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+          action = 'answer'; room_id = $salaL; question_id = $q.id; option_id = $optId; response_time_ms = 150
+        } | ConvertTo-Json) -UseBasicParsing
+        $ans = J $r
+        if ($r.StatusCode -ne 200 -or $ans.correct -ne $true) { $answeredAll = $false }
+      } catch { $answeredAll = $false }
+    }
+    Ok 'logros: todas correctas' $answeredAll "n=$($qs.Count)"
+
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'finish'; room_id = $salaL
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: finish' ($r.StatusCode -eq 200) $r.StatusCode
+    Start-Sleep -Milliseconds 300
+
+    # 1ª sync real: el servidor evalúa PostgreSQL → desbloquea + notifica
+    $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'sync'
+    } | ConvertTo-Json) -UseBasicParsing
+    $syncL = J $r
+    Ok 'logros: sync 200' ($r.StatusCode -eq 200 -and $syncL.ok -eq $true) $r.StatusCode
+    $sA1 = @($syncL.logros | Where-Object { $_.code -eq 'ach_001' }) | Select-Object -First 1
+    $sA2 = @($syncL.logros | Where-Object { $_.code -eq 'ach_002' }) | Select-Object -First 1
+    $sA3 = @($syncL.logros | Where-Object { $_.code -eq 'ach_003' }) | Select-Object -First 1
+    Ok 'logros: ach_001 desbloqueado' ($null -ne $sA1 -and $sA1.completado -eq $true -and [int]$sA1.progreso -ge 1 -and $sA1.desbloqueado_en) "p=$($sA1.progreso) done=$($sA1.completado)"
+    Ok 'logros: ach_002 desbloqueado' ($null -ne $sA2 -and $sA2.completado -eq $true -and [int]$sA2.progreso -ge 1) "p=$($sA2.progreso)"
+    $nuevosL = @($syncL.nuevos)
+    Ok 'logros: notifica nuevos' (($nuevosL -contains 'ach_001') -and ($nuevosL -contains 'ach_002')) ($nuevosL -join ',')
+
+    # 2ª sync: idempotente (sin cambios → sin writes → sin nuevos)
+    $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'sync'
+    } | ConvertTo-Json) -UseBasicParsing
+    $syncL2 = J $r
+    $sA1b = @($syncL2.logros | Where-Object { $_.code -eq 'ach_001' }) | Select-Object -First 1
+    Ok 'logros: sync idempotente' (@($syncL2.nuevos).Count -eq 0 -and [int]$sA1b.progreso -eq [int]$sA1.progreso) "nuevos=$(@($syncL2.nuevos).Count) p=$($sA1b.progreso)"
+
+    # PostgreSQL: progreso real, sin duplicados, unlocked_at
+    if (Test-Path $psqlExe) {
+      $pgN = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM achievement_progress ap JOIN users u ON u.id = ap.user_id WHERE u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
+      Ok 'logros: PG progreso > 0' ([int]"$pgN".Trim() -ge 1) "n=$pgN"
+      $pgD = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM (SELECT ap.achievement_id FROM achievement_progress ap JOIN users u ON u.id = ap.user_id WHERE u.email = 'e2e_logros_$stamp@gmail.com' GROUP BY ap.achievement_id HAVING count(*) > 1) d" 2>$null)
+      Ok 'logros: PG sin duplicados' ([int]"$pgD".Trim() -eq 0) "dups=$pgD"
+      $pgU = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM achievement_progress ap JOIN users u ON u.id = ap.user_id JOIN achievements a ON a.id = ap.achievement_id WHERE u.email = 'e2e_logros_$stamp@gmail.com' AND a.code = 'ach_001' AND ap.completed AND ap.unlocked_at IS NOT NULL" 2>$null)
+      Ok 'logros: PG unlocked_at' ([int]"$pgU".Trim() -eq 1) "n=$pgU"
+      # progreso = min(datos reales, meta): mismas condiciones que el motor
+      $pgCorrect = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT COALESCE(SUM(pa.is_correct::int),0) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id JOIN game_modes gm ON gm.id = m.game_mode_id JOIN users u ON u.id = mp.user_id WHERE u.email = 'e2e_logros_$stamp@gmail.com' AND gm.code = 'decisiones' AND m.status <> 'cancelled'" 2>$null)
+      $expect3 = [Math]::Min([int]"$pgCorrect".Trim(), 10)
+      Ok 'logros: progreso refleja datos PG' ([int]$sA3.progreso -eq $expect3) "correct=$pgCorrect a3=$($sA3.progreso) expect=$expect3"
+      # Usuario ajeno: el body (user_id spoofeado) se ignora por completo
+      $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+        action = 'sync'
+        user_id = '00000000-0000-0000-0000-000000000001'
+        items = @(@{ code = 'ach_001'; progress = 999; completed = $true })
+      } | ConvertTo-Json -Depth 5) -UseBasicParsing
+      $hostile = J $r
+      $hA1 = @($hostile.logros | Where-Object { $_.code -eq 'ach_001' }) | Select-Object -First 1
+      Ok 'logros: user_id spoofeado ignorado' ($r.StatusCode -eq 200 -and $hA1.completado -eq $true -and [int]$hA1.progreso -le 1) "p=$($hA1.progreso) done=$($hA1.completado)"
+      $pgForeign = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM achievement_progress ap JOIN users u ON u.id = ap.user_id WHERE u.email = 'e2e_mig_$stamp@gmail.com'" 2>$null)
+      Ok 'logros: sin filas de usuarios ajenos' ([int]"$pgForeign".Trim() -eq 0) "n=$pgForeign"
+    } else {
+      Ok 'logros: PG progreso > 0' $false 'psql missing'
+      Ok 'logros: PG sin duplicados' $false 'psql missing'
+      Ok 'logros: PG unlocked_at' $false 'psql missing'
+      Ok 'logros: progreso refleja datos PG' $false 'psql missing'
+      Ok 'logros: user_id spoofeado ignorado' $false 'psql missing'
+      Ok 'logros: sin filas de usuarios ajenos' $false 'psql missing'
+    }
+
+    # Invitado: juega sin acumular progreso visible…
+    $r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{ nombre = 'GuestLogros2' } | ConvertTo-Json) -UseBasicParsing -SessionVariable sgB
+    $guestB = (J $r).user.id
+    Ok 'logros: guest2 create' ($r.StatusCode -eq 201 -and $guestB) "$guestB"
+
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'create'; name = "Sala Logros G $stamp"; mode = 'decisiones'; course_id = $curso.id
+    } | ConvertTo-Json) -UseBasicParsing
+    $salaG = (J $r).sala.id
+    $codeG = (J $r).sala.code
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $sgB -Body (@{
+      action = 'join'; code = $codeG
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: guest2 join' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'start'; room_id = $salaG
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: guest2 start' ($r.StatusCode -eq 200) $r.StatusCode
+
+    $guestAnswered = $true
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaG" -WebSession $sgB -UseBasicParsing
+      $qsG = @((J $r).preguntas)
+      foreach ($q in $qsG) {
+        $optId = $correctMap[[string]$q.id]
+        if (-not $optId) { $optId = @($q.options)[0].id }
+        $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $sgB -Body (@{
+          action = 'answer'; room_id = $salaG; question_id = $q.id; option_id = $optId; response_time_ms = 150
+        } | ConvertTo-Json) -UseBasicParsing
+        if ($r.StatusCode -ne 200) { $guestAnswered = $false }
+      }
+      Ok 'logros: guest2 completa' ($guestAnswered -and $qsG.Count -ge 1) "n=$($qsG.Count)"
+    } catch { Ok 'logros: guest2 completa' $false $_.Exception.Message }
+
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'finish'; room_id = $salaG
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'logros: guest2 finish' ($r.StatusCode -eq 200) $r.StatusCode
+    Start-Sleep -Milliseconds 300
+
+    # …aunque tenga partidas reales en PG (los invitados no acumulan)
+    $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $sgB -UseBasicParsing
+    $logrosB = J $r
+    $dirtyB = @($logrosB.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
+    Ok 'logros: invitado no acumula' (($logrosB.logros | Measure-Object).Count -eq 150 -and $dirtyB.Count -eq 0) "dirty=$($dirtyB.Count)"
+
+    # Registrar cuenta y migrar: el progreso del invitado se conserva (PG, no localStorage)
+    $r = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+        nombre = 'MigLogros'; email = "e2e_miglog_$stamp@gmail.com"; password = 'secret123'
+      } | ConvertTo-Json) -UseBasicParsing -SessionVariable smig
+      Ok 'logros: mig register' ($r.StatusCode -eq 201) $r.StatusCode
+    } catch { Ok 'logros: mig register' $false $_.Exception.Message }
+
+    if ($smig) {
+      $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $smig -Body (@{
+        guest_id = $guestB
+      } | ConvertTo-Json) -UseBasicParsing
+      $migL = J $r
+      Ok 'logros: migrate evalua datos' ($r.StatusCode -eq 200 -and $migL.ok -eq $true -and [int]$migL.migrated_achievements -ge 2) "migrated_ach=$($migL.migrated_achievements)"
+
+      $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $smig -UseBasicParsing
+      $migLog = J $r
+      $mA1 = @($migLog.logros | Where-Object { $_.code -eq 'ach_001' }) | Select-Object -First 1
+      $mA2 = @($migLog.logros | Where-Object { $_.code -eq 'ach_002' }) | Select-Object -First 1
+      Ok 'logros: progreso invitado conservado' ($mA1.completado -eq $true -and $mA2.completado -eq $true -and [int]$mA1.progreso -ge 1 -and [int]$mA2.progreso -ge 1) "a1=$($mA1.progreso) a2=$($mA2.progreso)"
+
+      # tras migrar, la sesión de invitado queda revocada (cuenta fusionada)
+      try {
+        $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $sgB -Body (@{ action = 'sync' } | ConvertTo-Json) -UseBasicParsing
+        Ok 'logros: guest sesion revocada tras migrate' $false "unexpected $($r.StatusCode)"
+      } catch {
+        $code = $_.Exception.Response.StatusCode.value__
+        Ok 'logros: guest sesion revocada tras migrate' ($code -eq 401) "code=$code"
+      }
+    } else {
+      Ok 'logros: migrate evalua datos' $false 'register missing'
+      Ok 'logros: progreso invitado conservado' $false 'register missing'
+      Ok 'logros: guest sesion revocada tras migrate' $false 'register missing'
+    }
+
+    # Checks estáticos: sin localStorage ni stats manipulables en el store
+    $storeSrc = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\stores\achievement.store.ts')
+    $regSrc = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\access\RegisterScreen.tsx')
+    $achSrc = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\achievements\AchievementsScreen.tsx')
+    Ok 'logros: store sin localStorage' ($storeSrc -and $storeSrc -notmatch 'localStorage\.(get|set|remove)Item') "len=$($storeSrc.Length)"
+    Ok 'logros: store sin stats manipulables' ($storeSrc -and $storeSrc -notmatch 'eduplay_achievement_stats' -and $storeSrc -notmatch 'Math\.random')
+    Ok 'logros: registro sin payload logros' ($regSrc -and $regSrc -notmatch 'achievements')
+    Ok 'logros: UI filtros intactos' ($achSrc -and $achSrc -match "filter === 'unlocked'" -and $achSrc -match "filter === 'locked'")
+  } else {
+    Ok 'logros: sala create' $false 'sala missing'
+    Ok 'logros: ach_001 desbloqueado' $false 'sala missing'
+    Ok 'logros: ach_002 desbloqueado' $false 'sala missing'
+    Ok 'logros: notifica nuevos' $false 'sala missing'
+    Ok 'logros: sync idempotente' $false 'sala missing'
+    Ok 'logros: invitado no acumula' $false 'sala missing'
+    Ok 'logros: progreso invitado conservado' $false 'sala missing'
+  }
+} else {
+  Ok 'logros: sala create' $false 'no curso'
+  Ok 'logros: ach_001 desbloqueado' $false 'no curso'
+  Ok 'logros: ach_002 desbloqueado' $false 'no curso'
+  Ok 'logros: notifica nuevos' $false 'no curso'
+  Ok 'logros: sync idempotente' $false 'no curso'
+  Ok 'logros: invitado no acumula' $false 'no curso'
+  Ok 'logros: progreso invitado conservado' $false 'no curso'
 }
 
 # ═══ RESULTS ═══
