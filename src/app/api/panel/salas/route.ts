@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, query, queryOne } from '@/lib/db';
+import { getSessionUser, query, queryOne, ensureActiveMatch } from '@/lib/db';
 import { getRoomById, listParticipants, startRoom, finishRoom, createRoom } from '@/lib/db/rooms';
 
 export const dynamic = 'force-dynamic';
@@ -224,17 +224,14 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({ error: 'No se pudo iniciar' }, { status: 400 });
       }
-      const questionCount = await queryOne<{ n: number }>(
-        `SELECT count(*)::int AS n FROM questions WHERE course_id = $1 AND deleted_at IS NULL AND status = 'active'`,
-        [room.course_id]
-      );
-      await query(
-        `INSERT INTO matches (room_id, game_mode_id, course_id, started_by, status, question_count)
-         VALUES ($1, (SELECT game_mode_id FROM rooms WHERE id = $1), $2, $3, 'in_progress', $4)`,
-        [id, room.course_id, session.id, Math.max(1, questionCount?.n ?? 10)]
-      );
+      // Paso 4: crear la partida (match) + participantes de forma transaccional.
+      const match = await ensureActiveMatch(id, session.id);
       const fresh = await getRoomById(id);
-      return NextResponse.json({ ok: true, sala: fresh ? await mapRoom(fresh) : null });
+      return NextResponse.json({
+        ok: true,
+        sala: fresh ? await mapRoom(fresh) : null,
+        partida: match ? { id: match.id, question_count: match.question_count } : null,
+      });
     }
 
     if (action === 'finish') {

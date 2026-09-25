@@ -54,11 +54,14 @@ function Station({ index, question, activeIndex, z, phase }: { index: number; qu
     const store = useGameStore.getState();
     gameAudio.decisionSelect();
     store.setPhase('question');
-    store.submitAnswer(side);
-    const correct = side === question.correctAnswer;
-    store.setPhase(correct ? 'correctFeedback' : 'incorrectFeedback');
-    if (correct) { gameAudio.decisionCorrect(); } else { gameAudio.decisionIncorrect(); }
-    if (!correct) store.setExplanation(question.explanation);
+    void (async () => {
+      // Paso 4: el resultado correcto/incorrecto viene del servidor en modo sala.
+      const res = await useGameStore.getState().submitAnswer(side);
+      const correct = res?.correct ?? false;
+      useGameStore.getState().setPhase(correct ? 'correctFeedback' : 'incorrectFeedback');
+      if (correct) { gameAudio.decisionCorrect(); } else { gameAudio.decisionIncorrect(); }
+      if (!correct) useGameStore.getState().setExplanation(question.explanation);
+    })();
   });
 
   return (

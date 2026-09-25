@@ -14,7 +14,7 @@ interface LavaStore {
   starsEarned: number;
   setPhase: (p: LavaPhase) => void; setQuestions: (q: GameQuestion[]) => void;
   setLocalAnswer: (a: 'A' | 'B') => void;
-  applyResults: (results: { playerId: number; correct: boolean }[]) => void;
+  applyResults: (results: { playerId: number; correct: boolean }[], override?: { score?: number; ticks?: number }) => void;
   advanceQuestion: () => void; startRound: () => void; completeGame: (defeated?: boolean) => void;
   reset: () => void;
 }
@@ -51,17 +51,19 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
 
   setLocalAnswer: (a) => set({ localAnswer: a }),
 
-  applyResults: (results) => set((s) => {
+  applyResults: (results, override) => set((s) => {
     const r = results.find((rr) => rr.playerId === 0);
     if (!r) return {};
     const isCorrect = r.correct;
     let newTicks = s.ticks;
-    if (isCorrect) {
+    if (override?.ticks !== undefined) {
+      newTicks = Math.max(0, Math.min(MAX_TICKS, override.ticks));
+    } else if (isCorrect) {
       newTicks = Math.min(MAX_TICKS, s.ticks + 1);
     } else {
       newTicks = Math.max(0, s.ticks - 1);
     }
-    const newScore = isCorrect ? s.score + 15 : Math.max(0, s.score - 5);
+    const newScore = override?.score !== undefined ? override.score : isCorrect ? s.score + 15 : Math.max(0, s.score - 5);
     const newCorrect = s.correctCount + (isCorrect ? 1 : 0);
     const newIncorrect = s.incorrectCount + (isCorrect ? 0 : 1);
     const eliminated = newTicks <= 0;

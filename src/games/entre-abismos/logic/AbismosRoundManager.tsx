@@ -19,6 +19,7 @@ export function AbismosRoundManager() {
     }
 
     const answerIndex = store.answers.length;
+    if (answerIndex === 0) return; // Paso 4: la respuesta aún viaja al servidor.
     if (answerIndex === processedRef.current) return;
     processedRef.current = answerIndex;
 

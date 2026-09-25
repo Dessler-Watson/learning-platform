@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { TierrasPhase, TierrasQuestion, PlatformChoice, TierrasResult } from '@/games/tierras-hundidas/types';
 import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
 import { recordAchievementEvent } from '@/shared/lib/achievement-service';
+import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
 
 interface TierrasStore {
   phase: TierrasPhase;
@@ -24,7 +25,7 @@ interface TierrasStore {
   fallenInWater: boolean;
   setPhase: (phase: TierrasPhase) => void;
   setQuestions: (questions: TierrasQuestion[]) => void;
-  submitAnswer: (choice: PlatformChoice) => void;
+  submitAnswer: (choice: PlatformChoice) => Promise<{ correct: boolean } | null>;
   setExplanation: (text: string | null) => void;
   advanceQuestion: () => void;
   advanceToPlaying: () => void;
@@ -76,10 +77,51 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
     phase: 'loading',
   }),
 
-  submitAnswer: (choice) => {
+  submitAnswer: async (choice) => {
     const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned } = get();
     const question = questions[currentQuestionIndex];
-    if (!question) return;
+    if (!question) return null;
+
+    // Modo sala (Paso 4): servidor fuente de verdad.
+    const roomId = getMatchRoomId();
+    const ids = question.optionIds;
+    if (roomId && ids && ids[0] && ids[1]) {
+      try {
+        const res = await submitMatchAnswer({ roomId, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
+        if (res) {
+          const isCorrect = res.correct;
+          const newStreak = isCorrect ? streak + 1 : 0;
+          if (res.correct_option_id) {
+            const correctAnswer: PlatformChoice = ids[0] === res.correct_option_id ? 'A' : 'B';
+            set({ questions: questions.map((q, i) => (i === currentQuestionIndex ? { ...q, correctAnswer } : q)) });
+          }
+          set({
+            selectedPlatform: choice,
+            answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
+            correctCount: correctCount + (isCorrect ? 1 : 0),
+            incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
+            score: res.score,
+            xp: res.xp,
+            streak: newStreak,
+          });
+          setTimeout(() => {
+            if (isCorrect) {
+              recordAchievementEvent({ type: 'correct_answer', mode: 'tierras', metadata: { streak: newStreak } });
+              recordAchievementEvent({ type: 'xp', mode: 'tierras', metadata: { xp: 20 } });
+            } else {
+              recordAchievementEvent({ type: 'incorrect_answer', mode: 'tierras' });
+            }
+            if (newStreak > 1) {
+              recordAchievementEvent({ type: 'streak', mode: 'tierras', metadata: { streak: newStreak } });
+            }
+            recordAchievementEvent({ type: 'score', mode: 'tierras', metadata: { score: res.score } });
+          }, 80);
+          return { correct: isCorrect };
+        }
+      } catch {
+        // fallback local
+      }
+    }
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
@@ -113,6 +155,7 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
       }
       recordAchievementEvent({ type: 'score', mode: 'tierras', metadata: { score: score + pointsEarned } });
     }, 80);
+    return { correct: isCorrect };
   },
 
   setExplanation: (text) => set({ explanation: text }),

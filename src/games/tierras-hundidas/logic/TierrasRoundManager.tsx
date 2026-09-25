@@ -32,12 +32,16 @@ export function TierrasRoundManager() {
     if (processedRef.current) return;
     processedRef.current = true;
 
-    store.submitAnswer(selected);
-    const stateAfterSubmit = useTierrasStore.getState();
-    const lastAnswer = stateAfterSubmit.answers[stateAfterSubmit.answers.length - 1];
-    const isCorrect = lastAnswer?.correct ?? false;
+    void (async () => {
+      // Paso 4: en modo sala el servidor valida y puntúa la respuesta.
+      const res = await store.submitAnswer(selected);
+      if (res === null) {
+        processedRef.current = false;
+        return;
+      }
+      const isCorrect = res.correct;
 
-    if (isCorrect) {
+      if (isCorrect) {
       gameAudio.decisionCorrect();
       useTierrasStore.setState({ phase: 'correctFeedback' });
 
@@ -61,8 +65,9 @@ export function TierrasRoundManager() {
           gameAudio.lavaDefeat();
           useTierrasStore.getState().triggerFall();
         }, 1200);
-      }, C.platformSinkingDuration * 1000);
-    }
+        }, C.platformSinkingDuration * 1000);
+      }
+    })();
   });
 
   return null;

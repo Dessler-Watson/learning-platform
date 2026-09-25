@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, ensureLeagueProgress, applyStarsDelta, query, queryOne } from '@/lib/db';
+import { getSessionUser, ensureLeagueProgress, applyStarsDelta, query, queryOne, ensureActiveMatch } from '@/lib/db';
 import {
   createRoom,
   getRoomByCode,
@@ -176,73 +176,9 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({ error: 'No se pudo iniciar' }, { status: 403 });
       }
-      return NextResponse.json({ ok: true });
-    }
-
-    if (action === 'answer') {
-      // Lógica de partida completa: Paso 4. Solo se valida membresía/estado básico.
-      const roomId = String(body.room_id ?? '');
-      const questionId = String(body.question_id ?? '');
-      const selectedIndex = Number(body.selected_index ?? -1);
-      const isCorrect = selectedIndex === Number(body.correct_index ?? -2);
-      const points = isCorrect ? Number(body.points ?? 10) : 0;
-
-      const room = await getRoomById(roomId);
-      if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
-      if (room.status !== 'in_progress') {
-        return NextResponse.json({ error: 'La sala no está en curso' }, { status: 409 });
-      }
-      const member = await queryOne(
-        `SELECT 1 FROM room_participants WHERE room_id = $1 AND user_id = $2 AND left_at IS NULL`,
-        [roomId, session.id]
-      );
-      if (!member) {
-        return NextResponse.json({ error: 'No eres participante de esta sala' }, { status: 403 });
-      }
-
-      let match = await queryOne<{ id: string }>(
-        `SELECT id FROM matches WHERE room_id = $1 AND status = 'in_progress' ORDER BY created_at DESC LIMIT 1`,
-        [roomId]
-      );
-      if (!match) {
-        match = await queryOne<{ id: string }>(
-          `INSERT INTO matches (room_id, game_mode_id, course_id, started_by, status, question_count)
-           VALUES ($1, (SELECT game_mode_id FROM rooms WHERE id = $1), (SELECT course_id FROM rooms WHERE id = $1), $2, 'in_progress', 10)
-           RETURNING id`,
-          [roomId, session.id]
-        );
-      }
-      if (!match) return NextResponse.json({ error: 'No hay partida activa' }, { status: 400 });
-
-      let participant = await queryOne<{ id: string }>(
-        `SELECT id FROM match_participants WHERE match_id = $1 AND user_id = $2`,
-        [match.id, session.id]
-      );
-      if (!participant) {
-        participant = await queryOne<{ id: string }>(
-          `INSERT INTO match_participants (match_id, user_id, display_name, score)
-           VALUES ($1, $2, $3, 0) RETURNING id`,
-          [match.id, session.id, session.nombre]
-        );
-      }
-      if (!participant) return NextResponse.json({ error: 'No se pudo registrar participante' }, { status: 500 });
-
-      if (isCorrect && points > 0) {
-        await query(`UPDATE match_participants SET score = score + $2 WHERE id = $1`, [participant.id, points]);
-      }
-
-      const posRow = await queryOne<{ n: number }>(
-        `SELECT coalesce(max(question_position), -1) + 1 AS n FROM participant_answers WHERE participant_id = $1`,
-        [participant.id]
-      );
-      await query(
-        `INSERT INTO participant_answers (match_id, participant_id, question_id, question_position, is_correct, points_delta)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (participant_id, question_position) DO NOTHING`,
-        [match.id, participant.id, questionId, posRow?.n ?? 0, isCorrect, points]
-      );
-
-      return NextResponse.json({ ok: true, correct: isCorrect, score_delta: points });
+      // Paso 4: la partida (match) se crea al iniciar, junto a sus participantes.
+      const match = await ensureActiveMatch(roomId, session.id);
+      return NextResponse.json({ ok: true, partida: match ? { id: match.id, question_count: match.question_count } : null });
     }
 
     if (action === 'finish') {

@@ -21,6 +21,7 @@ export interface AbismosQuestion {
   correctAnswer: PlatformChoice;
   explanation?: string;
   difficulty?: string;
+  optionIds?: [string, string];
 }
 
 export interface AbismosResult {

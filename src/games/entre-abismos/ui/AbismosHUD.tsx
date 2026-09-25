@@ -119,7 +119,7 @@ export function AbismosHUD() {
   const handleAnswer = (choice: 'A' | 'B') => {
     if (selectedPlatform !== null) return;
     gameAudio.decisionSelect();
-    submitAnswer(choice);
+    void submitAnswer(choice);
   };
 
   if (phase === 'loading' || phase === 'completed' || phase === 'defeat' || phase === 'results') return null;

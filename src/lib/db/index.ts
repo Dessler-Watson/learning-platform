@@ -5,6 +5,7 @@ export * from './leagues';
 export * from './achievements';
 export * from './practices';
 export * from './rooms';
+export * from './matches';
 export * from './courses';
 export * from './ranking';
 export { hashPassword, verifyPassword } from './password';

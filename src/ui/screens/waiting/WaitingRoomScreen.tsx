@@ -74,7 +74,7 @@ export function WaitingRoomScreen() {
     return t;
   };
 
-  const beginCountdown = useCallback((modo: string) => {
+  const beginCountdown = useCallback((modo: string, roomId: string) => {
     if (startedRef.current) return;
     startedRef.current = true;
     setPhase('countdown');
@@ -84,7 +84,8 @@ export function WaitingRoomScreen() {
       setPhase('go');
     }, 2700);
     pushTimer(() => {
-      window.location.href = gameRouteFor(modo);
+      // Paso 4: el juego recibe el id de la sala para usar /api/partida.
+      window.location.href = `${gameRouteFor(modo)}?sala=${encodeURIComponent(roomId)}`;
     }, 4200);
   }, []);
 
@@ -137,7 +138,7 @@ export function WaitingRoomScreen() {
     setSnapshot({ room, players, myId: data.usuario_id, esHost: data.es_host, estado: data.sala.status });
 
     if (data.sala.status === 'in_progress') {
-      beginCountdown(data.sala.mode_code);
+      beginCountdown(data.sala.mode_code, data.sala.id);
       return;
     }
     if (data.sala.status === 'finished' || data.sala.status === 'archived') {

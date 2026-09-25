@@ -162,13 +162,24 @@ if ($curso) {
   } | ConvertTo-Json) -UseBasicParsing
   Ok 'sala: teacher start' ($r.StatusCode -eq 200) $r.StatusCode
 
-  if ($questionId) {
-    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
-      action = 'answer'; room_id = $salaId; question_id = $questionId; selected_index = 0; correct_index = 0; points = 10
-    } | ConvertTo-Json) -UseBasicParsing
-    Ok 'sala: answer' ($r.StatusCode -eq 200) $r.StatusCode
-  } else {
-    Ok 'sala: answer' $false 'no question id'
+  # Paso 4: respuestas reales vía /api/partida (acción antigua de /api/salas eliminada)
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaId" -WebSession $s1 -UseBasicParsing
+    $part = J $r
+    $qSeed = @($part.preguntas) | Where-Object { $_.id -eq $questionId } | Select-Object -First 1
+    Ok 'sala: partida get' ($r.StatusCode -eq 200 -and $null -ne $qSeed) $r.StatusCode
+    $optSi = @($qSeed.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+    if ($optSi) {
+      $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+        action = 'answer'; room_id = $salaId; question_id = $qSeed.id; option_id = $optSi.id
+      } | ConvertTo-Json) -UseBasicParsing
+      $ans = J $r
+      Ok 'sala: answer' ($r.StatusCode -eq 200 -and $ans.correct -eq $true -and [int]$ans.points_delta -eq 10 -and [int]$ans.score -eq 10) "code=$($r.StatusCode) score=$($ans.score) delta=$($ans.points_delta)"
+    } else {
+      Ok 'sala: answer' $false 'no Si option'
+    }
+  } catch {
+    Ok 'sala: answer' $false $_.Exception.Message
   }
 
   try {
@@ -537,6 +548,365 @@ if ($stch2 -and $curso) {
   Ok 'sala: PG status in_progress' $false 'stch2/curso missing'
   Ok 'sala: PG participants' $false 'stch2/curso missing'
   Ok 'sala: PG distinct codes' $false 'stch2/curso missing'
+}
+
+# ═══ 7c. PARTIDA + GAMEPLAY REAL (Paso 4: servidores de verdad, no cliente) ═══
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'PartJ'; email = "e2e_part_j_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing
+$r = Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+  email = "e2e_part_j_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable s2
+Ok 'partida: jugador2 login' ($r.StatusCode -eq 200) $r.StatusCode
+
+$cursoP = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; nombre = "Curso Partida $stamp"; gameModeId = 'decisiones'; estado = 'activo'
+  } | ConvertTo-Json) -UseBasicParsing
+  $nc = J $r
+  $cursoP = if ($nc.curso) { $nc.curso } elseif ($nc.id) { $nc } else { $null }
+  Ok 'partida: curso create' ($r.StatusCode -eq 201 -and $null -ne $cursoP.id) $r.StatusCode
+} catch {
+  Ok 'partida: curso create' $false $_.Exception.Message
+}
+
+$okQ = 0
+if ($cursoP) {
+  1..4 | ForEach-Object {
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'create'; cursoId = $cursoP.id; enunciado = "PregP$_ $stamp"; opciones = @('Si', 'No'); respuestaCorrecta = 'Si'
+      } | ConvertTo-Json -Depth 5) -UseBasicParsing
+      if ($r.StatusCode -eq 201) { $okQ++ }
+    } catch { }
+  }
+}
+Ok 'partida: seed 4 preguntas' ($okQ -eq 4) "n=$okQ"
+
+$psqlExe = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+$env:PGPASSWORD = 'casimiro123'
+$failCurso = 'curso create missing'
+
+$salaA = $null
+if ($cursoP) {
+  # ── Sala A (decisiones): flujo completo multi-jugador ──
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "PartA $stamp"; mode = 'decisiones'; course_id = $cursoP.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'partida: sala A create' ($r.StatusCode -eq 201) $r.StatusCode
+  $salaA = (J $r).sala.id
+  $codigoA = (J $r).sala.code
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'join'; code = $codigoA
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'partida: join s1' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
+    action = 'join'; code = $codigoA
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'partida: join s2' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaA" -WebSession $s1 -UseBasicParsing
+    Ok 'partida: get pre-start 409' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'partida: get pre-start 409' ($code -eq 409) "code=$code"
+  }
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'start'; room_id = $salaA
+  } | ConvertTo-Json) -UseBasicParsing
+  $startA = J $r
+  Ok 'partida: start crea match' ($r.StatusCode -eq 200 -and $null -ne $startA.partida.id) "code=$($r.StatusCode)"
+
+  $partA = $null
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaA" -WebSession $s1 -UseBasicParsing
+    $partA = J $r
+    $q1 = @($partA.preguntas)[0]
+    $q2 = @($partA.preguntas)[1]
+    $q3 = @($partA.preguntas)[2]
+    $q4 = @($partA.preguntas)[3]
+    $sinReveal = ($null -eq $q1.is_correct) -and ($null -eq $q1.correct_index) -and ($null -eq $q1.respuestaCorrecta)
+    Ok 'partida: estado sin is_correct' ($r.StatusCode -eq 200 -and @($partA.preguntas).Count -eq 4 -and $sinReveal) "n=$(@($partA.preguntas).Count)"
+    Ok 'partida: yo score inicial 0' ([int]$partA.yo.score -eq 0) "score=$($partA.yo.score)"
+  } catch {
+    Ok 'partida: estado sin is_correct' $false $_.Exception.Message
+  }
+
+  $optA1 = @(@($partA.preguntas)[0].options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $optB1 = @(@($partA.preguntas)[0].options) | Where-Object { $_.text -eq 'No' } | Select-Object -First 1
+  $optA2 = @(@($partA.preguntas)[1].options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $optB2 = @(@($partA.preguntas)[1].options) | Where-Object { $_.text -eq 'No' } | Select-Object -First 1
+  $optA3 = @(@($partA.preguntas)[2].options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $optA4 = @(@($partA.preguntas)[3].options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+
+  if ($partA -and $optA1 -and $optB1 -and $optA2 -and $optA3 -and $optA4) {
+    # 1) Correcta → +10
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaA; question_id = $q1.id; option_id = $optA1.id
+    } | ConvertTo-Json) -UseBasicParsing
+    $ans = J $r
+    Ok 'partida: correcto +10' ($ans.correct -eq $true -and [int]$ans.points_delta -eq 10 -and [int]$ans.score -eq 10) "score=$($ans.score) delta=$($ans.points_delta)"
+
+    # 2) Duplicada → 409 idempotente
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+        action = 'answer'; room_id = $salaA; question_id = $q1.id; option_id = $optA1.id
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'partida: duplicada 409' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'partida: duplicada 409' ($code -eq 409) "code=$code"
+    }
+
+    # 3) Incorrecta → -5
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaA; question_id = $q2.id; option_id = $optB2.id
+    } | ConvertTo-Json) -UseBasicParsing
+    $ans = J $r
+    Ok 'partida: incorrecto -5' ($ans.correct -eq $false -and [int]$ans.points_delta -eq -5 -and [int]$ans.score -eq 5) "score=$($ans.score) delta=$($ans.points_delta)"
+
+    # 4) Spoof (points/correct_index/user_id del cliente) ignorado por el servidor
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaA; question_id = $q3.id; option_id = $optA3.id; points = 999; correct_index = 1; score = 9999; user_id = '00000000-0000-0000-0000-000000000001'
+    } | ConvertTo-Json) -UseBasicParsing
+    $ans = J $r
+    Ok 'partida: spoof points ignorado' ($ans.correct -eq $true -and [int]$ans.points_delta -eq 10 -and [int]$ans.score -eq 15) "score=$($ans.score) delta=$($ans.points_delta)"
+
+    # 5) Pregunta de otro curso → 400
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+        action = 'answer'; room_id = $salaA; question_id = '11111111-2222-3333-4444-555555555555'; option_id = $optA1.id
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'partida: pregunta ajena 400' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'partida: pregunta ajena 400' ($code -eq 400) "code=$code"
+    }
+
+    # 6) Timeout del cliente → registrada como incorrecta
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaA; question_id = $q4.id; timed_out = $true; response_time_ms = 30000
+    } | ConvertTo-Json) -UseBasicParsing
+    $ans = J $r
+    Ok 'partida: timeout registra' ($r.StatusCode -eq 200 -and $ans.correct -eq $false -and $ans.timed_out -eq $true -and [int]$ans.points_delta -eq -5 -and [int]$ans.score -eq 10) "score=$($ans.score) delta=$($ans.points_delta)"
+
+    # 7) Jugador 2 (multi-jugador, score independiente)
+    $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaA" -WebSession $s2 -UseBasicParsing
+    $partS2 = J $r
+    $s2q1 = @($partS2.preguntas)[0]
+    $s2opt = @($s2q1.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
+      action = 'answer'; room_id = $salaA; question_id = $s2q1.id; option_id = $s2opt.id
+    } | ConvertTo-Json) -UseBasicParsing
+    $ans = J $r
+    Ok 'partida: jugador2 score propio' ([int]$ans.score -eq 10 -and $ans.correct -eq $true) "score=$($ans.score)"
+
+    # 8) No participante → 403
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaA" -WebSession $stch2 -UseBasicParsing
+      Ok 'partida: foraneo 403' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'partida: foraneo 403' ($code -eq 403) "code=$code"
+    }
+
+    # 9) Persistencia PG (matches, match_participants, participant_answers, score)
+    if (Test-Path $psqlExe) {
+      $pgM = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM matches WHERE room_id = '$salaA' AND status = 'in_progress'" 2>$null)
+      Ok 'partida: PG 1 match activo' ([int]"$pgM".Trim() -eq 1) "n=$pgM"
+      $pgP = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM match_participants mp JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA'" 2>$null)
+      Ok 'partida: PG 2 participantes' ([int]"$pgP".Trim() -ge 2) "n=$pgP"
+      $pgA = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA'" 2>$null)
+      Ok 'partida: PG 5 respuestas' ([int]"$pgA".Trim() -eq 5) "n=$pgA"
+      $pgS = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT mp.score FROM match_participants mp JOIN matches m ON m.id = mp.match_id JOIN users u ON u.id = mp.user_id WHERE m.room_id = '$salaA' AND u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
+      Ok 'partida: PG score s1 = 10' ([int]"$pgS".Trim() -eq 10) "score=$pgS"
+      $pgX = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA' AND pa.stars_delta <> 0" 2>$null)
+      Ok 'partida: PG stars_delta 0' ([int]"$pgX".Trim() -eq 0) "n=$pgX"
+    } else {
+      Ok 'partida: PG 1 match activo' $false 'psql missing'
+      Ok 'partida: PG 2 participantes' $false 'psql missing'
+      Ok 'partida: PG 5 respuestas' $false 'psql missing'
+      Ok 'partida: PG score s1 = 10' $false 'psql missing'
+      Ok 'partida: PG stars_delta 0' $false 'psql missing'
+    }
+
+    # 10) Finalizar sala → respuestas posteriores rechazadas
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+      action = 'finish'; room_id = $salaA
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'partida: teacher finish A' ($r.StatusCode -eq 200) $r.StatusCode
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
+        action = 'answer'; room_id = $salaA; question_id = $s2q1.id; option_id = $s2opt.id
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'partida: answer tras finish 409' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'partida: answer tras finish 409' ($code -eq 409) "code=$code"
+    }
+  } else {
+    Ok 'partida: correcto +10' $false 'preguntas/opciones missing'
+    Ok 'partida: duplicada 409' $false 'preguntas/opciones missing'
+    Ok 'partida: incorrecto -5' $false 'preguntas/opciones missing'
+    Ok 'partida: spoof points ignorado' $false 'preguntas/opciones missing'
+    Ok 'partida: pregunta ajena 400' $false 'preguntas/opciones missing'
+    Ok 'partida: timeout registra' $false 'preguntas/opciones missing'
+    Ok 'partida: jugador2 score propio' $false 'preguntas/opciones missing'
+    Ok 'partida: foraneo 403' $false 'preguntas/opciones missing'
+    Ok 'partida: PG 1 match activo' $false 'preguntas missing'
+    Ok 'partida: PG 2 participantes' $false 'preguntas missing'
+    Ok 'partida: PG 5 respuestas' $false 'preguntas missing'
+    Ok 'partida: PG score s1 = 10' $false 'preguntas missing'
+    Ok 'partida: PG stars_delta 0' $false 'preguntas missing'
+    Ok 'partida: teacher finish A' $false 'preguntas missing'
+    Ok 'partida: answer tras finish 409' $false 'preguntas missing'
+  }
+
+  # ── Sala B (lava): +15/-5 y ticks en servidor ──
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "PartB $stamp"; mode = 'lava'; course_id = $cursoP.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'partida: sala B create' ($r.StatusCode -eq 201) $r.StatusCode
+  $salaB = (J $r).sala.id
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'join'; code = ((J $r).sala.code)
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'start'; room_id = $salaB
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaB" -WebSession $s1 -UseBasicParsing
+  $partB = J $r
+  Ok 'partida: modo lava' ($partB.partida.modo -eq 'lava') "$($partB.partida.modo)"
+  $bq1 = @($partB.preguntas)[0]; $bq2 = @($partB.preguntas)[1]
+  $bSi = @($bq1.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $bNo = @($bq2.options) | Where-Object { $_.text -eq 'No' } | Select-Object -First 1
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaB; question_id = $bq1.id; option_id = $bSi.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: lava correcto +15' ($ans.correct -eq $true -and [int]$ans.points_delta -eq 15 -and [int]$ans.score -eq 15 -and [int]$ans.state.ticks -eq 3) "score=$($ans.score) ticks=$($ans.state.ticks)"
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaB; question_id = $bq2.id; option_id = $bNo.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: lava incorrecto -5' ($ans.correct -eq $false -and [int]$ans.points_delta -eq -5 -and [int]$ans.score -eq 10 -and [int]$ans.state.ticks -eq 2) "score=$($ans.score) ticks=$($ans.state.ticks)"
+
+  # ── Sala C (tierras): +20 / incorrecta 0 + eliminación ──
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "PartC $stamp"; mode = 'tierras'; course_id = $cursoP.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $salaC = (J $r).sala.id
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'join'; code = ((J $r).sala.code)
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'start'; room_id = $salaC
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaC" -WebSession $s1 -UseBasicParsing
+  $partC = J $r
+  Ok 'partida: modo tierras' ($partC.partida.modo -eq 'tierras') "$($partC.partida.modo)"
+  $cq1 = @($partC.preguntas)[0]; $cq2 = @($partC.preguntas)[1]; $cq3 = @($partC.preguntas)[2]
+  $cSi1 = @($cq1.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $cNo2 = @($cq2.options) | Where-Object { $_.text -eq 'No' } | Select-Object -First 1
+  $cSi3 = @($cq3.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaC; question_id = $cq1.id; option_id = $cSi1.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: tierras correcto +20' ($ans.correct -eq $true -and [int]$ans.points_delta -eq 20 -and [int]$ans.score -eq 20) "score=$($ans.score)"
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaC; question_id = $cq2.id; option_id = $cNo2.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: tierras incorrecta 0 + eliminado' ($ans.correct -eq $false -and [int]$ans.points_delta -eq 0 -and [int]$ans.score -eq 20 -and $ans.eliminated -eq $true) "score=$($ans.score) elim=$($ans.eliminated)"
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaC; question_id = $cq3.id; option_id = $cSi3.id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'partida: tierras eliminado 409' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'partida: tierras eliminado 409' ($code -eq 409) "code=$code"
+  }
+
+  # ── Sala D (abismos): +20 y plataformas en servidor (inicio 0 → correcta 1 → incorrecta 0 = eliminado) ──
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "PartD $stamp"; mode = 'abismos'; course_id = $cursoP.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $salaD = (J $r).sala.id
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'join'; code = ((J $r).sala.code)
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'start'; room_id = $salaD
+  } | ConvertTo-Json) -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaD" -WebSession $s1 -UseBasicParsing
+  $partD = J $r
+  Ok 'partida: modo abismos' ($partD.partida.modo -eq 'abismos') "$($partD.partida.modo)"
+  $dq1 = @($partD.preguntas)[0]; $dq2 = @($partD.preguntas)[1]; $dq3 = @($partD.preguntas)[2]
+  $dSi1 = @($dq1.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $dNo2 = @($dq2.options) | Where-Object { $_.text -eq 'No' } | Select-Object -First 1
+  $dSi3 = @($dq3.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaD; question_id = $dq1.id; option_id = $dSi1.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: abismos correcto +20 platforms 1' ($ans.correct -eq $true -and [int]$ans.points_delta -eq 20 -and [int]$ans.state.platforms -eq 1) "score=$($ans.score) plat=$($ans.state.platforms)"
+  $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'answer'; room_id = $salaD; question_id = $dq2.id; option_id = $dNo2.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $ans = J $r
+  Ok 'partida: abismos incorrecta platforms 0' ($ans.correct -eq $false -and [int]$ans.state.platforms -eq 0 -and $ans.eliminated -eq $true) "plat=$($ans.state.platforms) elim=$($ans.eliminated)"
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaD; question_id = $dq3.id; option_id = $dSi3.id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'partida: abismos eliminado 409' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'partida: abismos eliminado 409' ($code -eq 409) "code=$code"
+  }
+
+  # ── Fallos de dominio ──
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = '00000000-0000-0000-0000-000000000009'; question_id = '00000000-0000-0000-0000-000000000008'; timed_out = $true
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'partida: sala inexistente 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'partida: sala inexistente 404' ($code -eq 404) "code=$code"
+  }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $salaB; question_id = $bq1.id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'partida: sin option_id 400' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'partida: sin option_id 400' ($code -eq 400) "code=$code"
+  }
+} else {
+  Ok 'partida: sala A create' $false $failCurso
+  Ok 'partida: join s1' $false $failCurso
+  Ok 'partida: join s2' $false $failCurso
+  Ok 'partida: get pre-start 409' $false $failCurso
+  Ok 'partida: start crea match' $false $failCurso
+  Ok 'partida: estado sin is_correct' $false $failCurso
+  Ok 'partida: yo score inicial 0' $false $failCurso
+  Ok 'partida: sala B create' $false $failCurso
+  Ok 'partida: modo lava' $false $failCurso
+  Ok 'partida: sala C create' $false $failCurso
+  Ok 'partida: modo tierras' $false $failCurso
+  Ok 'partida: sala D create' $false $failCurso
+  Ok 'partida: modo abismos' $false $failCurso
+  Ok 'partida: sala inexistente 404' $false $failCurso
+  Ok 'partida: sin option_id 400' $false $failCurso
 }
 
 # ═══ 8. RANKING REAL (orden por estrellas + liga + sin datos privados) ═══

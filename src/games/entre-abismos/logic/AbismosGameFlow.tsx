@@ -2,6 +2,8 @@
 import { useEffect, useRef } from 'react';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
+import type { AbismosQuestion } from '@/games/entre-abismos/types';
+import { getMatchRoomId, fetchMatchState, toStoreQuestion } from '@/lib/partida-client';
 
 export function AbismosGameFlow() {
   const questions = useAbismosStore((s) => s.questions);
@@ -14,6 +16,20 @@ export function AbismosGameFlow() {
       if (questions.length > 0) {
         timerRef.current = setTimeout(() => setPhase('questions'), 400);
         return;
+      }
+      // Paso 4: en modo sala las preguntas vienen de la base de datos.
+      const roomId = getMatchRoomId();
+      if (roomId) {
+        try {
+          const state = await fetchMatchState(roomId);
+          if (state.preguntas.length > 0) {
+            setQuestions(state.preguntas.map(toStoreQuestion) as AbismosQuestion[]);
+            timerRef.current = setTimeout(() => setPhase('questions'), 400);
+            return;
+          }
+        } catch (e) {
+          console.error('[AbismosGameFlow] No se pudo cargar la partida:', e);
+        }
       }
       try {
         const { dignidadMujerQuestions } = await import('@/education/question-bank/dignidad-mujer');
