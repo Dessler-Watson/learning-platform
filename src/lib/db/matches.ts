@@ -253,7 +253,7 @@ export type AnswerOutcome =
     }
   | { ok: false; status: number; error: string; code?: string; correct?: boolean; correct_option_id?: string | null; points_delta?: number; score?: number; xp?: number };
 
-function replayResource(rules: ModeRules, flags: boolean[]): number | undefined {
+export function replayResource(rules: ModeRules, flags: boolean[]): number | undefined {
   if (!rules.resource) return undefined;
   let value = rules.resource.start;
   for (const ok of flags) {
@@ -492,6 +492,92 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
             : { platforms: resourceValue }
           : null,
     };
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch { /* ignore */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export interface FinalizeMatchResult {
+  ok: boolean;
+  reason?: 'not_found' | 'forbidden' | 'bad_status';
+  matchIds: string[];
+}
+
+/**
+ * Finalización definitiva de una sala y su partida: en UNA transacción
+ * marca la sala como finalizada, cierra el match activo, marca a los
+ * participantes 'playing' como 'finished' (los 'eliminated' se conservan)
+ * y registra el evento de auditoría. No otorga estrellas (Paso 7).
+ * Seguro ante concurrencia (bloquea la fila de la sala).
+ */
+export async function finalizeMatch(
+  roomId: string,
+  actorId: string,
+  opts?: { isAdmin?: boolean }
+): Promise<FinalizeMatchResult> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const roomRes = await client.query<{
+      id: string;
+      status: string;
+      teacher_id: string;
+      deleted_at: Date | null;
+    }>(
+      `SELECT id, status, teacher_id, deleted_at FROM rooms WHERE id = $1 FOR UPDATE`,
+      [roomId]
+    );
+    const room = roomRes.rows[0];
+    if (!room || room.deleted_at) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_found', matchIds: [] };
+    }
+    if (!opts?.isAdmin && room.teacher_id !== actorId) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'forbidden', matchIds: [] };
+    }
+    if (room.status !== 'waiting' && room.status !== 'in_progress') {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'bad_status', matchIds: [] };
+    }
+
+    await client.query(
+      `UPDATE rooms SET status = 'finished', finished_at = coalesce(finished_at, now())
+       WHERE id = $1`,
+      [roomId]
+    );
+
+    const matchesRes = await client.query<{ id: string }>(
+      `UPDATE matches SET status = 'finished', finished_at = coalesce(finished_at, now())
+       WHERE room_id = $1 AND status = 'in_progress'
+       RETURNING id`,
+      [roomId]
+    );
+    const matchIds = matchesRes.rows.map((r) => r.id);
+
+    if (matchIds.length > 0) {
+      await client.query(
+        `UPDATE match_participants
+         SET status = 'finished', finished_at = coalesce(finished_at, now())
+         WHERE match_id = ANY($1::uuid[]) AND status = 'playing'`,
+        [matchIds]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO audit_events (actor_id, entity_type, entity_id, action, metadata)
+       VALUES ($1, 'room', $2, 'finished', '{}'::jsonb)`,
+      [actorId, roomId]
+    );
+
+    await client.query('COMMIT');
+    return { ok: true, matchIds };
   } catch (err) {
     try {
       await client.query('ROLLBACK');

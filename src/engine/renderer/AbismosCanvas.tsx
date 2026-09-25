@@ -17,6 +17,7 @@ import { AbismosLoadingScreen } from '@/games/entre-abismos/ui/AbismosLoadingScr
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
+import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady, onReachFinish }: { onReady: () => void; onReachFinish: () => void }) {
   return (
@@ -73,8 +74,7 @@ export function AbismosCanvas() {
   }, []);
 
   const handleDefeatDone = useCallback(() => {
-    const isPractice = !!sessionStorage.getItem('eduplay_practice');
-    window.location.href = isPractice ? '/practica/resultados' : '/inicio';
+    window.location.href = postGameRoute();
   }, []);
 
   useEffect(() => {
@@ -152,10 +152,8 @@ export function AbismosCanvas() {
       <CompletionOverlay
         show={gamePhase === 'completed' && !!result}
         onDone={() => {
-          const isPractice = !!sessionStorage.getItem('eduplay_practice');
           useAbismosStore.getState().reset();
-          if (isPractice) window.location.href = '/practica/resultados';
-          else window.location.href = '/inicio';
+          window.location.href = postGameRoute();
         }}
         duration={4000}
       />

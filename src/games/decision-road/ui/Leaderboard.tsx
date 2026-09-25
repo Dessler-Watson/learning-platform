@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { avatarUrl } from '@/lib/avatares';
+import { fetchMatchResult, getMatchRoomId } from '@/lib/partida-client';
 
 interface Competitor {
   id: string;
@@ -14,77 +15,58 @@ interface Competitor {
   trend: 'up' | 'down' | 'same';
 }
 
-const MOCK_PLAYER_NAMES: string[] = [
-  'DragonFeliz', 'AstroKid', 'PandaMagico', 'EstrellaLunar', 'RayoVeloz',
-];
-
-const INITIAL_COMPETITORS: Omit<Competitor, 'score' | 'prevScore' | 'trend'>[] = [
-  { id: 'c1', name: MOCK_PLAYER_NAMES[0], avatar: avatarUrl(2) },
-  { id: 'c2', name: MOCK_PLAYER_NAMES[1], avatar: avatarUrl(3) },
-  { id: 'c3', name: MOCK_PLAYER_NAMES[2], avatar: avatarUrl(4) },
-  { id: 'c4', name: MOCK_PLAYER_NAMES[3], avatar: avatarUrl(5) },
-  { id: 'c5', name: MOCK_PLAYER_NAMES[4], avatar: avatarUrl(6) },
-];
-
-function initCompetitors(): Competitor[] {
-  return INITIAL_COMPETITORS.map((c) => ({
-    ...c,
-    score: Math.floor(Math.random() * 30),
-    prevScore: 0,
-    trend: 'same' as const,
-  }));
-}
-
 export function Leaderboard() {
   const phase = useGameStore((s) => s.phase);
   const score = useGameStore((s) => s.score);
-  const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
-  const questions = useGameStore((s) => s.questions);
   const isMobile = useIsMobile();
   const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
-  const [competitors, setCompetitors] = useState<Competitor[]>(initCompetitors);
-  const lastQuestionRef = useRef(currentQuestionIndex);
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const roomIdRef = useRef<string | null>(null);
+  if (roomIdRef.current === null && typeof window !== 'undefined') {
+    roomIdRef.current = getMatchRoomId();
+  }
 
   const visible = !isPractice && (phase === 'playing' || phase === 'question' || phase === 'correctFeedback' || phase === 'incorrectFeedback');
 
+  // Ranking real de la sala (Paso 5): se consulta al servidor; sin sala no hay rivales.
   useEffect(() => {
     if (!visible) return;
-    const interval = setInterval(() => {
-      setCompetitors((prev) =>
-        prev.map((c) => {
-          const shouldChange = Math.random() < 0.35;
-          if (!shouldChange) return c;
-          const change = Math.floor(Math.random() * 35) - 8;
-          const newScore = Math.max(0, c.score + change);
-          return {
-            ...c,
-            prevScore: c.score,
-            score: newScore,
-            trend: newScore > c.score ? 'up' : newScore < c.score ? 'down' : 'same',
-          };
-        })
-      );
-    }, 2200);
-    return () => clearInterval(interval);
+    const roomId = roomIdRef.current;
+    if (!roomId) return;
+    let cancelado = false;
+    const cargar = async () => {
+      try {
+        const res = await fetchMatchResult(roomId);
+        if (cancelado) return;
+        const yo = res.yo.user_id;
+        setCompetitors((prev) =>
+          res.ranking
+            .filter((r) => r.user_id !== yo)
+            .map((r) => {
+              const anterior = prev.find((c) => c.id === r.user_id);
+              const nuevo = r.score;
+              const viejo = anterior?.score ?? nuevo;
+              return {
+                id: r.user_id,
+                name: r.nombre,
+                avatar: avatarUrl(r.avatar_id ?? 1),
+                score: nuevo,
+                prevScore: viejo,
+                trend: (nuevo > viejo ? 'up' : nuevo < viejo ? 'down' : 'same') as Competitor['trend'],
+              };
+            })
+        );
+      } catch {
+        /* sin conexión: se conserva el último ranking conocido */
+      }
+    };
+    cargar();
+    const interval = setInterval(cargar, 2500);
+    return () => {
+      cancelado = true;
+      clearInterval(interval);
+    };
   }, [visible]);
-
-  useEffect(() => {
-    if (currentQuestionIndex > lastQuestionRef.current) {
-      lastQuestionRef.current = currentQuestionIndex;
-      setCompetitors((prev) =>
-        prev.map((c) => {
-          const bonus = Math.random() < 0.6 ? Math.floor(Math.random() * 30) + 10 : 0;
-          const newScore = c.score + bonus;
-          return {
-            ...c,
-            prevScore: c.score,
-            score: newScore,
-            trend: bonus > 0 ? 'up' : 'same',
-          };
-        })
-      );
-    }
-  }, [currentQuestionIndex]);
 
   const playerEntry = {
     id: 'player',
@@ -181,7 +163,7 @@ export function Leaderboard() {
                     width: isMobile ? 20 : 26, height: isMobile ? 20 : 26, borderRadius: '50%',
                     overflow: 'hidden', flexShrink: 0,
                     border: isPlayer ? '2px solid #66BB6A' : '1.5px solid rgba(255,255,255,0.15)',
-                    boxShadow: isPlayer ? '0 0 10px rgba(76,175,80,0.35)' : 'none',
+                    boxShadow: isPlayer ? '0 0 16px rgba(76,175,80,0.35)' : 'none',
                   }}>
                     <img src={p.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>

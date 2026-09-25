@@ -8,8 +8,8 @@ import {
   joinRoom,
   leaveRoom,
   startRoom,
-  finishRoom,
 } from '@/lib/db/rooms';
+import { finalizeMatch } from '@/lib/db/matches';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,19 +192,18 @@ export async function POST(req: NextRequest) {
       if (session.role !== 'admin' && room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      const result = await finishRoom(roomId, session.id, { isAdmin: session.role === 'admin' });
+      // Paso 5: finalización definitiva en una sola transacción
+      // (sala + match + participantes + auditoría). Estrellas = Paso 7 (se conservan aquí).
+      const result = await finalizeMatch(roomId, session.id, { isAdmin: session.role === 'admin' });
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });
         }
+        if (result.reason === 'not_found') {
+          return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+        }
         return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 403 });
       }
-
-      await query(
-        `UPDATE matches SET status = 'finished', finished_at = now()
-         WHERE room_id = $1 AND status = 'in_progress'`,
-        [roomId]
-      );
 
       const ranking = await query<{ user_id: string; score: number }>(
         `SELECT mp.user_id, mp.score

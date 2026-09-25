@@ -905,9 +905,320 @@ if ($cursoP) {
   Ok 'partida: modo tierras' $false $failCurso
   Ok 'partida: sala D create' $false $failCurso
   Ok 'partida: modo abismos' $false $failCurso
-  Ok 'partida: sala inexistente 404' $false $failCurso
-  Ok 'partida: sin option_id 400' $false $failCurso
-}
+    Ok 'partida: sala inexistente 404' $false $failCurso
+    Ok 'partida: sin option_id 400' $false $failCurso
+  }
+
+  # ═══ 7d. RESULTADOS REALES (Paso 5: servidor + vistas PG, sin mocks) ═══
+  if ($salaA -and $salaB -and $cursoP) {
+    # 1-7) Finalización persistida en PG + cross-check de score/correctas
+    if (Test-Path $psqlExe) {
+      $pgR = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT status FROM rooms WHERE id = '$salaA'" 2>$null)
+      Ok 'resultados: PG sala finished' ("$pgR".Trim() -eq 'finished') "status=$pgR"
+      $pgM = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM matches WHERE room_id = '$salaA' AND status <> 'finished'" 2>$null)
+      Ok 'resultados: PG matches finished' ([int]"$pgM".Trim() -eq 0) "n=$pgM"
+      $pgP = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM match_participants mp JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA' AND mp.status = 'playing'" 2>$null)
+      Ok 'resultados: PG sin playing' ([int]"$pgP".Trim() -eq 0) "n=$pgP"
+      $pgE = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM match_participants mp JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA' AND mp.status = 'finished'" 2>$null)
+      Ok 'resultados: PG todos finished' ([int]"$pgE".Trim() -ge 2) "n=$pgE"
+      $pgA = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE entity_type = 'room' AND entity_id = '$salaA' AND action = 'finished'" 2>$null)
+      Ok 'resultados: PG auditoria finish' ([int]"$pgA".Trim() -ge 1) "n=$pgA"
+      $pgS = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT mp.score FROM match_participants mp JOIN matches m ON m.id = mp.match_id JOIN users u ON u.id = mp.user_id WHERE m.room_id = '$salaA' AND u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
+      Ok 'resultados: PG score s1 10' ([int]"$pgS".Trim() -eq 10) "score=$pgS"
+      $pgC = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT s.correct FROM v_match_participant_stats s JOIN match_participants mp ON mp.id = s.participant_id JOIN matches m ON m.id = mp.match_id JOIN users u ON u.id = mp.user_id WHERE m.room_id = '$salaA' AND u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
+      Ok 'resultados: PG correctas s1 2' ([int]"$pgC".Trim() -eq 2) "correct=$pgC"
+    } else {
+      Ok 'resultados: PG sala finished' $false 'psql missing'
+      Ok 'resultados: PG matches finished' $false 'psql missing'
+      Ok 'resultados: PG sin playing' $false 'psql missing'
+      Ok 'resultados: PG todos finished' $false 'psql missing'
+      Ok 'resultados: PG auditoria finish' $false 'psql missing'
+      Ok 'resultados: PG score s1 10' $false 'psql missing'
+      Ok 'resultados: PG correctas s1 2' $false 'psql missing'
+    }
+
+    # 8) Segunda finalización → 409 (ya finalizada)
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'finish'; room_id = $salaA
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'resultados: finish repetido 409' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: finish repetido 409' ($code -eq 409) "code=$code"
+    }
+
+    # 9-16) Endpoint estudiante: s1 (2 correctas, 2 incorrectas, 1 timeout, score 10, %50)
+    $resS1 = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA" -WebSession $s1 -UseBasicParsing
+      $resS1 = J $r
+      Ok 'resultados: s1 200' ($r.StatusCode -eq 200 -and $resS1.ok -eq $true) $r.StatusCode
+    } catch {
+      Ok 'resultados: s1 200' $false $_.Exception.Message
+    }
+    if ($resS1) {
+      Ok 'resultados: s1 conteos' ([int]$resS1.yo.correctas -eq 2 -and [int]$resS1.yo.incorrectas -eq 2 -and [int]$resS1.yo.timeouts -eq 1 -and [int]$resS1.yo.score -eq 10 -and [int]$resS1.yo.sin_responder -eq 0) "c=$($resS1.yo.correctas) i=$($resS1.yo.incorrectas) t=$($resS1.yo.timeouts) s=$($resS1.yo.score) sr=$($resS1.yo.sin_responder)"
+      Ok 'resultados: s1 porcentaje 50' ([int]$resS1.yo.porcentaje -eq 50) "pct=$($resS1.yo.porcentaje)"
+      Ok 'resultados: s1 posicion 1' ([int]$resS1.yo.posicion -eq 1 -and [int]$resS1.yo.total_jugadores -ge 2) "pos=$($resS1.yo.posicion) n=$($resS1.yo.total_jugadores)"
+      Ok 'resultados: s1 respuestas 4' (@($resS1.respuestas).Count -eq 4) "n=$(@($resS1.respuestas).Count)"
+      Ok 'resultados: s1 timeout real' (@(@($resS1.respuestas) | Where-Object { $_.timed_out -eq $true }).Count -eq 1) "n=$(@(@($resS1.respuestas) | Where-Object { $_.timed_out -eq $true }).Count)"
+      Ok 'resultados: s1 partida finalizada' ($resS1.partida.status -eq 'finished' -and [int]$resS1.partida.total_preguntas -eq 4) "status=$($resS1.partida.status) n=$($resS1.partida.total_preguntas)"
+      Ok 'resultados: ranking empate pos 1' (@($resS1.ranking).Count -ge 2 -and @(@($resS1.ranking) | Where-Object { [int]$_.posicion -eq 1 -and [int]$_.score -eq 10 }).Count -eq 2) "n=$(@($resS1.ranking).Count)"
+    } else {
+      Ok 'resultados: s1 conteos' $false 's1 fetch missing'
+      Ok 'resultados: s1 porcentaje 50' $false 's1 fetch missing'
+      Ok 'resultados: s1 posicion 1' $false 's1 fetch missing'
+      Ok 'resultados: s1 respuestas 4' $false 's1 fetch missing'
+      Ok 'resultados: s1 timeout real' $false 's1 fetch missing'
+      Ok 'resultados: s1 partida finalizada' $false 's1 fetch missing'
+      Ok 'resultados: ranking empate pos 1' $false 's1 fetch missing'
+    }
+
+    # 17-19) Endpoint estudiante: s2 (1 correcta, sin_responder 3, %25, score 10, pos 1 por empate)
+    $resS2 = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA" -WebSession $s2 -UseBasicParsing
+      $resS2 = J $r
+      Ok 'resultados: s2 200' ($r.StatusCode -eq 200 -and $resS2.ok -eq $true) $r.StatusCode
+    } catch {
+      Ok 'resultados: s2 200' $false $_.Exception.Message
+    }
+    if ($resS2) {
+      Ok 'resultados: s2 conteos' ([int]$resS2.yo.correctas -eq 1 -and [int]$resS2.yo.incorrectas -eq 0 -and [int]$resS2.yo.score -eq 10 -and [int]$resS2.yo.sin_responder -eq 3) "c=$($resS2.yo.correctas) s=$($resS2.yo.score) sr=$($resS2.yo.sin_responder)"
+      Ok 'resultados: s2 porcentaje 25' ([int]$resS2.yo.porcentaje -eq 25) "pct=$($resS2.yo.porcentaje)"
+      Ok 'resultados: s2 posicion 1' ([int]$resS2.yo.posicion -eq 1) "pos=$($resS2.yo.posicion)"
+    } else {
+      Ok 'resultados: s2 conteos' $false 's2 fetch missing'
+      Ok 'resultados: s2 porcentaje 25' $false 's2 fetch missing'
+      Ok 'resultados: s2 posicion 1' $false 's2 fetch missing'
+    }
+
+    # 20) user_id distinto al de la sesión → 403
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA&user_id=00000000-0000-0000-0000-000000000077" -WebSession $s1 -UseBasicParsing
+      Ok 'resultados: user_id ajeno 403' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: user_id ajeno 403' ($code -eq 403) "code=$code"
+    }
+
+    # 21) No participante (docente ajeno) → 403
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA" -WebSession $stch2 -UseBasicParsing
+      Ok 'resultados: docente ajeno 403' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: docente ajeno 403' ($code -eq 403) "code=$code"
+    }
+
+    # 22) Sin sesión → 401
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA" -UseBasicParsing
+      Ok 'resultados: sin sesion 401' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: sin sesion 401' ($code -eq 401) "code=$code"
+    }
+
+    # 23) Sin room_id → 400
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados" -WebSession $s1 -UseBasicParsing
+      Ok 'resultados: sin room_id 400' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: sin room_id 400' ($code -eq 400) "code=$code"
+    }
+
+    # 24) Sala inexistente → 404
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=00000000-0000-0000-0000-000000000009" -WebSession $s1 -UseBasicParsing
+      Ok 'resultados: sala inexistente 404' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: sala inexistente 404' ($code -eq 404) "code=$code"
+    }
+
+    # 25) Recarga: misma respuesta (idempotente, fuente PG)
+    $resR = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaA" -WebSession $s1 -UseBasicParsing
+      $resR = J $r
+    } catch { }
+    Ok 'resultados: recarga idempotente' ($null -ne $resR -and [int]$resR.yo.score -eq 10 -and [int]$resR.yo.posicion -eq 1 -and [int]$resR.yo.correctas -eq 2) "s=$($resR.yo.score) pos=$($resR.yo.posicion)"
+
+    # 26-27) Panel action=results (docente dueño)
+    $resP = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'results'; id = $salaA
+      } | ConvertTo-Json) -UseBasicParsing
+      $resP = J $r
+      Ok 'resultados: panel resumen owner 200' ($r.StatusCode -eq 200 -and $resP.ok -eq $true -and $null -ne $resP.resultados) $r.StatusCode
+    } catch {
+      Ok 'resultados: panel resumen owner 200' $false $_.Exception.Message
+    }
+    if ($resP -and $resP.resultados) {
+      $sum = $resP.resultados.resumen
+      Ok 'resultados: panel resumen server' ([int]$sum.participantes -ge 2 -and [int]$sum.promedio_puntos -gt 0 -and [int]$sum.porcentaje_aciertos -eq 60 -and [int]$sum.timeouts -eq 1 -and [int]$sum.total_respuestas -eq 5 -and [int]$sum.total_preguntas -eq 4) "part=$($sum.participantes) prom=$($sum.promedio_puntos) pct=$($sum.porcentaje_aciertos) t=$($sum.timeouts) resp=$($sum.total_respuestas) preg=$($sum.total_preguntas)"
+      Ok 'resultados: panel completados 2' ([int]$sum.completados -ge 2 -and [int]$sum.eliminados -eq 0) "c=$($sum.completados) e=$($sum.eliminados)"
+      Ok 'resultados: panel participantes %' (@($resP.resultados.participantes).Count -ge 2 -and @(@($resP.resultados.participantes) | Where-Object { [int]$_.porcentaje -eq 50 -and [int]$_.timeouts -eq 1 }).Count -eq 1) "n=$(@($resP.resultados.participantes).Count)"
+    } else {
+      Ok 'resultados: panel resumen server' $false 'resultados missing'
+      Ok 'resultados: panel completados 2' $false 'resultados missing'
+      Ok 'resultados: panel participantes %' $false 'resultados missing'
+    }
+
+    # 28) Otro docente no ve resultados ajenos → 404
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
+        action = 'results'; id = $salaA
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'resultados: panel foreign 404' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: panel foreign 404' ($code -eq 404) "code=$code"
+    }
+
+    # 29) Estudiante no accede a panel → 403 (gate de rol)
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
+        action = 'results'; id = $salaA
+      } | ConvertTo-Json) -UseBasicParsing
+      Ok 'resultados: panel student 403' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: panel student 403' ($code -eq 403) "code=$code"
+    }
+
+    # 30-32) GET panel: totalPreguntas real, participantes finalizados, match finished
+    $gA = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas?id=$salaA" -WebSession $stch -UseBasicParsing
+      $gA = (J $r).sala
+    } catch { }
+    Ok 'resultados: panel GET totalPreguntas 4' ($null -ne $gA -and [int]$gA.totalPreguntas -eq 4) "n=$($gA.totalPreguntas)"
+    Ok 'resultados: panel GET 2 finalizados' ($null -ne $gA -and @(@($gA.participantes) | Where-Object { $_.estado -eq 'finalizado' }).Count -ge 2) "n=$(@($gA.participantes).Count)"
+    Ok 'resultados: panel GET match finished' ($null -ne $gA -and $gA.matchStatus -eq 'finished' -and $gA.estado -eq 'finalizada') "match=$($gA.matchStatus) estado=$($gA.estado)"
+
+    # 33) Sala lava: distanciaLava real desde replay de respuestas (2 → +1 → −1 = 2)
+    $gB = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas?id=$salaB" -WebSession $stch -UseBasicParsing
+      $gB = (J $r).sala
+    } catch { }
+    $distB = if ($gB -and @($gB.participantes).Count -gt 0) { [int]@($gB.participantes)[0].distanciaLava } else { -1 }
+    Ok 'resultados: lava distanciaLava 2' ($distB -eq 2) "dist=$distB"
+
+    # 34-36) Sala sin partida: estudiante 409 / panel resultados null / totalPreguntas fallback
+    $salaE = $null
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'create'; name = "PartE $stamp"; mode = 'decisiones'; course_id = $cursoP.id
+      } | ConvertTo-Json) -UseBasicParsing
+      $salaE = (J $r).sala.id
+      $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+        action = 'join'; code = ((J $r).sala.code)
+      } | ConvertTo-Json) -UseBasicParsing
+    } catch { }
+    if ($salaE) {
+      try {
+        $r = Invoke-WebRequest -Uri "$base/api/partida/resultados?room_id=$salaE" -WebSession $s1 -UseBasicParsing
+        Ok 'resultados: salaE sin partida 409' ($false) "unexpected $($r.StatusCode)"
+      } catch {
+        $code = $_.Exception.Response.StatusCode.value__
+        Ok 'resultados: salaE sin partida 409' ($code -eq 409) "code=$code"
+      }
+      $resE = $null
+      try {
+        $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+          action = 'results'; id = $salaE
+        } | ConvertTo-Json) -UseBasicParsing
+        $resE = J $r
+      } catch { }
+      Ok 'resultados: panel sin partida null' ($null -ne $resE -and $resE.ok -eq $true -and $null -eq $resE.resultados) "ok=$($resE.ok) res=$($null -ne $resE.resultados)"
+      $gE = $null
+      try {
+        $r = Invoke-WebRequest -Uri "$base/api/panel/salas?id=$salaE" -WebSession $stch -UseBasicParsing
+        $gE = (J $r).sala
+      } catch { }
+      Ok 'resultados: salaE totalPreguntas 4' ($null -ne $gE -and [int]$gE.totalPreguntas -eq 4) "n=$($gE.totalPreguntas)"
+    } else {
+      Ok 'resultados: salaE sin partida 409' $false 'salaE create missing'
+      Ok 'resultados: panel sin partida null' $false 'salaE create missing'
+      Ok 'resultados: salaE totalPreguntas 4' $false 'salaE create missing'
+    }
+
+    # 37-40) Fuente única: sin mocks/aleatoriedad en UI de resultados y redirects post-juego
+    $mockHits = 0
+    foreach ($f in @(
+        "$PSScriptRoot\..\src\games\decision-road\ui\ResultsScreen.tsx",
+        "$PSScriptRoot\..\src\games\decision-road\ui\Leaderboard.tsx",
+        "$PSScriptRoot\..\src\app\api\panel\salas\route.ts"
+      )) {
+      if (-not (Test-Path $f)) { $mockHits++; continue }
+      $mockHits += @(@(Select-String -Path $f -Pattern 'MOCK_CLASSMATES|MOCK_PLAYER_NAMES|Math\.random')).Count
+    }
+    Ok 'resultados: sin mocks en UI/panel' ($mockHits -eq 0) "hits=$mockHits"
+    Ok 'resultados: pantalla /resultados existe' (Test-Path "$PSScriptRoot\..\src\app\resultados\page.tsx")
+    $canvasOk = 0
+    foreach ($f in @('LavaCanvas.tsx', 'TierrasCanvas.tsx', 'AbismosCanvas.tsx')) {
+      $p = "$PSScriptRoot\..\src\engine\renderer\$f"
+      if ((Test-Path $p) -and (Select-String -Path $p -Pattern 'postGameRoute' -Quiet)) { $canvasOk++ }
+    }
+    Ok 'resultados: redirects postGameRoute' ($canvasOk -eq 3) "n=$canvasOk"
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/salas?id=$salaA" -WebSession $s2 -UseBasicParsing
+      Ok 'resultados: panel GET student 403' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'resultados: panel GET student 403' ($code -eq 403) "code=$code"
+    }
+  } else {
+    Ok 'resultados: PG sala finished' $false $failCurso
+    Ok 'resultados: PG matches finished' $false $failCurso
+    Ok 'resultados: PG sin playing' $false $failCurso
+    Ok 'resultados: PG todos finished' $false $failCurso
+    Ok 'resultados: PG auditoria finish' $false $failCurso
+    Ok 'resultados: PG score s1 10' $false $failCurso
+    Ok 'resultados: PG correctas s1 2' $false $failCurso
+    Ok 'resultados: finish repetido 409' $false $failCurso
+    Ok 'resultados: s1 200' $false $failCurso
+    Ok 'resultados: s1 conteos' $false $failCurso
+    Ok 'resultados: s1 porcentaje 50' $false $failCurso
+    Ok 'resultados: s1 posicion 1' $false $failCurso
+    Ok 'resultados: s1 respuestas 4' $false $failCurso
+    Ok 'resultados: s1 timeout real' $false $failCurso
+    Ok 'resultados: s1 partida finalizada' $false $failCurso
+    Ok 'resultados: ranking empate pos 1' $false $failCurso
+    Ok 'resultados: s2 200' $false $failCurso
+    Ok 'resultados: s2 conteos' $false $failCurso
+    Ok 'resultados: s2 porcentaje 25' $false $failCurso
+    Ok 'resultados: s2 posicion 1' $false $failCurso
+    Ok 'resultados: user_id ajeno 403' $false $failCurso
+    Ok 'resultados: docente ajeno 403' $false $failCurso
+    Ok 'resultados: sin sesion 401' $false $failCurso
+    Ok 'resultados: sin room_id 400' $false $failCurso
+    Ok 'resultados: sala inexistente 404' $false $failCurso
+    Ok 'resultados: recarga idempotente' $false $failCurso
+    Ok 'resultados: panel resumen owner 200' $false $failCurso
+    Ok 'resultados: panel resumen server' $false $failCurso
+    Ok 'resultados: panel completados 2' $false $failCurso
+    Ok 'resultados: panel participantes %' $false $failCurso
+    Ok 'resultados: panel foreign 404' $false $failCurso
+    Ok 'resultados: panel student 403' $false $failCurso
+    Ok 'resultados: panel GET totalPreguntas 4' $false $failCurso
+    Ok 'resultados: panel GET 2 finalizados' $false $failCurso
+    Ok 'resultados: panel GET match finished' $false $failCurso
+    Ok 'resultados: lava distanciaLava 2' $false $failCurso
+    Ok 'resultados: salaE sin partida 409' $false $failCurso
+    Ok 'resultados: panel sin partida null' $false $failCurso
+    Ok 'resultados: salaE totalPreguntas 4' $false $failCurso
+    Ok 'resultados: sin mocks en UI/panel' $false $failCurso
+    Ok 'resultados: pantalla /resultados existe' $false $failCurso
+    Ok 'resultados: redirects postGameRoute' $false $failCurso
+    Ok 'resultados: panel GET student 403' $false $failCurso
+  }
 
 # ═══ 8. RANKING REAL (orden por estrellas + liga + sin datos privados) ═══
 $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{

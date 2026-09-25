@@ -9,7 +9,7 @@ import {
   Docente,
   CuentaJugador,
 } from '../types';
-import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJuego, RespuestaDetalleSala } from '../types';
+import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJuego, RespuestaDetalleSala, ResultadosSala } from '../types';
 import { MODE_THEME, GameModeId } from '@/shared/lib/game-modes';
 
 export const MAX_PREGUNTAS_POR_CURSO = 30;
@@ -339,6 +339,18 @@ export const salasService = {
       return res.preguntasDificiles;
     } catch {
       return [];
+    }
+  },
+  // Paso 5: resultados completos calculados por el servidor (vistas PG).
+  async obtenerResultados(salaId: string): Promise<ResultadosSala | undefined> {
+    try {
+      const res = await api<{ ok: boolean; resultados: ResultadosSala | null }>('/api/panel/salas', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'results', id: salaId }),
+      });
+      return res.resultados ?? undefined;
+    } catch {
+      return undefined;
     }
   },
 };

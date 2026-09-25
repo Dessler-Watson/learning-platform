@@ -16,6 +16,7 @@ import { TierrasLoadingScreen } from './TierrasLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
   return (
@@ -144,9 +145,7 @@ export function TierrasCanvas() {
       <CompletionOverlay
         show={tierrasPhase === 'completed' && !fallenInWater}
         onDone={() => {
-          const isPractice = !!sessionStorage.getItem('eduplay_practice');
-          if (isPractice) window.location.href = '/practica/resultados';
-          else window.location.href = '/sala-espera';
+          window.location.href = postGameRoute();
         }}
         duration={4000}
       />
@@ -154,9 +153,7 @@ export function TierrasCanvas() {
       <DefeatOverlay
         show={tierrasPhase === 'completed' && fallenInWater}
         onDone={() => {
-          const isPractice = !!sessionStorage.getItem('eduplay_practice');
-          if (isPractice) window.location.href = '/practica/resultados';
-          else window.location.href = '/sala-espera';
+          window.location.href = postGameRoute();
         }}
         duration={4000}
         message="Te hundiste!"

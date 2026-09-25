@@ -61,6 +61,76 @@ export async function fetchMatchState(roomId: string): Promise<MatchStateDTO> {
   return data as MatchStateDTO;
 }
 
+/* ------------------------------------------------------------------ */
+/*  RESULTADOS REALES (Paso 5) — servidor, no mocks                    */
+/* ------------------------------------------------------------------ */
+
+export interface MatchResultDTO {
+  sala: { id: string; codigo: string; nombre: string; modo: string };
+  partida: {
+    id: string;
+    status: string;
+    total_preguntas: number;
+    started_at: string | null;
+    finished_at: string | null;
+    duracion_ms: number;
+  };
+  yo: {
+    user_id: string;
+    nombre: string;
+    score: number;
+    xp: number;
+    estado: string;
+    eliminado_en: number | null;
+    correctas: number;
+    incorrectas: number;
+    timeouts: number;
+    sin_responder: number;
+    porcentaje: number;
+    posicion: number;
+    total_jugadores: number;
+    promedio_respuesta_ms: number | null;
+  };
+  respuestas: {
+    posicion: number;
+    pregunta: string;
+    elegida: string | null;
+    correcta: string | null;
+    is_correct: boolean | null;
+    timed_out: boolean;
+    puntos: number;
+    tiempo_ms: number | null;
+  }[];
+  ranking: {
+    posicion: number;
+    user_id: string;
+    nombre: string;
+    avatar_id: number | null;
+    score: number;
+    estado: string;
+  }[];
+}
+
+export async function fetchMatchResult(roomId: string): Promise<MatchResultDTO> {
+  const res = await fetch(`/api/partida/resultados?room_id=${encodeURIComponent(roomId)}`, {
+    cache: 'no-store',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || 'No se pudieron cargar los resultados');
+  return data as MatchResultDTO;
+}
+
+/** Ruta de salida tras terminar una partida (práctica / sala real / local). */
+export function postGameRoute(): string {
+  if (typeof window === 'undefined') return '/inicio';
+  try {
+    if (sessionStorage.getItem('eduplay_practice')) return '/practica/resultados';
+  } catch { /* ignore */ }
+  const sala = getMatchRoomId();
+  if (sala) return `/resultados?sala=${encodeURIComponent(sala)}`;
+  return '/inicio';
+}
+
 export interface MatchAnswerResult {
   correct: boolean;
   correct_option_id: string | null;

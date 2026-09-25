@@ -201,6 +201,58 @@ export interface Sala {
   participantes: ParticipanteSala[];
 }
 
+// ─── Paso 5: resultados reales (servidor, action=results) ───
+
+export interface ResultadoParticipanteSala {
+  participant_id: string;
+  user_id: string;
+  nombre: string;
+  estado: EstadoParticipante;
+  score: number;
+  respondidas: number;
+  correctas: number;
+  incorrectas: number;
+  timeouts: number;
+  sin_responder: number;
+  porcentaje: number;
+  promedio_respuesta_ms: number | null;
+}
+
+export interface ResultadoRankingSala {
+  user_id: string;
+  nombre: string;
+  avatar_id: number | null;
+  score: number;
+  estado: string;
+  posicion: number;
+}
+
+export interface ResumenResultadosSala {
+  participantes: number;
+  completados: number;
+  eliminados: number;
+  promedio_puntos: number;
+  porcentaje_aciertos: number;
+  timeouts: number;
+  total_respuestas: number;
+  total_preguntas: number;
+  duracion_ms: number;
+}
+
+export interface ResultadosSala {
+  partida: {
+    id: string;
+    status: string;
+    total_preguntas: number;
+    started_at: string | null;
+    finished_at: string | null;
+    duracion_ms: number;
+  };
+  ranking: ResultadoRankingSala[];
+  participantes: ResultadoParticipanteSala[];
+  resumen: ResumenResultadosSala;
+}
+
 export interface OpcionEstadistica {
   texto: string;
   cantidad: number;

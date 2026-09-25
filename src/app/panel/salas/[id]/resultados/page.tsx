@@ -11,7 +11,7 @@ import { BackButton } from '../../../components/shared/BackButton';
 import { StatusBadge } from '../../../components/shared/StatusBadge';
 import { audioManager } from '../../../lib/audio';
 import { salasService } from '../../../services';
-import { Sala, PreguntaDificil } from '../../../types';
+import { Sala, PreguntaDificil, ResumenResultadosSala } from '../../../types';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
 import { StudentAvatar } from '../../../components/shared/StudentAvatar';
 import { ModeLogo, toGameModeId } from '@/shared/lib/game-modes';
@@ -22,10 +22,15 @@ export default function ResultadosPage() {
   const salaId = params.id as string;
   const [sala, setSala] = useState<Sala | null>(null);
   const [preguntasDificiles, setPreguntasDificiles] = useState<PreguntaDificil[]>([]);
+  // Paso 5: resumen calculado por el servidor (vistas PG); si falla, se deriva de participantes.
+  const [resumen, setResumen] = useState<ResumenResultadosSala | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!salaId) return;
+    salasService.obtenerResultados(salaId).then((r) => {
+      if (r) setResumen(r.resumen);
+    });
     salasService.obtenerPorId(salaId).then(async (s) => {
       if (!s) { setLoading(false); return; }
       setSala(s);
@@ -53,10 +58,12 @@ export default function ResultadosPage() {
 
   const modeId = toGameModeId(sala.juegoId);
   const esLava = modeId === 'lava';
-  const totalParticipantes = sala.participantes.length;
-  const completados = sala.participantes.filter((p) => p.estado === 'finalizado').length;
-  const eliminados = sala.participantes.filter((p) => p.estado === 'eliminado').length;
-  const promedioPuntos = totalParticipantes > 0 ? Math.round(sala.participantes.reduce((a, p) => a + p.puntosNetos, 0) / totalParticipantes) : 0;
+  const totalParticipantes = resumen?.participantes ?? sala.participantes.length;
+  const completados = resumen?.completados ?? sala.participantes.filter((p) => p.estado === 'finalizado').length;
+  const eliminados = resumen?.eliminados ?? sala.participantes.filter((p) => p.estado === 'eliminado').length;
+  const promedioPuntos =
+    resumen?.promedio_puntos ??
+    (totalParticipantes > 0 ? Math.round(sala.participantes.reduce((a, p) => a + p.puntosNetos, 0) / totalParticipantes) : 0);
   const ranking = [...sala.participantes].sort((a, b) => b.puntosNetos - a.puntosNetos);
 
   return (

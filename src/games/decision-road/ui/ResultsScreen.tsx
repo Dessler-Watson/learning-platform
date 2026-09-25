@@ -7,18 +7,9 @@ import { useGameStore } from '@/stores/game.store';
 import { useLeagueStore } from '@/stores/league.store';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { getLeagueByStars, getLeagueProgress, getStarsToNextLeague, getNextLeague } from '@/lib/leagues';
+import { avatarUrl as avatarById } from '@/lib/avatares';
+import { fetchMatchResult, getMatchRoomId, type MatchResultDTO } from '@/lib/partida-client';
 import type { GameResult } from '@/games/decision-road/types';
-
-/* ------------------------------------------------------------------ */
-/*  MOCK RANKING  (simulacion — reemplazar luego por datos reales)    */
-/* ------------------------------------------------------------------ */
-
-const MOCK_CLASSMATES = [
-  { id: 1, nombre: 'Sofia M.', avatar: '/images/avatares/leon.png', puntos: 3450, rango: 'Oro', stars: 5200 },
-  { id: 2, nombre: 'Carlos R.', avatar: '/images/avatares/mariposa.png', puntos: 3120, rango: 'Plata', stars: 3800 },
-  { id: 4, nombre: 'Ana L.', avatar: '/images/avatares/guardabarranco.png', puntos: 2650, rango: 'Plata', stars: 2900 },
-  { id: 5, nombre: 'Diego P.', avatar: '/images/avatares/madrono.png', puntos: 2400, rango: 'Bronce', stars: 800 },
-];
 
 /* ------------------------------------------------------------------ */
 /*  HELPERS                                                            */
@@ -68,10 +59,29 @@ export function ResultsScreen() {
   const [perfil, setPerfil] = useState<PerfilData | null>(null);
   const [starsPersisted, setStarsPersisted] = useState(false);
   const [isPractice, setIsPractice] = useState(false);
+  const [srv, setSrv] = useState<MatchResultDTO | null>(null);
 
   useEffect(() => {
     setIsPractice(!!sessionStorage.getItem('eduplay_practice'));
   }, []);
+
+  // Resultado real de la sala (Paso 5): servidor, no mocks.
+  useEffect(() => {
+    if (!show || isPractice) return;
+    const sala = getMatchRoomId();
+    if (!sala) return;
+    let cancelado = false;
+    fetchMatchResult(sala)
+      .then((res) => {
+        if (!cancelado) setSrv(res);
+      })
+      .catch(() => {
+        if (!cancelado) setSrv(null);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [show, isPractice]);
 
   // Persist stars to league store when results show (sala mode only)
   useEffect(() => {
@@ -120,7 +130,8 @@ export function ResultsScreen() {
                 key="full"
                 result={result}
                 perfil={perfil}
-                onBack={() => setView('simple')}
+                srv={srv}
+                onBack={() => setView('full')}
                 isPractice={isPractice}
               />
             )}
@@ -201,11 +212,13 @@ function SimpleScreen({ onContinue }: { onContinue: () => void }) {
 function FullResultsScreen({
   result,
   perfil,
+  srv,
   onBack,
   isPractice,
 }: {
   result: GameResult;
   perfil: PerfilData | null;
+  srv: MatchResultDTO | null;
   onBack: () => void;
   isPractice: boolean;
 }) {
@@ -223,24 +236,24 @@ function FullResultsScreen({
   const rankColor = currentLeague.color;
 
   const estimatedTimeMs = result.totalQuestions * 12_000;
+  const tiempoRealMs = srv ? srv.partida.duracion_ms : null;
 
-  const yoNombre = perfil?.usuario.nombre || 'Tu';
+  const yoNombre = srv?.yo.nombre || perfil?.usuario.nombre || 'Tu';
   const yoAvatar = perfil?.usuario.avatar.imagen
     ? avatarUrl(perfil.usuario.avatar.imagen)
     : '/images/avatares/gueguense.png';
 
-  const ranking = [
-    ...MOCK_CLASSMATES,
-    {
-      id: 99,
-      nombre: yoNombre,
-      avatar: yoAvatar,
-      puntos: (perfil?.puntos || 0) + result.score,
-      rango: perfil?.rango.nombre || 'Bronce',
-      esYo: true,
-      stars: displayStars,
-    },
-  ].sort((a, b) => b.stars - a.stars);
+  // Ranking real de la sala (servidor, Paso 5). Sin datos reales: no se muestra.
+  const ranking = srv
+    ? srv.ranking.map((r) => ({
+        id: r.user_id,
+        nombre: r.user_id === srv.yo.user_id ? yoNombre : r.nombre,
+        avatar: r.user_id === srv.yo.user_id ? yoAvatar : avatarById(r.avatar_id ?? 1),
+        puntos: r.score,
+        esYo: r.user_id === srv.yo.user_id,
+        posicion: r.posicion,
+      }))
+    : [];
 
   return (
     <motion.div
@@ -261,6 +274,11 @@ function FullResultsScreen({
             <Star size={12} fill="currentColor" /> Nivel completado!
           </motion.div>
           <h2 className="text-xl font-black text-surface-800">Has superado el desafio!</h2>
+          {srv && (
+            <p className="mt-1 text-xs font-black text-surface-500">
+              {srv.yo.porcentaje}% de aciertos · puesto #{srv.yo.posicion} de {srv.yo.total_jugadores}
+            </p>
+          )}
         </div>
 
         {/* Liga + barra */}
@@ -295,10 +313,37 @@ function FullResultsScreen({
 
         {/* Stats */}
         <div className="mb-4 grid grid-cols-2 gap-3">
-          <StatCard icon={<CheckCircle size={18} />} label="Correctas" value={`${result.correctAnswers}/${result.totalQuestions}`} accent="#98C54E" bg="#F1F8E3" />
-          <StatCard icon={<XCircle size={18} />} label="Fallas" value={`${result.incorrectAnswers}`} accent="#EB5D70" bg="#FDEBF3" />
-          <StatCard icon={<Clock size={18} />} label="Tiempo" value={`~${formatTimeMs(estimatedTimeMs)}`} accent="#00A0B5" bg="#E8F7FE" />
-          <StatCard icon={<Trophy size={18} />} label="Puntos" value={result.score >= 0 ? `+${result.score}` : `${result.score}`} accent="#FFA000" bg="#FFF0D6" />
+          <StatCard
+            icon={<CheckCircle size={18} />}
+            label="Correctas"
+            value={srv ? `${srv.yo.correctas}/${srv.partida.total_preguntas}` : `${result.correctAnswers}/${result.totalQuestions}`}
+            accent="#98C54E"
+            bg="#F1F8E3"
+          />
+          <StatCard
+            icon={<XCircle size={18} />}
+            label="Fallas"
+            value={srv ? `${srv.yo.incorrectas}` : `${result.incorrectAnswers}`}
+            accent="#EB5D70"
+            bg="#FDEBF3"
+          />
+          <StatCard
+            icon={<Clock size={18} />}
+            label="Tiempo"
+            value={tiempoRealMs != null ? formatTimeMs(tiempoRealMs) : `~${formatTimeMs(estimatedTimeMs)}`}
+            accent="#00A0B5"
+            bg="#E8F7FE"
+          />
+          <StatCard
+            icon={<Trophy size={18} />}
+            label="Puntos"
+            value={(() => {
+              const score = srv ? srv.yo.score : result.score;
+              return score >= 0 ? `+${score}` : `${score}`;
+            })()}
+            accent="#FFA000"
+            bg="#FFF0D6"
+          />
         </div>
 
         {/* Stars earned */}
@@ -316,15 +361,15 @@ function FullResultsScreen({
           </motion.div>
         )}
 
-        {/* Ranking — hidden in practice mode */}
-        {!isPractice && (
+        {/* Ranking real de la sala (Paso 5) — solo con datos del servidor */}
+        {!isPractice && ranking.length > 0 && (
           <div className="card-game mb-4 p-3">
             <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-surface-500">
-              <Trophy size={14} /> Ranking de la clase
+              <Trophy size={14} /> Ranking de la partida
             </div>
             <div className="flex flex-col gap-2">
               {ranking.map((p, idx) => {
-                const isYo = 'esYo' in p && p.esYo;
+                const isYo = p.esYo;
                 return (
                   <motion.div
                     key={p.id}
@@ -337,19 +382,15 @@ function FullResultsScreen({
                       borderColor: isYo ? 'rgba(152,197,78,0.4)' : 'transparent',
                     }}
                   >
-                    <span className={`w-5 text-center text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-400'}`}>{idx + 1}</span>
+                    <span className={`w-5 text-center text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-400'}`}>{p.posicion}</span>
                     <img src={p.avatar} alt={p.nombre} draggable={false} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 text-sm font-black text-surface-800">
-                        {p.nombre}
+                        <span className="truncate">{p.nombre}</span>
                         {isYo && <span className="rounded-full bg-edu-green px-2 py-0.5 text-[9px] font-black uppercase text-white">TU</span>}
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <LeagueBadge stars={p.stars} size="xs" circular />
-                        <span className="text-[10px] font-black text-surface-400">{getLeagueByStars(p.stars).fullName}</span>
-                      </div>
                     </div>
-                    <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.stars.toLocaleString('es-ES')} <span className="text-[10px] font-bold text-surface-400">estrellas</span></span>
+                    <span className={`text-sm font-black ${isYo ? 'text-edu-green-dark' : 'text-surface-800'}`}>{p.puntos} <span className="text-[10px] font-bold text-surface-400">pts</span></span>
                   </motion.div>
                 );
               })}
@@ -360,7 +401,16 @@ function FullResultsScreen({
         {/* Botones */}
         <div className={`grid gap-3 ${isPractice ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isPractice && (
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { window.location.href = '/sala-espera'; }} className="card-game flex items-center justify-center gap-2 py-3 text-sm font-black text-surface-700">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97, y: 2 }}
+              onClick={() => {
+                window.location.href = srv?.sala.codigo
+                  ? `/sala-espera?codigo=${encodeURIComponent(srv.sala.codigo)}`
+                  : '/inicio';
+              }}
+              className="card-game flex items-center justify-center gap-2 py-3 text-sm font-black text-surface-700"
+            >
               <Users size={16} /> Ir a la sala
             </motion.button>
           )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser, query, queryOne, ensureActiveMatch } from '@/lib/db';
-import { getRoomById, listParticipants, startRoom, finishRoom, createRoom } from '@/lib/db/rooms';
+import { getRoomById, listParticipants, startRoom, createRoom } from '@/lib/db/rooms';
+import { finalizeMatch, rulesForMode, replayResource } from '@/lib/db/matches';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,52 @@ async function mapRoom(room: {
      FROM matches m WHERE m.room_id = $1 ORDER BY m.created_at DESC LIMIT 1`,
     [room.id]
   );
+
+  // Total real de preguntas: snapshot del match; sin match → preguntas activas del curso.
+  let totalPreguntas = matchStats?.total_preguntas ?? 0;
+  if (totalPreguntas <= 0) {
+    const courseQ = await queryOne<{ n: number }>(
+      `SELECT count(*)::int AS n FROM questions
+       WHERE course_id = $1 AND status = 'active' AND deleted_at IS NULL`,
+      [room.course_id]
+    );
+    totalPreguntas = courseQ?.n ?? 0;
+  }
+
+  // Distancia de lava REAL: se recalcula replicando el historial de respuestas
+  // con las mismas reglas del servidor (MODE_RULES.lava, ticks 2..3).
+  const lavaDist = new Map<string, number>();
+  const lavaRules = rulesForMode('lava');
+  const lavaStart = lavaRules.resource?.start ?? 0;
+  if (room.mode_code === 'lava') {
+    const answerRows = await query<{ user_id: string; is_correct: boolean | null }>(
+      `SELECT mp.user_id, pa.is_correct
+       FROM participant_answers pa
+       JOIN match_participants mp ON mp.id = pa.participant_id
+       JOIN matches m ON m.id = pa.match_id
+       WHERE m.room_id = $1
+       ORDER BY mp.user_id, pa.question_position ASC`,
+      [room.id]
+    );
+    let currentUser: string | null = null;
+    let flags: boolean[] = [];
+    const flush = () => {
+      if (currentUser) {
+        lavaDist.set(currentUser, replayResource(lavaRules, flags) ?? lavaStart);
+      }
+    };
+    for (const row of answerRows) {
+      if (currentUser !== null && row.user_id !== currentUser) {
+        flush();
+        flags = [];
+      }
+      currentUser = row.user_id;
+      flags.push(row.is_correct === true);
+    }
+    flush();
+  }
+  const distanciaDe = (userId: string): number =>
+    room.mode_code === 'lava' ? (lavaDist.get(userId) ?? lavaStart) : 0;
 
   const live = await query<{
     user_id: string;
@@ -88,7 +135,7 @@ async function mapRoom(room: {
                   ? ('jugando' as const)
                   : ('esperando' as const),
           puntosNetos: p.score,
-          distanciaLava: 3,
+          distanciaLava: distanciaDe(p.user_id),
           eliminadoEn: p.eliminated_on_question ?? undefined,
         }))
       : await Promise.all(
@@ -107,7 +154,7 @@ async function mapRoom(room: {
               incorrectas: 0,
               estado: 'esperando' as const,
               puntosNetos: 0,
-              distanciaLava: 3,
+              distanciaLava: distanciaDe(p.user_id),
             };
           })
         );
@@ -120,7 +167,7 @@ async function mapRoom(room: {
     nombre: room.name ?? 'Sala',
     codigo: room.code,
     estado: mapEstado(room.status),
-    totalPreguntas: matchStats?.total_preguntas || 10,
+    totalPreguntas,
     createdAt: room.created_at,
     participantes,
     maxPlayers: room.max_players,
@@ -240,18 +287,17 @@ export async function POST(req: NextRequest) {
       if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
-      const result = await finishRoom(id, session.id, { isAdmin: session.role === 'admin' });
+      // Paso 5: finalización definitiva (sala + match + participantes + auditoría).
+      const result = await finalizeMatch(id, session.id, { isAdmin: session.role === 'admin' });
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });
         }
+        if (result.reason === 'not_found') {
+          return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+        }
         return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 400 });
       }
-      await query(
-        `UPDATE matches SET status = 'finished', finished_at = now()
-         WHERE room_id = $1 AND status = 'in_progress'`,
-        [id]
-      );
       const fresh = await getRoomById(id);
       return NextResponse.json({ ok: true, sala: fresh ? await mapRoom(fresh) : null });
     }
@@ -397,6 +443,137 @@ export async function POST(req: NextRequest) {
           puntosNetos: mp?.score ?? 0,
           preguntaEliminacion: mp?.eliminated_on_question ?? undefined,
           answers: detailAnswers,
+        },
+      });
+    }
+
+    // Paso 5: resultados completos de la sala para el docente dueño (o admin),
+    // calculados en el servidor desde las vistas v_match_ranking / v_match_participant_stats.
+    if (action === 'results') {
+      const id = String(body.id ?? body.room_id ?? '');
+      const room = await getRoomById(id);
+      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+        return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+      }
+
+      const match = await queryOne<{
+        id: string;
+        status: string;
+        question_count: number;
+        started_at: string | null;
+        finished_at: string | null;
+        duracion_ms: string;
+      }>(
+        `SELECT m.id, m.status::text AS status, m.question_count,
+                m.started_at::text AS started_at, m.finished_at::text AS finished_at,
+                (EXTRACT(EPOCH FROM (coalesce(m.finished_at, now()) - m.started_at)) * 1000)::text AS duracion_ms
+         FROM matches m WHERE m.room_id = $1 ORDER BY m.created_at DESC LIMIT 1`,
+        [id]
+      );
+      if (!match) {
+        return NextResponse.json({ ok: true, resultados: null });
+      }
+
+      const ranking = await query<{
+        user_id: string;
+        display_name: string;
+        score: number;
+        status: string;
+        position: number;
+        avatar_id: number | null;
+      }>(
+        `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position, u.avatar_id
+         FROM v_match_ranking r
+         LEFT JOIN users u ON u.id = r.user_id
+         WHERE r.match_id = $1
+         ORDER BY r.position ASC, r.score DESC, r.display_name ASC`,
+        [match.id]
+      );
+
+      const statsRows = await query<{
+        participant_id: string;
+        user_id: string;
+        display_name: string;
+        status: string;
+        score: number;
+        answered: number;
+        correct: number;
+        incorrect: number;
+        timeouts: number;
+        avg_response_ms: number | null;
+      }>(
+        `SELECT s.participant_id, s.user_id, s.display_name, s.status, s.score,
+                s.answered::int AS answered, s.correct::int AS correct,
+                s.incorrect::int AS incorrect, s.timeouts::int AS timeouts,
+                s.avg_response_ms::int AS avg_response_ms
+         FROM v_match_participant_stats s
+         WHERE s.match_id = $1
+         ORDER BY s.score DESC, s.display_name ASC`,
+        [match.id]
+      );
+
+      const totalPreguntas = match.question_count;
+      const participantes = statsRows.map((s) => ({
+        participant_id: s.participant_id,
+        user_id: s.user_id,
+        nombre: s.display_name,
+        estado:
+          s.status === 'eliminated'
+            ? ('eliminado' as const)
+            : s.status === 'finished'
+              ? ('finalizado' as const)
+              : s.status === 'playing'
+                ? ('jugando' as const)
+                : ('esperando' as const),
+        score: s.score,
+        respondidas: s.answered,
+        correctas: s.correct,
+        incorrectas: s.incorrect,
+        timeouts: s.timeouts,
+        sin_responder: Math.max(0, totalPreguntas - s.answered),
+        porcentaje: totalPreguntas > 0 ? Math.round((s.correct / totalPreguntas) * 100) : 0,
+        promedio_respuesta_ms: s.avg_response_ms,
+      }));
+
+      const totalJugadores = participantes.length;
+      const totalCorrectas = participantes.reduce((a, p) => a + p.correctas, 0);
+      const totalRespuestas = participantes.reduce((a, p) => a + p.respondidas, 0);
+      const resumen = {
+        participantes: totalJugadores,
+        completados: participantes.filter((p) => p.estado === 'finalizado').length,
+        eliminados: participantes.filter((p) => p.estado === 'eliminado').length,
+        promedio_puntos:
+          totalJugadores > 0
+            ? Math.round(participantes.reduce((a, p) => a + p.score, 0) / totalJugadores)
+            : 0,
+        porcentaje_aciertos: totalRespuestas > 0 ? Math.round((totalCorrectas / totalRespuestas) * 100) : 0,
+        timeouts: participantes.reduce((a, p) => a + p.timeouts, 0),
+        total_respuestas: totalRespuestas,
+        total_preguntas: totalPreguntas,
+        duracion_ms: Number(match.duracion_ms),
+      };
+
+      return NextResponse.json({
+        ok: true,
+        resultados: {
+          partida: {
+            id: match.id,
+            status: match.status,
+            total_preguntas: totalPreguntas,
+            started_at: match.started_at,
+            finished_at: match.finished_at,
+            duracion_ms: Number(match.duracion_ms),
+          },
+          ranking: ranking.map((r) => ({
+            user_id: r.user_id,
+            nombre: r.display_name,
+            avatar_id: r.avatar_id,
+            score: r.score,
+            estado: r.status,
+            posicion: r.position,
+          })),
+          participantes,
+          resumen,
         },
       });
     }

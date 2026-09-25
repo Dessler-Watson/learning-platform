@@ -15,6 +15,7 @@ import { LavaLoadingScreen } from './LavaLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
   return (
@@ -146,9 +147,7 @@ export function LavaCanvas() {
       <CompletionOverlay
         show={lavaPhase === 'completed' && !defeated}
         onDone={() => {
-          const isPractice = !!sessionStorage.getItem('eduplay_practice');
-          if (isPractice) window.location.href = '/practica/resultados';
-          else window.location.href = '/sala-espera';
+          window.location.href = postGameRoute();
         }}
         duration={4000}
       />
@@ -156,9 +155,7 @@ export function LavaCanvas() {
       <DefeatOverlay
         show={lavaPhase === 'completed' && defeated}
         onDone={() => {
-          const isPractice = !!sessionStorage.getItem('eduplay_practice');
-          if (isPractice) window.location.href = '/practica/resultados';
-          else window.location.href = '/sala-espera';
+          window.location.href = postGameRoute();
         }}
         duration={4000}
       />
