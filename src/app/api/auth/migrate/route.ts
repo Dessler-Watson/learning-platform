@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { evaluateAchievements, getSessionUser, getPool } from '@/lib/db';
+import { applyStarsDeltaInTx, evaluateAchievements, getSessionUser, getPool } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,19 +70,11 @@ export async function POST(req: NextRequest) {
     let migratedStars = 0;
 
     if (guestStars > currentStars) {
-      const delta = guestStars - currentStars;
-      const after = currentStars + delta;
-      await client.query(`UPDATE player_league_progress SET stars = $2 WHERE user_id = $1`, [user.id, after]);
-      await client.query(
-        `INSERT INTO league_transactions
-           (user_id, delta_stars, stars_after, league_id_before, league_id_after, source, match_id, reason)
-         VALUES ($1, $2, $3,
-                 (SELECT current_league_id FROM player_league_progress WHERE user_id = $1),
-                 (SELECT current_league_id FROM player_league_progress WHERE user_id = $1),
-                 'migration', NULL, 'Fusión de invitado')`,
-        [user.id, delta, after]
-      );
-      migratedStars = delta;
+      // Fusiona las estrellas válidas del invitado (máximo entre cuenta e
+      // invitado) con la transacción atómica de liga (source='migration').
+      migratedStars = await applyStarsDeltaInTx(client, user.id, guestStars - currentStars, 'migration', {
+        reason: 'Fusión de invitado',
+      });
     }
 
     await client.query(

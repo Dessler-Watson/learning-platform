@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, ensureLeagueProgress, applyStarsDelta, query, queryOne, ensureActiveMatch } from '@/lib/db';
+import { getSessionUser, ensureLeagueProgress, queryOne, ensureActiveMatch } from '@/lib/db';
 import {
   createRoom,
   getRoomByCode,
@@ -192,8 +192,8 @@ export async function POST(req: NextRequest) {
       if (session.role !== 'admin' && room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      // Paso 5: finalización definitiva en una sola transacción
-      // (sala + match + participantes + auditoría). Estrellas = Paso 7 (se conservan aquí).
+      // Paso 5/7: finalización definitiva en una sola transacción
+      // (sala + match + participantes + estrellas de liga + auditoría).
       const result = await finalizeMatch(roomId, session.id, { isAdmin: session.role === 'admin' });
       if (!result.ok) {
         if (result.reason === 'bad_status') {
@@ -205,32 +205,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No se pudo finalizar' }, { status: 403 });
       }
 
-      const ranking = await query<{ user_id: string; score: number }>(
-        `SELECT mp.user_id, mp.score
-         FROM match_participants mp
-         JOIN matches m ON m.id = mp.match_id
-         WHERE m.room_id = $1
-         ORDER BY mp.score DESC`,
-        [roomId]
-      );
-
-      let myStars = 0;
-      const matchRow = await queryOne<{ id: string }>(
-        `SELECT id FROM matches WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`,
-        [roomId]
-      );
-      for (let i = 0; i < ranking.length; i++) {
-        const stars = i === 0 ? 3 : i === 1 ? 2 : i === 2 ? 1 : 0;
-        if (stars > 0) {
-          await applyStarsDelta(ranking[i].user_id, stars, 'room_match', {
-            matchId: matchRow?.id ?? null,
-            reason: `Puesto ${i + 1} en sala`,
-          });
-        }
-        if (ranking[i].user_id === session.id) myStars = stars;
-      }
-
-      return NextResponse.json({ ok: true, estrellas: myStars });
+      const myAward = result.awarded.find((a) => a.user_id === session.id);
+      return NextResponse.json({ ok: true, estrellas: myAward?.stars ?? 0 });
     }
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });

@@ -762,21 +762,39 @@ if ($cursoP) {
       Ok 'partida: PG 5 respuestas' ([int]"$pgA".Trim() -eq 5) "n=$pgA"
       $pgS = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT mp.score FROM match_participants mp JOIN matches m ON m.id = mp.match_id JOIN users u ON u.id = mp.user_id WHERE m.room_id = '$salaA' AND u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
       Ok 'partida: PG score s1 = 10' ([int]"$pgS".Trim() -eq 10) "score=$pgS"
-      $pgX = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA' AND pa.stars_delta <> 0" 2>$null)
-      Ok 'partida: PG stars_delta 0' ([int]"$pgX".Trim() -eq 0) "n=$pgX"
+      $pgCoA = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT COALESCE(SUM(pa.is_correct::int),0) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA'" 2>$null))".Trim()
+      $pgStA = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT COALESCE(SUM(pa.stars_delta),0) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA'" 2>$null))".Trim()
+      $pgSpcA = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT gm.stars_per_correct FROM game_modes gm JOIN rooms r ON r.game_mode_id = gm.id WHERE r.id = '$salaA'" 2>$null))".Trim()
+      Ok 'partida: PG stars_delta por acierto' ($pgStA -eq $pgCoA * $pgSpcA -and $pgStA -gt 0) "stars=$pgStA correct=$pgCoA spc=$pgSpcA"
+      $pgSeA = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM match_participants mp JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$salaA' AND mp.stars_earned = (SELECT COALESCE(SUM(pa.stars_delta),0) FROM participant_answers pa WHERE pa.participant_id = mp.id)" 2>$null)
+      Ok 'partida: PG stars_earned coherente' ([int]"$pgSeA".Trim() -ge 2) "n=$pgSeA"
     } else {
       Ok 'partida: PG 1 match activo' $false 'psql missing'
       Ok 'partida: PG 2 participantes' $false 'psql missing'
       Ok 'partida: PG 5 respuestas' $false 'psql missing'
       Ok 'partida: PG score s1 = 10' $false 'psql missing'
-      Ok 'partida: PG stars_delta 0' $false 'psql missing'
+      Ok 'partida: PG stars_delta por acierto' $false 'psql missing'
+      Ok 'partida: PG stars_earned coherente' $false 'psql missing'
     }
 
-    # 10) Finalizar sala → respuestas posteriores rechazadas
+    # 10) Finalizar sala → estrellas de liga + respuestas posteriores rechazadas
+    if ($null -eq $pgSpcA) { $pgSpcA = 10 }
+    $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
+    $estA1 = [int](J $r).estrellas
     $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
       action = 'finish'; room_id = $salaA
     } | ConvertTo-Json) -UseBasicParsing
     Ok 'partida: teacher finish A' ($r.StatusCode -eq 200) $r.StatusCode
+    $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
+    $estA2 = [int](J $r).estrellas
+    Ok 'partida: estrellas s1 = antes + aciertos x spc' ($estA2 -eq $estA1 + 2 * $pgSpcA -and $pgSpcA -gt 0) "before=$estA1 after=$estA2 spc=$pgSpcA"
+    if (Test-Path $psqlExe) {
+      $pgTxA = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt WHERE lt.source = 'room_match' AND lt.delta_stars > 0 AND lt.match_id IN (SELECT id FROM matches WHERE room_id = '$salaA')" 2>$null))".Trim()
+      $pgEqA = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt JOIN player_league_progress plp ON plp.user_id = lt.user_id WHERE lt.source = 'room_match' AND lt.match_id IN (SELECT id FROM matches WHERE room_id = '$salaA') AND plp.stars = lt.stars_after" 2>$null))".Trim()
+      Ok 'partida: tx room_match registradas' ($pgTxA -eq 2 -and $pgEqA -eq 2) "tx=$pgTxA eq=$pgEqA"
+    } else {
+      Ok 'partida: tx room_match registradas' $false 'psql missing'
+    }
     try {
       $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
         action = 'answer'; room_id = $salaA; question_id = $s2q1.id; option_id = $s2opt.id
@@ -799,8 +817,11 @@ if ($cursoP) {
     Ok 'partida: PG 2 participantes' $false 'preguntas missing'
     Ok 'partida: PG 5 respuestas' $false 'preguntas missing'
     Ok 'partida: PG score s1 = 10' $false 'preguntas missing'
-    Ok 'partida: PG stars_delta 0' $false 'preguntas missing'
+    Ok 'partida: PG stars_delta por acierto' $false 'preguntas missing'
+    Ok 'partida: PG stars_earned coherente' $false 'preguntas missing'
     Ok 'partida: teacher finish A' $false 'preguntas missing'
+    Ok 'partida: estrellas s1 = antes + aciertos x spc' $false 'preguntas missing'
+    Ok 'partida: tx room_match registradas' $false 'preguntas missing'
     Ok 'partida: answer tras finish 409' $false 'preguntas missing'
   }
 
@@ -2155,6 +2176,17 @@ if ($curso) {
     $dirtyB = @($logrosB.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
     Ok 'logros: invitado no acumula' (($logrosB.logros | Measure-Object).Count -eq 150 -and $dirtyB.Count -eq 0) "dirty=$($dirtyB.Count)"
 
+    # Estrellas de liga del invitado: sí acumula jugando partidas competitivas reales
+    $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $sgB -UseBasicParsing
+    $estG = J $r
+    $pgGS = $null
+    if (Test-Path $psqlExe) {
+      $pgGS = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT COALESCE(SUM(mp.stars_earned),0) FROM match_participants mp JOIN matches m ON m.id = mp.match_id WHERE mp.user_id = '$guestB' AND m.room_id = '$salaG'" 2>$null))".Trim()
+      Ok 'estrellas: invitado gana en sala' ($pgGS -gt 0 -and [int]$estG.estrellas -eq $pgGS) "api=$($estG.estrellas) pg=$pgGS"
+    } else {
+      Ok 'estrellas: invitado gana en sala' $false 'psql missing'
+    }
+
     # Registrar cuenta y migrar: el progreso del invitado se conserva (PG, no localStorage)
     $r = $null
     try {
@@ -2170,6 +2202,23 @@ if ($curso) {
       } | ConvertTo-Json) -UseBasicParsing
       $migL = J $r
       Ok 'logros: migrate evalua datos' ($r.StatusCode -eq 200 -and $migL.ok -eq $true -and [int]$migL.migrated_achievements -ge 2) "migrated_ach=$($migL.migrated_achievements)"
+
+      # Estrellas: la cuenta fusionada conserva EXACTAMENTE las del invitado
+      $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $smig -UseBasicParsing
+      $estM = J $r
+      if ($null -ne $pgGS) {
+        Ok 'estrellas: invitado conserva al migrar' ($pgGS -gt 0 -and [int]$estM.estrellas -eq $pgGS) "mig=$($estM.estrellas) guest=$pgGS"
+        Ok 'estrellas: migrate reporta estrellas' ([int]$migL.migrated_stars -eq $pgGS) "migrated_stars=$($migL.migrated_stars) expect=$pgGS"
+      } else {
+        Ok 'estrellas: invitado conserva al migrar' $false 'psql missing'
+        Ok 'estrellas: migrate reporta estrellas' $false 'psql missing'
+      }
+      if (Test-Path $psqlExe) {
+        $pgTxM = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt JOIN users u ON u.id = lt.user_id WHERE u.email = 'e2e_miglog_$stamp@gmail.com' AND lt.source = 'migration' AND lt.delta_stars > 0" 2>$null)
+        Ok 'estrellas: tx migration registrada' ([int]"$pgTxM".Trim() -ge 1) "n=$pgTxM"
+      } else {
+        Ok 'estrellas: tx migration registrada' $false 'psql missing'
+      }
 
       $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $smig -UseBasicParsing
       $migLog = J $r
@@ -2188,6 +2237,9 @@ if ($curso) {
     } else {
       Ok 'logros: migrate evalua datos' $false 'register missing'
       Ok 'logros: progreso invitado conservado' $false 'register missing'
+      Ok 'estrellas: invitado conserva al migrar' $false 'register missing'
+      Ok 'estrellas: migrate reporta estrellas' $false 'register missing'
+      Ok 'estrellas: tx migration registrada' $false 'register missing'
       Ok 'logros: guest sesion revocada tras migrate' $false 'register missing'
     }
 
@@ -2216,6 +2268,139 @@ if ($curso) {
   Ok 'logros: sync idempotente' $false 'no curso'
   Ok 'logros: invitado no acumula' $false 'no curso'
   Ok 'logros: progreso invitado conservado' $false 'no curso'
+}
+
+# ═══ 13. ESTRELLAS Y LIGAS (Paso 7) ═══
+# Sala controlada: estrellas = stars_per_correct x acierto (solo partida competitiva),
+# transacciones room_match, trigger de liga, ranking real, anti-spoof y sin sistemas paralelos.
+if ($cursoP -and $uidA) {
+  $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
+  $s1B13 = [int](J $r).estrellas
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'create'; name = "Sala Ligas $stamp"; mode = 'decisiones'; course_id = $cursoP.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'ligas: sala create' ($r.StatusCode -eq 201) $r.StatusCode
+  $sala13 = (J $r).sala.id
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'join'; code = ((J $r).sala.code)
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'ligas: join s1' ($r.StatusCode -eq 200 -or $r.StatusCode -eq 201) $r.StatusCode
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'start'; room_id = $sala13
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'ligas: start' ($r.StatusCode -eq 200) $r.StatusCode
+
+  # Responde todas las preguntas: acierto ⇒ stars_delta > 0, fallo ⇒ 0
+  $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$sala13" -WebSession $s1 -UseBasicParsing
+  $qs13 = @((J $r).preguntas)
+  $ok13 = $true
+  $n13 = 0
+  $corr13 = 0
+  $sd13 = 0
+  foreach ($q in $qs13) {
+    $opt13 = @($q.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1
+    if (-not $opt13) { $ok13 = $false; continue }
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'answer'; room_id = $sala13; question_id = $q.id; option_id = $opt13.id; response_time_ms = 150
+    } | ConvertTo-Json) -UseBasicParsing
+    $a13 = J $r
+    if ($r.StatusCode -ne 200) { $ok13 = $false; continue }
+    $n13++
+    $sd13 += [int]$a13.stars_delta
+    if ($a13.correct -eq $true) {
+      $corr13++
+      if ([int]$a13.stars_delta -le 0) { $ok13 = $false }
+    } elseif ([int]$a13.stars_delta -ne 0) {
+      $ok13 = $false
+    }
+  }
+  Ok 'ligas: stars_delta por acierto en API' ($ok13 -and $n13 -ge 1 -and $corr13 -ge 1) "n=$n13 corr=$corr13 sd=$sd13"
+
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    action = 'finish'; room_id = $sala13
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'ligas: finish' ($r.StatusCode -eq 200) $r.StatusCode
+
+  $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
+  $s1A13 = [int](J $r).estrellas
+
+  if (Test-Path $psqlExe) {
+    $spc13 = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT stars_per_correct FROM game_modes WHERE code = 'decisiones'" 2>$null))".Trim()
+    $c13 = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT COALESCE(SUM(pa.is_correct::int),0) FROM participant_answers pa JOIN match_participants mp ON mp.id = pa.participant_id JOIN matches m ON m.id = mp.match_id WHERE m.room_id = '$sala13'" 2>$null))".Trim()
+    Ok 'ligas: estrellas = aciertos x spc' ($c13 -gt 0 -and $spc13 -gt 0 -and $s1A13 -eq $s1B13 + $c13 * $spc13 -and $sd13 -eq $c13 * $spc13) "before=$s1B13 after=$s1A13 correct=$c13 spc=$spc13 sd=$sd13"
+
+    $pgT13 = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt WHERE lt.source = 'room_match' AND lt.delta_stars > 0 AND lt.match_id IN (SELECT id FROM matches WHERE room_id = '$sala13') AND lt.stars_after = (SELECT stars FROM player_league_progress WHERE user_id = lt.user_id)" 2>$null))".Trim()
+    Ok 'ligas: tx room_match registradas' ($pgT13 -eq 1) "n=$pgT13"
+
+    $pgTr13 = [int]"$((& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM player_league_progress plp JOIN users u ON u.id = plp.user_id WHERE u.email IN ('e2e_logros_$stamp@gmail.com', 'e2e_rank_a_$stamp@gmail.com') AND plp.current_league_id = (SELECT l.id FROM leagues l WHERE l.stars_required <= plp.stars ORDER BY l.stars_required DESC, l.sort_order DESC LIMIT 1)" 2>$null))".Trim()
+    Ok 'ligas: trigger coherente' ($pgTr13 -eq 2) "n=$pgTr13"
+  } else {
+    Ok 'ligas: estrellas = aciertos x spc' $false 'psql missing'
+    Ok 'ligas: tx room_match registradas' $false 'psql missing'
+    Ok 'ligas: trigger coherente' $false 'psql missing'
+  }
+
+  # Ranking real: refleja las estrellas recién ganadas
+  $r = Invoke-WebRequest -Uri "$base/api/ranking?limit=100" -WebSession $s1 -UseBasicParsing
+  $rk13 = J $r
+  $me13 = @($rk13.ranking) | Where-Object { $_.es_tu } | Select-Object -First 1
+  Ok 'ligas: ranking refleja estrellas reales' ($null -ne $me13 -and [int]$me13.estrellas -eq $s1A13) "me=$($me13.estrellas) expect=$s1A13"
+
+  # Un estudiante no puede modificar las estrellas de otro usuario
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/estrellas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      user_id = $uidA; delta = 999; reason = 'spoof'
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'ligas: estudiante no modifica ajenas' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'ligas: estudiante no modifica ajenas' ($code -eq 403) "code=$code"
+  }
+  if (Test-Path $psqlExe) {
+    $pgUa13 = (& $psqlExe -U postgres -d eduplay_db -t -A -c "SELECT stars FROM player_league_progress WHERE user_id = '$uidA'" 2>$null)
+    Ok 'ligas: estrellas ajenas intactas' ([int]"$pgUa13".Trim() -eq 100) "stars=$pgUa13"
+  } else {
+    Ok 'ligas: estrellas ajenas intactas' $false 'psql missing'
+  }
+
+  # Sin sistemas paralelos de puntos: un solo escritor de tx, sin localStorage
+  $leagueStoreSrc = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\stores\league.store.ts')
+  Ok 'ligas: store sin localStorage' ($leagueStoreSrc -and $leagueStoreSrc -notmatch 'localStorage\.(get|set|remove)Item') "len=$($leagueStoreSrc.Length)"
+
+  $srcRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\src')).Path
+  $txWriters = @(Get-ChildItem -Recurse -Path $srcRoot -Filter *.ts -File | Where-Object {
+    (Get-Content -Raw -LiteralPath $_.FullName) -match 'INSERT INTO\s+league_transactions'
+  } | ForEach-Object { $_.FullName.Substring($srcRoot.Length) })
+  Ok 'ligas: un solo escritor de tx' ($txWriters.Count -eq 1 -and $txWriters[0] -match 'leagues\.ts$') ($txWriters -join ' | ')
+
+  $plpWriters = @(Get-ChildItem -Recurse -Path $srcRoot -Filter *.ts -File | Where-Object {
+    (Get-Content -Raw -LiteralPath $_.FullName) -match 'INSERT INTO\s+player_league_progress'
+  } | ForEach-Object { $_.FullName.Substring($srcRoot.Length) })
+  $plpBad = @($plpWriters | Where-Object { $_ -notmatch 'leagues\.ts$' -and $_ -notmatch 'migrate' })
+  Ok 'ligas: escritores plp limitados' ($plpWriters.Count -ge 1 -and $plpBad.Count -eq 0) ($plpWriters -join ' | ')
+
+  $pracFiles = @((Join-Path $srcRoot 'app\api\practicas\route.ts'), (Join-Path $srcRoot 'lib\db\practices.ts'))
+  $pracHits = @($pracFiles | Where-Object { (Test-Path $_) -and ((Get-Content -Raw -LiteralPath $_) -match 'applyStarsDelta|league_transactions|player_league_progress') })
+  Ok 'ligas: practica sin escritor de estrellas' ($pracHits.Count -eq 0) "hits=$($pracHits.Count)"
+} else {
+  Ok 'ligas: sala create' $false 'curso/uidA missing'
+  Ok 'ligas: join s1' $false 'curso/uidA missing'
+  Ok 'ligas: start' $false 'curso/uidA missing'
+  Ok 'ligas: stars_delta por acierto en API' $false 'curso/uidA missing'
+  Ok 'ligas: finish' $false 'curso/uidA missing'
+  Ok 'ligas: estrellas = aciertos x spc' $false 'curso/uidA missing'
+  Ok 'ligas: tx room_match registradas' $false 'curso/uidA missing'
+  Ok 'ligas: trigger coherente' $false 'curso/uidA missing'
+  Ok 'ligas: ranking refleja estrellas reales' $false 'curso/uidA missing'
+  Ok 'ligas: estudiante no modifica ajenas' $false 'curso/uidA missing'
+  Ok 'ligas: estrellas ajenas intactas' $false 'curso/uidA missing'
+  Ok 'ligas: store sin localStorage' $false 'curso/uidA missing'
+  Ok 'ligas: un solo escritor de tx' $false 'curso/uidA missing'
+  Ok 'ligas: escritores plp limitados' $false 'curso/uidA missing'
+  Ok 'ligas: practica sin escritor de estrellas' $false 'curso/uidA missing'
 }
 
 # ═══ RESULTS ═══

@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { getPool, query, queryOne } from './client';
+import { applyStarsDeltaInTx } from './leagues';
 
 export interface ModeRules {
   correctPoints: number;
@@ -242,6 +243,7 @@ export type AnswerOutcome =
       correct: boolean;
       correct_option_id: string | null;
       points_delta: number;
+      stars_delta: number;
       score: number;
       xp: number;
       question_position: number;
@@ -304,10 +306,12 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       return { ok: false, status: 409, error };
     }
 
-    const matchRes = await client.query<{ id: string; question_count: number; status: string }>(
-      `SELECT id, question_count, status FROM matches
-       WHERE room_id = $1 AND status = 'in_progress'
-       ORDER BY created_at DESC LIMIT 1`,
+    const matchRes = await client.query<{ id: string; question_count: number; status: string; stars_per_correct: number }>(
+      `SELECT m.id, m.question_count, m.status, gm.stars_per_correct
+       FROM matches m
+       JOIN game_modes gm ON gm.id = m.game_mode_id
+       WHERE m.room_id = $1 AND m.status = 'in_progress'
+       ORDER BY m.created_at DESC LIMIT 1`,
       [input.roomId]
     );
     const match = matchRes.rows[0];
@@ -409,6 +413,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
 
     const rules = rulesForMode(room.mode_code);
     const pointsDelta = isCorrect ? rules.correctPoints : rules.incorrectPoints;
+    const starsDelta = isCorrect ? match.stars_per_correct : 0;
     const rawScore = participant.score + pointsDelta;
     const newScore = rules.floorAtZero ? Math.max(0, rawScore) : rawScore;
     const xpGain = isCorrect ? rules.xpPerCorrect : 0;
@@ -418,7 +423,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
         `INSERT INTO participant_answers
            (match_id, participant_id, question_id, option_id, question_position,
             is_correct, timed_out, response_time_ms, points_delta, stars_delta, answered_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, now())`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())`,
         [
           match.id,
           participant.id,
@@ -429,6 +434,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
           input.timedOut,
           input.responseTimeMs,
           pointsDelta,
+          starsDelta,
         ]
       );
     } catch (err) {
@@ -454,8 +460,8 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       (rules.eliminateOnIncorrect && !isCorrect);
 
     await client.query(
-      `UPDATE match_participants SET score = $2, xp = xp + $3 WHERE id = $1`,
-      [participant.id, newScore, xpGain]
+      `UPDATE match_participants SET score = $2, xp = xp + $3, stars_earned = stars_earned + $4 WHERE id = $1`,
+      [participant.id, newScore, xpGain, starsDelta]
     );
     if (eliminated) {
       await client.query(
@@ -479,6 +485,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       correct: isCorrect,
       correct_option_id: input.timedOut ? null : (correctOptionRes?.id ?? null),
       points_delta: pointsDelta,
+      stars_delta: starsDelta,
       score: newScore,
       xp: participant.xp + xpGain,
       question_position: position,
@@ -506,14 +513,16 @@ export interface FinalizeMatchResult {
   ok: boolean;
   reason?: 'not_found' | 'forbidden' | 'bad_status';
   matchIds: string[];
+  awarded: Array<{ user_id: string; stars: number }>;
 }
 
 /**
  * Finalización definitiva de una sala y su partida: en UNA transacción
  * marca la sala como finalizada, cierra el match activo, marca a los
- * participantes 'playing' como 'finished' (los 'eliminated' se conservan)
- * y registra el evento de auditoría. No otorga estrellas (Paso 7).
- * Seguro ante concurrencia (bloquea la fila de la sala).
+ * participantes 'playing' como 'finished' (los 'eliminated' se conservan),
+ * otorga las estrellas de liga acumuladas por acierto (source='room_match',
+ * con su transacción en league_transactions) y registra el evento de
+ * auditoría. Seguro ante concurrencia (bloquea la fila de la sala).
  */
 export async function finalizeMatch(
   roomId: string,
@@ -536,15 +545,15 @@ export async function finalizeMatch(
     const room = roomRes.rows[0];
     if (!room || room.deleted_at) {
       await client.query('ROLLBACK');
-      return { ok: false, reason: 'not_found', matchIds: [] };
+      return { ok: false, reason: 'not_found', matchIds: [], awarded: [] };
     }
     if (!opts?.isAdmin && room.teacher_id !== actorId) {
       await client.query('ROLLBACK');
-      return { ok: false, reason: 'forbidden', matchIds: [] };
+      return { ok: false, reason: 'forbidden', matchIds: [], awarded: [] };
     }
     if (room.status !== 'waiting' && room.status !== 'in_progress') {
       await client.query('ROLLBACK');
-      return { ok: false, reason: 'bad_status', matchIds: [] };
+      return { ok: false, reason: 'bad_status', matchIds: [], awarded: [] };
     }
 
     await client.query(
@@ -560,6 +569,7 @@ export async function finalizeMatch(
       [roomId]
     );
     const matchIds = matchesRes.rows.map((r) => r.id);
+    const awarded: Array<{ user_id: string; stars: number }> = [];
 
     if (matchIds.length > 0) {
       await client.query(
@@ -568,6 +578,23 @@ export async function finalizeMatch(
          WHERE match_id = ANY($1::uuid[]) AND status = 'playing'`,
         [matchIds]
       );
+
+      // Estrellas de liga (Paso 7): premio por acierto ya acumulado en
+      // match_participants.stars_earned durante las respuestas.
+      const starsRes = await client.query<{ user_id: string; match_id: string; stars: number }>(
+        `SELECT mp.user_id, mp.match_id, mp.stars_earned::int AS stars
+         FROM match_participants mp
+         WHERE mp.match_id = ANY($1::uuid[]) AND mp.stars_earned > 0
+         ORDER BY mp.match_id ASC, mp.user_id ASC`,
+        [matchIds]
+      );
+      for (const p of starsRes.rows) {
+        const applied = await applyStarsDeltaInTx(client, p.user_id, p.stars, 'room_match', {
+          matchId: p.match_id,
+          reason: 'Puntos por aciertos en partida',
+        });
+        if (applied > 0) awarded.push({ user_id: p.user_id, stars: applied });
+      }
     }
 
     await client.query(
@@ -577,7 +604,7 @@ export async function finalizeMatch(
     );
 
     await client.query('COMMIT');
-    return { ok: true, matchIds };
+    return { ok: true, matchIds, awarded };
   } catch (err) {
     try {
       await client.query('ROLLBACK');
