@@ -427,6 +427,190 @@ if ($delId) {
   Ok 'practica: eliminar propia' $false "create failed=$delCreate"
 }
 
+# ═══ 2c. PRACTICAS PUBLICAS (Paso 9: busqueda PG, permisos de publicacion, 0 estrellas) ═══
+function PostP9($sx, $bodyObj) {
+  $json = $bodyObj | ConvertTo-Json -Depth 6
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+  try {
+    $res = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes -WebSession $sx -UseBasicParsing
+    return [pscustomobject]@{ code = [int]$res.StatusCode; data = (J $res) }
+  } catch {
+    $code = 0
+    try { $code = [int]$_.Exception.Response.StatusCode } catch { $code = 0 }
+    return [pscustomobject]@{ code = $code; data = $null }
+  }
+}
+function NewP9($sx, $title, $mode) {
+  $res = PostP9 $sx @{
+    action = 'create'; title = $title; topic = 'geografia'; mode = $mode
+    questions = @(@{ question = 'Pregunta unica?'; optionA = 'Si'; optionB = 'No'; correctAnswer = 'A' })
+  }
+  return [pscustomobject]@{ code = $res.code; id = $(if ($res.data) { $res.data.id } else { $null }) }
+}
+function GetP9($qs) {
+  $res = Invoke-WebRequest -Uri "$base/api/practicas?scope=public$qs" -UseBasicParsing
+  return @((J $res).practicas)
+}
+function FindP9($list, $id) {
+  return @($list | Where-Object { $_.id -eq $id }).Count
+}
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'PubOwner'; email = "e2e_pub_own_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spo
+Ok 'pubp: owner register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'PubOther'; email = "e2e_pub_oth_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spoth
+Ok 'pubp: other register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = "PubGuest_$stamp"
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spgp
+Ok 'pubp: guest create' ($r.StatusCode -eq 201) $r.StatusCode
+
+# Crear 1 privada + 3 publicables (decisiones, lava y tierras con acentos)
+$mkPriv = NewP9 $spo "Privada P9 $stamp" 'lava'
+Ok 'pubp: crear privada' ($mkPriv.code -eq 201) "code=$($mkPriv.code)"
+$mkPub = NewP9 $spo "PubOferta P9 $stamp" 'decisiones'
+$mkLava = NewP9 $spo "PubVolcan P9 $stamp" 'lava'
+$mkAcc = NewP9 $spo "Pr$([char]0x00E1)ctica $([char]0x00C1)rbol P9 $stamp" 'tierras'
+Ok 'pubp: crear publicables' ($mkPub.code -eq 201 -and $mkLava.code -eq 201 -and $mkAcc.code -eq 201) "$($mkPub.code),$($mkLava.code),$($mkAcc.code)"
+
+$pubPub = PostP9 $spo @{ action = 'publish'; practice_id = $mkPub.id }
+$pubLava = PostP9 $spo @{ action = 'publish'; practice_id = $mkLava.id }
+$pubAcc = PostP9 $spo @{ action = 'publish'; practice_id = $mkAcc.id }
+Ok 'pubp: publicar propias' ($pubPub.code -eq 200 -and $pubLava.code -eq 200 -and $pubAcc.code -eq 200) "$($pubPub.code),$($pubLava.code),$($pubAcc.code)"
+
+# 1/2) Aparece en busqueda publica con creador real; la privada no aparece
+$allP9 = GetP9 ''
+$creatorP9 = ($allP9 | Where-Object { $_.id -eq $mkPub.id } | Select-Object -First 1).creator_name
+Ok 'pubp: listado publico' ((FindP9 $allP9 $mkPub.id) -eq 1 -and (FindP9 $allP9 $mkLava.id) -eq 1 -and (FindP9 $allP9 $mkAcc.id) -eq 1 -and (FindP9 $allP9 $mkPriv.id) -eq 0 -and "$creatorP9" -eq 'PubOwner') "n=$($allP9.Count) priv=$(FindP9 $allP9 $mkPriv.id) creator=$creatorP9"
+
+# Criterios de la interfaz: titulo, acentos, creador, #codigo, modo
+$qT = GetP9 "&q=$([uri]::EscapeDataString("PubOferta P9"))"
+Ok 'pubp: busqueda q titulo' ((FindP9 $qT $mkPub.id) -eq 1 -and (FindP9 $qT $mkLava.id) -eq 0) "n=$($qT.Count)"
+
+$qA = GetP9 "&q=$([uri]::EscapeDataString('Practica Arbol'))"
+Ok 'pubp: busqueda acentos' ((FindP9 $qA $mkAcc.id) -eq 1) "n=$($qA.Count)"
+
+$qC = GetP9 "&q=$([uri]::EscapeDataString('PubOwner'))"
+Ok 'pubp: busqueda q creador' ((FindP9 $qC $mkPub.id) -eq 1 -and (FindP9 $qC $mkLava.id) -eq 1) "n=$($qC.Count)"
+
+$mineP9 = @((J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $spo -UseBasicParsing)).practicas)
+$codeP9 = ($mineP9 | Where-Object { $_.id -eq $mkPub.id } | Select-Object -First 1).code
+$qCode = GetP9 "&q=$([uri]::EscapeDataString($codeP9))"
+$qHash = GetP9 "&q=$([uri]::EscapeDataString('#' + $codeP9))"
+Ok 'pubp: busqueda q codigo' ($codeP9 -and (FindP9 $qCode $mkPub.id) -eq 1 -and (FindP9 $qHash $mkPub.id) -eq 1) "code=$codeP9 c=$(FindP9 $qCode $mkPub.id) h=$(FindP9 $qHash $mkPub.id)"
+
+$qNone = GetP9 "&q=$([uri]::EscapeDataString('zzzNoExisteXYZ99'))"
+Ok 'pubp: busqueda sin resultados' (@($qNone).Count -eq 0) "n=$(@($qNone).Count)"
+
+$mLava = GetP9 '&mode=lava'
+$mDec = GetP9 '&mode=decisiones'
+Ok 'pubp: filtro modo' ((FindP9 $mLava $mkLava.id) -eq 1 -and (FindP9 $mLava $mkPub.id) -eq 0 -and (FindP9 $mDec $mkPub.id) -eq 1 -and (FindP9 $mDec $mkLava.id) -eq 0) "lava=$(FindP9 $mLava $mkLava.id) dec=$(FindP9 $mDec $mkPub.id)"
+
+# 3) Retirar la publicacion y volver a publicar
+$unp = PostP9 $spo @{ action = 'unpublish'; practice_id = $mkPub.id }
+$afterUnp = GetP9 ''
+$mineUnpRow = @((J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $spo -UseBasicParsing)).practicas) | Where-Object { $_.id -eq $mkPub.id } | Select-Object -First 1
+Ok 'pubp: retirar publicacion' ($unp.code -eq 200 -and (FindP9 $afterUnp $mkPub.id) -eq 0 -and $mineUnpRow.is_public -eq $false) "code=$($unp.code) public=$(FindP9 $afterUnp $mkPub.id)"
+
+$rep = PostP9 $spo @{ action = 'publish'; practice_id = $mkPub.id }
+$afterRep = GetP9 ''
+Ok 'pubp: republicar' ($rep.code -eq 200 -and (FindP9 $afterRep $mkPub.id) -eq 1) "code=$($rep.code) public=$(FindP9 $afterRep $mkPub.id)"
+
+# 4) Privada: detalle bloqueado para otros
+$detailPriv = 0
+try {
+  $detailPriv = [int](Invoke-WebRequest -Uri "$base/api/practicas?practice_id=$($mkPriv.id)" -WebSession $spoth -UseBasicParsing).StatusCode
+} catch {
+  try { $detailPriv = [int]$_.Exception.Response.StatusCode } catch { $detailPriv = 0 }
+}
+Ok 'pubp: privada no expuesta' ($detailPriv -eq 403) "code=$detailPriv"
+
+# 5) Otro usuario la encuentra y la juega (servidor califica)
+$findLava = GetP9 ''
+$foundP9 = (FindP9 $findLava $mkLava.id) -eq 1
+$detCode = 0; $pregN = 0
+try {
+  $dr = Invoke-WebRequest -Uri "$base/api/practicas?practice_id=$($mkLava.id)" -WebSession $spoth -UseBasicParsing
+  $detCode = [int]$dr.StatusCode
+  $pregN = @((J $dr).preguntas).Count
+} catch { $detCode = 0 }
+$sub = PostP9 $spoth @{ action = 'submit'; practice_id = $mkLava.id; answers = @(@{ index = 0; choice = 'A' }) }
+Ok 'pubp: otro encuentra y juega' ($foundP9 -and $detCode -eq 200 -and $pregN -ge 1 -and $sub.code -eq 201 -and $sub.data.persisted -eq $true -and [int]$sub.data.score -eq 100) "found=$foundP9 det=$detCode preg=$pregN sub=$($sub.code)"
+
+# Contabilizar reproducciones
+$pubNow = GetP9 ''
+$pcLava = ($pubNow | Where-Object { $_.id -eq $mkLava.id } | Select-Object -First 1).play_count
+Ok 'pubp: play_count real' ([int]$pcLava -eq 1) "pc=$pcLava"
+
+# 9) Historial del jugador registrado
+$resOth = @((J (Invoke-WebRequest -Uri "$base/api/practicas?scope=results" -WebSession $spoth -UseBasicParsing)).resultados)
+$resOwn = @((J (Invoke-WebRequest -Uri "$base/api/practicas?scope=results" -WebSession $spo -UseBasicParsing)).resultados)
+Ok 'pubp: historial registrado' ((@($resOth | Where-Object { $_.practice_id -eq $mkLava.id }).Count) -eq 1 -and (@($resOwn | Where-Object { $_.practice_id -eq $mkLava.id }).Count) -eq 0) "oth=$(@($resOth).Count) own=$(@($resOwn).Count)"
+
+# 6) Invitado busca y juega sin historial persistente
+$gList = @((J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public" -WebSession $spgp -UseBasicParsing)).practicas)
+Ok 'pubp: invitado busca' ((FindP9 $gList $mkLava.id) -eq 1 -and (FindP9 $gList $mkPriv.id) -eq 0) "n=$($gList.Count)"
+
+$gDet = 0
+try { $gDet = [int](Invoke-WebRequest -Uri "$base/api/practicas?practice_id=$($mkLava.id)" -WebSession $spgp -UseBasicParsing).StatusCode } catch { $gDet = 0 }
+$gSub = PostP9 $spgp @{ action = 'submit'; practice_id = $mkLava.id; answers = @(@{ index = 0; choice = 'A' }) }
+$pgG = -1; $pcAfterG = -1
+if (Test-Path $psqlP8) {
+  $pgG = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practice_plays pp JOIN users u ON u.id = pp.user_id WHERE u.is_guest AND u.nombre = 'PubGuest_$stamp'" 2>$null)
+  $pcAfterG = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT play_count FROM practices WHERE id = '$($mkLava.id)'" 2>$null)
+}
+Ok 'pubp: invitado juega sin historial' ($gDet -eq 200 -and $gSub.code -eq 200 -and $gSub.data.persisted -eq $false -and [int]$gSub.data.score -eq 100 -and [int]"$pgG".Trim() -eq 0 -and [int]"$pcAfterG".Trim() -eq 1) "det=$gDet sub=$($gSub.code) pg=$pgG pc=$pcAfterG"
+
+# 7) El invitado no puede publicar ni la suya
+$gOwn = NewP9 $spgp "GuestOwn P9 $stamp" 'decisiones'
+$gPub = PostP9 $spgp @{ action = 'publish'; practice_id = $gOwn.id }
+Ok 'pubp: invitado no publica' ($gOwn.code -eq 201 -and $gPub.code -eq 403) "create=$($gOwn.code) publish=$($gPub.code)"
+
+# 8) Otro usuario no puede publicar/retirar/eliminar la ajena
+$codesP9 = @()
+$r1 = PostP9 $spoth @{ action = 'publish'; practice_id = $mkPub.id }; $codesP9 += $r1.code
+$r2 = PostP9 $spoth @{ action = 'unpublish'; practice_id = $mkPub.id }; $codesP9 += $r2.code
+$r3 = PostP9 $spoth @{ action = 'delete'; practice_id = $mkPub.id }; $codesP9 += $r3.code
+Ok 'pubp: ajeno no modifica' ((@($codesP9 | Where-Object { $_ -eq 403 }).Count) -eq 3) "codes=$($codesP9 -join ',')"
+
+if (Test-Path $psqlP8) {
+  $pgInt9 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE id = '$($mkPub.id)' AND status = 'published' AND deleted_at IS NULL" 2>$null)
+  Ok 'pubp: ajena intacta en PG' ([int]"$pgInt9".Trim() -eq 1) "n=$pgInt9"
+} else {
+  Ok 'pubp: ajena intacta en PG' $false 'psql missing'
+}
+
+# 10) Jugar practicas publicas da EXACTAMENTE 0 estrellas y 0 tx de liga
+$stOwn9 = J (Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $spo -UseBasicParsing)
+$stOth9 = J (Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $spoth -UseBasicParsing)
+$stGst9 = J (Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $spgp -UseBasicParsing)
+$tx9 = -1
+if (Test-Path $psqlP8) {
+  $tx9 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt JOIN users u ON u.id = lt.user_id WHERE u.email IN ('e2e_pub_own_$stamp@gmail.com', 'e2e_pub_oth_$stamp@gmail.com')" 2>$null)
+}
+Ok 'pubp: 0 estrellas y 0 tx' ([int]$stOwn9.estrellas -eq 0 -and [int]$stOth9.estrellas -eq 0 -and [int]$stGst9.estrellas -eq 0 -and [int]"$tx9".Trim() -eq 0) "own=$($stOwn9.estrellas) oth=$($stOth9.estrellas) gst=$($stGst9.estrellas) tx=$tx9"
+
+# 11) Nada de practicas persistidas en localStorage
+$lsP9 = @()
+if ((Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\stores\practice.store.ts')) -match 'localStorage') { $lsP9 += 'store' }
+if ((Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\practice\PracticeScreen.tsx')) -match 'localStorage\.setItem') { $lsP9 += 'PracticeScreen' }
+if ((Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\practice\PracticeResultsScreen.tsx')) -match 'localStorage\.setItem') { $lsP9 += 'Results' }
+Ok 'pubp: sin localStorage' ($lsP9.Count -eq 0) ($lsP9 -join ',')
+
+# Auditoria de publicar/despublicar (INFORME seccion 15)
+if (Test-Path $psqlP8) {
+  $audPub9 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE entity_type = 'practice' AND entity_id = '$($mkPub.id)' AND action = 'published'" 2>$null)
+  $audUnp9 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE entity_type = 'practice' AND entity_id = '$($mkPub.id)' AND action = 'unpublished'" 2>$null)
+  Ok 'pubp: audit publicar' ([int]"$audPub9".Trim() -eq 2 -and [int]"$audUnp9".Trim() -eq 1) "pub=$audPub9 unp=$audUnp9"
+} else {
+  Ok 'pubp: audit publicar' $false 'psql missing'
+}
+
 # ═══ 3. ESTRELLAS SOLO SALA (panel teacher + student play) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
   email = 'ana.garcia@gmail.com'; password = 'demo123'

@@ -105,10 +105,51 @@ export async function listPractices(userId: string): Promise<PracticeSummary[]> 
   );
 }
 
-export async function listPublicPractices(): Promise<PracticeSummary[]> {
+function normalizeSearchText(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * Listado público con los mismos criterios que la interfaz:
+ * texto libre sobre título/tema/creador/código (insensible a acentos y mayúsculas)
+ * y filtro por modo de juego. Todo parametrizado; solo publicadas.
+ */
+export async function listPublicPractices(opts?: { q?: string; mode?: string }): Promise<PracticeSummary[]> {
+  const params: unknown[] = [];
+  let where = `p.status = 'published' AND p.published_at IS NOT NULL AND p.deleted_at IS NULL`;
+
+  const rawQuery = (opts?.q ?? '').trim().slice(0, 100);
+  if (rawQuery) {
+    const normalized = normalizeSearchText(rawQuery);
+    const normalizedCode = normalized.replace('#', '');
+    params.push(`%${escapeLike(normalized)}%`);
+    const textPattern = `$${params.length}`;
+    let codePattern = textPattern;
+    if (normalizedCode !== normalized) {
+      params.push(`%${escapeLike(normalizedCode)}%`);
+      codePattern = `$${params.length}`;
+    }
+    where += ` AND (
+      translate(lower(p.title), 'áéíóúüñ', 'aeiouun') LIKE ${textPattern}
+      OR translate(lower(coalesce(p.topic, '')), 'áéíóúüñ', 'aeiouun') LIKE ${textPattern}
+      OR translate(lower(coalesce(u.nombre, '')), 'áéíóúüñ', 'aeiouun') LIKE ${textPattern}
+      OR lower(p.code) LIKE ${codePattern}
+    )`;
+  }
+
+  const mode = (opts?.mode ?? '').trim().slice(0, 40);
+  if (mode) {
+    params.push(mode);
+    where += ` AND gm.code = $${params.length}`;
+  }
+
   return query<PracticeSummary>(
-    `${PRACTICE_SELECT} WHERE p.status = 'published' AND p.published_at IS NOT NULL AND p.deleted_at IS NULL
-     ORDER BY p.published_at DESC`
+    `${PRACTICE_SELECT} WHERE ${where} ORDER BY p.published_at DESC`,
+    params
   );
 }
 
@@ -200,23 +241,35 @@ export async function createPractice(input: {
 }
 
 export async function publishPractice(practiceId: string, userId: string): Promise<boolean> {
-  const result = await query(
+  const result = await query<{ id: string; title: string }>(
     `UPDATE practices SET status = 'published', published_at = COALESCE(published_at, now())
      WHERE id = $1 AND creator_id = $2 AND deleted_at IS NULL AND status <> 'published'
-     RETURNING id`,
+     RETURNING id, title`,
     [practiceId, userId]
   );
-  return result.length > 0;
+  if (result.length === 0) return false;
+  await query(
+    `INSERT INTO audit_events (actor_id, entity_type, entity_id, action, metadata)
+     VALUES ($1, 'practice', $2, 'published', jsonb_build_object('title', coalesce($3::text, '')))`,
+    [userId, practiceId, result[0].title]
+  );
+  return true;
 }
 
 export async function unpublishPractice(practiceId: string, userId: string): Promise<boolean> {
-  const result = await query(
+  const result = await query<{ id: string; title: string }>(
     `UPDATE practices SET status = 'private'
      WHERE id = $1 AND creator_id = $2 AND deleted_at IS NULL AND status = 'published'
-     RETURNING id`,
+     RETURNING id, title`,
     [practiceId, userId]
   );
-  return result.length > 0;
+  if (result.length === 0) return false;
+  await query(
+    `INSERT INTO audit_events (actor_id, entity_type, entity_id, action, metadata)
+     VALUES ($1, 'practice', $2, 'unpublished', jsonb_build_object('title', coalesce($3::text, '')))`,
+    [userId, practiceId, result[0].title]
+  );
+  return true;
 }
 
 export async function deletePractice(practiceId: string, userId: string): Promise<boolean> {

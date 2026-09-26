@@ -25,7 +25,10 @@ export async function GET(req: NextRequest) {
     const practiceId = searchParams.get('practice_id');
 
     if (scope === 'public') {
-      return NextResponse.json({ practicas: await listPublicPractices() });
+      // Criterios de la interfaz: texto libre (título/tema/creador/#código) + chip de modo
+      const q = (searchParams.get('q') ?? '').slice(0, 100);
+      const mode = (searchParams.get('mode') ?? '').slice(0, 40);
+      return NextResponse.json({ practicas: await listPublicPractices({ q, mode }) });
     }
 
     const session = await getSessionUser(req);
