@@ -611,6 +611,40 @@ if (Test-Path $psqlP8) {
   Ok 'pubp: audit publicar' $false 'psql missing'
 }
 
+# Paginacion del catalogo publico (page/limit/total/totalPages)
+$pageDef = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public" -UseBasicParsing)
+$pubTotalDb = -1
+if (Test-Path $psqlP8) {
+  $pubTotalDb = [int]((& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE status = 'published' AND published_at IS NOT NULL AND deleted_at IS NULL" 2>$null))
+}
+$expPages = [Math]::Max(1, [Math]::Ceiling([int]$pageDef.total / 15))
+Ok 'pag: defaults 15 y envase' ($pageDef.page -eq 1 -and $pageDef.limit -eq 15 -and @($pageDef.practicas).Count -le 15 -and $pageDef.totalPages -eq $expPages -and ($pubTotalDb -lt 0 -or [int]$pageDef.total -eq $pubTotalDb)) "page=$($pageDef.page) limit=$($pageDef.limit) count=$(@($pageDef.practicas).Count) total=$($pageDef.total) db=$pubTotalDb totalPages=$($pageDef.totalPages)"
+
+$pagCodes = @()
+foreach ($badQ in @('page=0', 'page=abc', 'page=2.5', 'limit=0', 'limit=101', 'limit=abc')) {
+  try {
+    $null = Invoke-WebRequest -Uri "$base/api/practicas?scope=public&$badQ" -UseBasicParsing
+    $pagCodes += 'no400'
+  } catch {
+    $pagCodes += [int]$_.Exception.Response.StatusCode.value__
+  }
+}
+Ok 'pag: params invalidos 400' ($pagCodes.Count -eq 6 -and @($pagCodes | Where-Object { $_ -ne 400 }).Count -eq 0) ($pagCodes -join ',')
+
+$p1 = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public&page=1&limit=2" -UseBasicParsing)
+$p2 = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public&page=2&limit=2" -UseBasicParsing)
+$ids1 = @($p1.practicas | ForEach-Object { $_.id })
+$ids2 = @($p2.practicas | ForEach-Object { $_.id })
+$overlapP = @($ids1 | Where-Object { $ids2 -contains $_ })
+Ok 'pag: limit 2 paginas disjuntas' ($ids1.Count -eq 2 -and $ids2.Count -eq 2 -and $overlapP.Count -eq 0 -and $p1.total -eq $p2.total -and $p1.totalPages -eq $p2.totalPages -and [int]$p1.totalPages -ge 2) "c1=$($ids1.Count) c2=$($ids2.Count) overlap=$($overlapP.Count) total=$($p1.total) totalPages=$($p1.totalPages)"
+
+$p1b = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public&page=1&limit=2" -UseBasicParsing)
+$ids1b = @($p1b.practicas | ForEach-Object { $_.id })
+Ok 'pag: orden estable' (($ids1 -join ',') -eq ($ids1b -join ',')) "$($ids1 -join ',') vs $($ids1b -join ',')"
+
+$p999 = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=public&page=999999&limit=2" -UseBasicParsing)
+Ok 'pag: pagina fuera de rango vacia' (@($p999.practicas).Count -eq 0 -and $p999.total -eq $p1.total -and $p999.totalPages -eq $p1.totalPages) "count=$(@($p999.practicas).Count) total=$($p999.total) totalPages=$($p999.totalPages)"
+
 # ═══ 3. ESTRELLAS SOLO SALA (panel teacher + student play) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
   email = 'ana.garcia@gmail.com'; password = 'demo123'

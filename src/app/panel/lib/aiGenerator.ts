@@ -52,8 +52,35 @@ Formato de respuesta JSON:
 }`;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function abortError(): Error {
+  const err = new Error('Generacion cancelada');
+  err.name = 'AbortError';
+  return err;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError());
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort);
+  });
+}
+
+export interface GenerateOptions {
+  /** Permite cancelar la generacion desde la interfaz. */
+  signal?: AbortSignal;
+  /** Callback con mensajes de estado (intentos/reintentos) para el usuario. */
+  onProgress?: (message: string) => void;
 }
 
 /**
@@ -62,6 +89,7 @@ function sleep(ms: number): Promise<void> {
  */
 const MAX_RETRIES = 5;
 const RETRY_DELAYS = [5000, 15000, 30000, 60000, 60000];
+const ATTEMPT_TIMEOUT_MS = 75_000;
 
 let generationLock = false;
 
@@ -69,8 +97,10 @@ export async function generateQuestions(
   topic: string,
   description: string,
   amount: number,
-  existingQuestions: string[] = []
+  existingQuestions: string[] = [],
+  opts: GenerateOptions = {}
 ): Promise<GeneratedQuestion[]> {
+  const { signal, onProgress } = opts;
   if (generationLock) {
     throw new Error('Ya hay una generacion en curso. Espera unos segundos antes de intentar de nuevo.');
   }
@@ -82,11 +112,14 @@ export async function generateQuestions(
 
   try {
     for (let attempt = 0; attempt < MAX_RETRIES && allQuestions.length < amount; attempt++) {
+      if (signal?.aborted) throw abortError();
       if (attempt > 0) {
         const delay = RETRY_DELAYS[Math.min(attempt - 1, RETRY_DELAYS.length - 1)];
         console.log(`[AI Generate] Reintento ${attempt + 1}/${MAX_RETRIES}, esperando ${delay / 1000}s...`);
-        await sleep(delay);
+        onProgress?.(`Reintentando (${attempt + 1}/${MAX_RETRIES})...`);
+        await sleep(delay, signal);
       }
+      onProgress?.(`Consultando la IA (intento ${attempt + 1}/${MAX_RETRIES})...`);
 
       const remaining = amount - allQuestions.length;
       const requestAmount = Math.min(remaining + 2, 30);
@@ -96,18 +129,32 @@ export async function generateQuestions(
       ];
       const prompt = buildPrompt(topic, description, requestAmount, avoided);
 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+      const onAbort = () => controller.abort();
+      signal?.addEventListener('abort', onAbort);
+      if (signal?.aborted) controller.abort();
+
       try {
         const res = await fetch('/api/ai/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt }),
+          signal: controller.signal,
         });
 
-        const data: GeminiResponse = await res.json();
+        let data: GeminiResponse;
+        try {
+          data = await res.json();
+        } catch {
+          lastError = 'El servidor de IA devolvio una respuesta invalida.';
+          console.warn('[AI Generate] Respuesta no JSON, reintentando...');
+          continue;
+        }
 
         if (!res.ok) {
           const isRateLimit = res.status === 429 || data.type === 'rate_limit';
-          const isServerError = res.status === 503 || res.status === 502;
+          const isServerError = res.status === 502 || res.status === 503 || res.status === 504;
 
           if (isRateLimit || isServerError) {
             lastError = data.error ?? 'Error temporal del servicio de IA.';
@@ -135,12 +182,21 @@ export async function generateQuestions(
           allQuestions.push(q);
         }
       } catch (err) {
+        if (signal?.aborted) throw err;
+        if (err instanceof Error && err.name === 'AbortError') {
+          lastError = 'La IA tardo demasiado en responder.';
+          console.warn('[AI Generate] Timeout del intento, reintentando...');
+          continue;
+        }
         if (err instanceof Error && err.message.includes('conexion')) {
           lastError = err.message;
           console.warn('[AI Generate] Error de conexion, reintentando...');
           continue;
         }
         throw err;
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
       }
     }
 

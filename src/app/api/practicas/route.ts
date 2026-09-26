@@ -13,6 +13,8 @@ import {
   getPracticeQuestions,
   gradePracticeAnswers,
   PracticeValidationError,
+  PUBLIC_PAGE_LIMIT_DEFAULT,
+  PUBLIC_PAGE_LIMIT_MAX,
 } from '@/lib/db/practices';
 import type { PracticeAnswerInput, GradedPractice } from '@/lib/db/practices';
 
@@ -28,7 +30,23 @@ export async function GET(req: NextRequest) {
       // Criterios de la interfaz: texto libre (título/tema/creador/#código) + chip de modo
       const q = (searchParams.get('q') ?? '').slice(0, 100);
       const mode = (searchParams.get('mode') ?? '').slice(0, 40);
-      return NextResponse.json({ practicas: await listPublicPractices({ q, mode }) });
+      const pageParam = searchParams.get('page');
+      const limitParam = searchParams.get('limit');
+      const page = pageParam === null || pageParam === '' ? 1 : Number(pageParam);
+      const limit = limitParam === null || limitParam === '' ? PUBLIC_PAGE_LIMIT_DEFAULT : Number(limitParam);
+      if (!Number.isInteger(page) || page < 1) {
+        return NextResponse.json(
+          { error: 'page debe ser un entero mayor o igual a 1' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isInteger(limit) || limit < 1 || limit > PUBLIC_PAGE_LIMIT_MAX) {
+        return NextResponse.json(
+          { error: `limit debe ser un entero entre 1 y ${PUBLIC_PAGE_LIMIT_MAX}` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(await listPublicPractices({ q, mode, page, limit }));
     }
 
     const session = await getSessionUser(req);

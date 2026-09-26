@@ -16,7 +16,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'API key de Gemini no configurada en el servidor.', type: 'auth_error' }, { status: 500 });
   }
 
-  const { prompt } = await req.json();
+  let prompt: unknown;
+  try {
+    ({ prompt } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Cuerpo JSON invalido.', type: 'bad_request' }, { status: 400 });
+  }
   if (!prompt) {
     return NextResponse.json({ error: 'Falta el prompt.', type: 'bad_request' }, { status: 400 });
   }
@@ -24,18 +29,23 @@ export async function POST(req: NextRequest) {
   const model = 'gemini-3.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+  // Sin timeout el cliente se quedaba cargando indefinidamente cuando Gemini tardaba.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: prompt as string }] }],
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 16384,
           responseMimeType: 'application/json',
         },
       }),
+      signal: controller.signal,
     });
 
     const data = await res.json();
@@ -88,11 +98,19 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ content: text });
   } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[AI Generate] Timeout: Gemini no respondio en 60s');
+      return NextResponse.json(
+        { error: 'Gemini tardo demasiado en responder. Intenta nuevamente.', type: 'timeout' },
+        { status: 504 }
+      );
+    }
     console.error('[AI Generate] Error de conexion:', err);
-    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       { error: 'No se pudo conectar con Gemini. Verifica tu conexion a internet e intentalo de nuevo.', type: 'connection_error' },
       { status: 502 }
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

@@ -3,16 +3,25 @@
 import { create } from 'zustand';
 import type { Practice, PracticeMode, PracticeResult } from '@/shared/types/practice';
 import type { GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
+import type { PublicPracticesPage } from '@/lib/db/practices';
 import { isRegisteredUser } from '@/shared/lib/userStorage';
 
 interface PracticeStore {
   practices: Practice[];
   publicPractices: Practice[];
+  publicPage: number;
+  publicTotal: number;
+  publicTotalPages: number;
+  publicLimit: number;
+  publicQuery: string;
+  publicMode: PracticeMode | 'all';
+  publicLoading: boolean;
   results: PracticeResult[];
   initialized: boolean;
   loading: boolean;
 
   init: () => Promise<void>;
+  loadPublicPage: (opts?: { q?: string; mode?: PracticeMode | 'all'; page?: number }) => Promise<void>;
   refreshPublic: () => Promise<void>;
   addPractice: (
     title: string,
@@ -25,7 +34,6 @@ interface PracticeStore {
   unpublishPractice: (id: string) => Promise<boolean>;
   getUserPractices: () => Practice[];
   getPublicPractices: () => Practice[];
-  searchPublicPractices: (query: string, mode: PracticeMode | 'all') => Practice[];
   getPracticeById: (id: string) => Practice | undefined;
   loadQuestions: (id: string) => Promise<GeneratedQuestion[]>;
   recordPlayResult: (
@@ -38,9 +46,8 @@ interface PracticeStore {
   canPublish: () => boolean;
 }
 
-function normalize(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-}
+const PUBLIC_PAGE_LIMIT = 15;
+let publicRequestId = 0;
 
 function toIsoMs(value: string | number | null | undefined): number {
   if (value == null) return Date.now();
@@ -146,6 +153,13 @@ function toApiQuestions(questions: GeneratedQuestion[]) {
 export const usePracticeStore = create<PracticeStore>((set, get) => ({
   practices: [],
   publicPractices: [],
+  publicPage: 1,
+  publicTotal: 0,
+  publicTotalPages: 1,
+  publicLimit: PUBLIC_PAGE_LIMIT,
+  publicQuery: '',
+  publicMode: 'all',
+  publicLoading: false,
   results: [],
   initialized: false,
   loading: false,
@@ -154,8 +168,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
     if (get().initialized || get().loading) return;
     set({ loading: true });
 
-    const publicData = await apiGet<{ practicas: ApiPractice[] }>('/api/practicas?scope=public');
-    const publicPractices = (publicData?.practicas ?? []).map(mapPractice);
+    await get().loadPublicPage({ q: '', mode: 'all', page: 1 });
 
     let practices: Practice[] = [];
     let results: PracticeResult[] = [];
@@ -179,12 +192,53 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
       }));
     }
 
-    set({ practices, publicPractices, results, initialized: true, loading: false });
+    set({ practices, results, initialized: true, loading: false });
+  },
+
+  loadPublicPage: async (opts) => {
+    const state = get();
+    const q = (opts?.q ?? state.publicQuery).trim();
+    const mode = opts?.mode ?? state.publicMode;
+    const requestedPage = Math.max(1, opts?.page ?? state.publicPage);
+    const requestId = ++publicRequestId;
+
+    const buildUrl = (page: number) => {
+      const params = new URLSearchParams({
+        scope: 'public',
+        page: String(page),
+        limit: String(PUBLIC_PAGE_LIMIT),
+      });
+      if (q) params.set('q', q.slice(0, 100));
+      if (mode !== 'all') params.set('mode', mode);
+      return `/api/practicas?${params.toString()}`;
+    };
+
+    set({ publicLoading: true, publicQuery: q, publicMode: mode });
+
+    let data = await apiGet<PublicPracticesPage>(buildUrl(requestedPage));
+    if (requestId !== publicRequestId) return;
+
+    let page = data?.page ?? requestedPage;
+    if (data && page > data.totalPages) {
+      // La pagina dejo de existir: corregir a la ultima valida
+      page = data.totalPages;
+      data = await apiGet<PublicPracticesPage>(buildUrl(page));
+      if (requestId !== publicRequestId) return;
+    }
+
+    set({
+      publicPractices: (data?.practicas ?? []).map(mapPractice),
+      publicPage: data?.page ?? page,
+      publicTotal: data?.total ?? 0,
+      publicTotalPages: data?.totalPages ?? 1,
+      publicLimit: data?.limit ?? PUBLIC_PAGE_LIMIT,
+      publicLoading: false,
+    });
   },
 
   refreshPublic: async () => {
-    const publicData = await apiGet<{ practicas: ApiPractice[] }>('/api/practicas?scope=public');
-    set({ publicPractices: (publicData?.practicas ?? []).map(mapPractice) });
+    const state = get();
+    await get().loadPublicPage({ q: state.publicQuery, mode: state.publicMode, page: state.publicPage });
   },
 
   addPractice: async (title, topic, mode, questions) => {
@@ -265,29 +319,6 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   },
 
   getPublicPractices: () => get().publicPractices,
-
-  searchPublicPractices: (query, mode) => {
-    const allPublic = get().publicPractices;
-    const normalizedQuery = normalize(query);
-
-    return allPublic.filter((p) => {
-      const matchesMode = mode === 'all' || p.mode === mode;
-      if (!normalizedQuery) return matchesMode;
-
-      const normalizedTitle = normalize(p.title);
-      const normalizedTopic = normalize(p.topic);
-      const normalizedCreator = normalize(p.creatorName);
-      const codeMatch = p.code && p.code.toLowerCase().includes(normalizedQuery.replace('#', ''));
-
-      const matchesQuery =
-        normalizedTitle.includes(normalizedQuery) ||
-        normalizedTopic.includes(normalizedQuery) ||
-        normalizedCreator.includes(normalizedQuery) ||
-        !!codeMatch;
-
-      return matchesMode && matchesQuery;
-    });
-  },
 
   getPracticeById: (id) => {
     return (

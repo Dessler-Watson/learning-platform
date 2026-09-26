@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser, getUserById, updateProfile, getLeagueProgress, ensureLeagueProgress, listAvatars, queryOne, query } from '@/lib/db';
+import { getLeagueByStars, getNextLeague, getLeagueProgress as computeRangoProgress } from '@/lib/leagues';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const practiceStats = await queryOne<{ total: number; avg_score: number; best_score: number }>(
       `SELECT count(*)::int AS total, COALESCE(avg(score),0)::int AS avg_score, COALESCE(max(score),0)::int AS best_score
-       FROM practice_results WHERE user_id = $1`,
+       FROM practice_plays WHERE user_id = $1`,
       [user.id]
     );
     const matchStats = await queryOne<{ games: number; wins: number }>(
@@ -35,6 +36,10 @@ export async function GET(req: NextRequest) {
        ) t`,
       [user.id]
     );
+
+    const stars = league?.stars ?? 0;
+    const currentRango = getLeagueByStars(stars);
+    const nextRango = getNextLeague(stars);
 
     return NextResponse.json({
       usuario: {
@@ -52,7 +57,18 @@ export async function GET(req: NextRequest) {
           custom: user.custom_avatar,
         },
       },
-      estrellas: league?.stars ?? 0,
+      puntos: stars,
+      rango: {
+        nombre: currentRango.fullName,
+        color: currentRango.color,
+        barColor: `linear-gradient(90deg, ${currentRango.color}, ${nextRango?.color ?? currentRango.color})`,
+        esMaximo: nextRango === null,
+        progreso: computeRangoProgress(stars),
+        puntosRangoActual: currentRango.starsRequired,
+        puntosParaSiguiente: nextRango?.starsRequired ?? currentRango.starsRequired,
+        siguiente: nextRango?.fullName ?? null,
+      },
+      estrellas: stars,
       liga: league
         ? {
             id: league.current_league_id,

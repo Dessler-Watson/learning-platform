@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Sparkles, ArrowLeft, CheckCircle2, AlertTriangle,
   History, Trash2, Play, Globe, Search, Filter, Lock, LogIn, UserPlus,
-  Eye, EyeOff, Users, BookOpen, X
+  Eye, EyeOff, Users, BookOpen, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ModeLogo, MODE_THEME, modeButtonGradient, modeButtonShadow } from '@/shared/lib/game-modes';
@@ -62,7 +62,9 @@ export function PracticeScreen() {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [messageIndex, setMessageIndex] = useState(0);
+  const [progressMsg, setProgressMsg] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<PracticeMode | 'all'>('all');
@@ -85,9 +87,31 @@ export function PracticeScreen() {
     return store.getUserPractices();
   }, [store.practices, user]);
 
-  const publicPractices = useMemo(() => {
-    return store.searchPublicPractices(searchQuery, filterMode);
-  }, [store.publicPractices, searchQuery, filterMode]);
+  const publicPractices = store.publicPractices;
+  const publicLoading = store.publicLoading;
+  const publicPage = store.publicPage;
+  const publicTotal = store.publicTotal;
+  const publicTotalPages = store.publicTotalPages;
+
+  const searchDebounceRef = useRef(false);
+
+  // Busqueda y filtros del catalogo publico: siempre pagina 1 (debounce 300ms)
+  useEffect(() => {
+    if (!searchDebounceRef.current) {
+      searchDebounceRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void usePracticeStore.getState().loadPublicPage({ q: searchQuery, mode: filterMode, page: 1 });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, filterMode]);
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > publicTotalPages || page === publicPage) return;
+    audioManager.play('click');
+    void usePracticeStore.getState().loadPublicPage({ q: searchQuery, mode: filterMode, page });
+  };
 
   const startLoadingAnimation = () => {
     setMessageIndex(0);
@@ -122,11 +146,18 @@ export function PracticeScreen() {
 
     audioManager.play('start');
     setError(null);
+    setProgressMsg(null);
     setStep('loading');
     startLoadingAnimation();
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const result = await generateQuestions(topic, '', amount);
+      const result = await generateQuestions(topic, '', amount, [], {
+        signal: controller.signal,
+        onProgress: setProgressMsg,
+      });
       if (result.length === 0) {
         throw new Error('Gemini devolvio un formato inesperado. Intenta generar nuevamente.');
       }
@@ -138,16 +169,27 @@ export function PracticeScreen() {
       setStep('ready');
       audioManager.play('success');
     } catch (err) {
-      audioManager.play('error');
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No pudimos generar tus preguntas. Intentalo nuevamente en unos momentos.'
-      );
-      setStep('config');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setStep('config');
+      } else {
+        audioManager.play('error');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'No pudimos generar tus preguntas. Intentalo nuevamente en unos momentos.'
+        );
+        setStep('config');
+      }
     } finally {
       stopLoadingAnimation();
+      setProgressMsg(null);
+      abortRef.current = null;
     }
+  };
+
+  const handleCancelGenerate = () => {
+    audioManager.play('back');
+    abortRef.current?.abort();
   };
 
   const handleStartPractice = async (practice: Practice) => {
@@ -380,8 +422,16 @@ export function PracticeScreen() {
               </div>
               <div className="text-center space-y-2">
                 <p className="text-lg font-black text-surface-800">{LOADING_MESSAGES[messageIndex]}</p>
-                <p className="text-sm font-bold text-surface-500">Generando {amount} preguntas...</p>
+                <p className="text-sm font-bold text-surface-500">
+                  {progressMsg ?? `Generando ${amount} preguntas...`}
+                </p>
               </div>
+              <button
+                onClick={handleCancelGenerate}
+                className="rounded-xl border-2 border-surface-200 bg-white px-6 py-2.5 text-xs font-black text-surface-600 shadow-card"
+              >
+                Cancelar
+              </button>
             </motion.div>
           )}
 
@@ -515,16 +565,18 @@ export function PracticeScreen() {
 
               {/* Results count */}
               <p className="text-xs font-bold text-surface-500">
-                {publicPractices.length} practica{publicPractices.length !== 1 ? 's' : ''} publica{publicPractices.length !== 1 ? 's' : ''}
+                {publicTotal} practica{publicTotal !== 1 ? 's' : ''} publica{publicTotal !== 1 ? 's' : ''}
               </p>
 
               {/* Practice cards */}
               {publicPractices.length === 0 ? (
                 <div className="card-game p-8 text-center">
                   <Globe size={32} className="mx-auto mb-3 text-surface-300" />
-                  <p className="text-sm font-bold text-surface-500">No se encontraron practicas</p>
+                  <p className="text-sm font-bold text-surface-500">
+                    {publicLoading ? 'Cargando practicas...' : 'No se encontraron practicas'}
+                  </p>
                   <p className="text-xs text-surface-400">
-                    {searchQuery ? 'Intenta con otro termino' : 'Aun no hay practicas publicas disponibles'}
+                    {!publicLoading && (searchQuery ? 'Intenta con otro termino' : 'Aun no hay practicas publicas disponibles')}
                   </p>
                 </div>
               ) : (
@@ -538,6 +590,14 @@ export function PracticeScreen() {
                   ))}
                 </div>
               )}
+
+              {/* Pagination */}
+              <Pagination
+                page={publicPage}
+                totalPages={publicTotalPages}
+                disabled={publicLoading}
+                onPage={handlePageChange}
+              />
             </motion.div>
           )}
 
@@ -714,6 +774,121 @@ function FilterChip({
     >
       {label}
     </motion.button>
+  );
+}
+
+function pageNumbers(page: number, totalPages: number): Array<number | '...'> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const out: Array<number | '...'> = [1];
+  const start = Math.max(2, page - 1);
+  const end = Math.min(totalPages - 1, page + 1);
+  if (start > 2) out.push('...');
+  for (let i = start; i <= end; i++) out.push(i);
+  if (end < totalPages - 1) out.push('...');
+  out.push(totalPages);
+  return out;
+}
+
+function Pagination({
+  page,
+  totalPages,
+  disabled,
+  onPage,
+}: {
+  page: number;
+  totalPages: number;
+  disabled?: boolean;
+  onPage: (page: number) => void;
+}) {
+  const [goTo, setGoTo] = useState('');
+
+  if (totalPages <= 1) return null;
+
+  const goToPage = () => {
+    const n = parseInt(goTo, 10);
+    if (Number.isNaN(n)) return;
+    setGoTo('');
+    onPage(n);
+  };
+
+  const pillBase =
+    'rounded-full px-3.5 py-2 text-xs font-black transition-all duration-200 disabled:opacity-40';
+  const pillIdle = { background: '#f5f0ea', color: '#8A7A6A', border: '2px solid transparent' };
+  const pillActive = {
+    background: 'rgba(0, 160, 181, 0.15)',
+    color: '#00A0B5',
+    border: '2px solid #00A0B5',
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-3 pt-1">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        <button
+          type="button"
+          disabled={disabled || page <= 1}
+          onClick={() => onPage(page - 1)}
+          className={`flex items-center gap-1 ${pillBase}`}
+          style={pillIdle}
+        >
+          <ChevronLeft size={14} />
+          Anterior
+        </button>
+        {pageNumbers(page, totalPages).map((n, i) =>
+          n === '...' ? (
+            <span key={`gap-${i}`} className="px-1 text-xs font-black text-surface-400">
+              ...
+            </span>
+          ) : (
+            <button
+              key={n}
+              type="button"
+              disabled={disabled}
+              onClick={() => onPage(n)}
+              className={pillBase}
+              style={n === page ? pillActive : pillIdle}
+            >
+              {n}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          disabled={disabled || page >= totalPages}
+          onClick={() => onPage(page + 1)}
+          className={`flex items-center gap-1 ${pillBase}`}
+          style={pillIdle}
+        >
+          Siguiente
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2 text-xs font-bold text-surface-500">
+        <label htmlFor="practice-go-page">Ir a la pagina</label>
+        <input
+          id="practice-go-page"
+          inputMode="numeric"
+          value={goTo}
+          onChange={(e) => setGoTo(e.target.value.replace(/[^0-9]/g, ''))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') goToPage();
+          }}
+          className="input-game w-16 rounded-lg px-2 py-1.5 text-center text-xs font-black"
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={goToPage}
+          className="rounded-full bg-[#00A0B5] px-3 py-1.5 text-xs font-black text-white disabled:opacity-40"
+        >
+          Ir
+        </button>
+        <span className="text-surface-400">
+          Pagina {page} de {totalPages}
+        </span>
+      </div>
+    </div>
   );
 }
 

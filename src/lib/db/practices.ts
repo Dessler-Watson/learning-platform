@@ -113,12 +113,27 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+export const PUBLIC_PAGE_LIMIT_DEFAULT = 15;
+export const PUBLIC_PAGE_LIMIT_MAX = 100;
+
+export interface PublicPracticesPage {
+  practicas: PracticeSummary[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 /**
  * Listado público con los mismos criterios que la interfaz:
  * texto libre sobre título/tema/creador/código (insensible a acentos y mayúsculas)
  * y filtro por modo de juego. Todo parametrizado; solo publicadas.
+ * Paginado: page >= 1, limit entre 1 y PUBLIC_PAGE_LIMIT_MAX.
+ * Orden estable (published_at DESC, id DESC) para que las páginas no se solapen.
  */
-export async function listPublicPractices(opts?: { q?: string; mode?: string }): Promise<PracticeSummary[]> {
+export async function listPublicPractices(
+  opts?: { q?: string; mode?: string; page?: number; limit?: number }
+): Promise<PublicPracticesPage> {
   const params: unknown[] = [];
   let where = `p.status = 'published' AND p.published_at IS NOT NULL AND p.deleted_at IS NULL`;
 
@@ -147,10 +162,37 @@ export async function listPublicPractices(opts?: { q?: string; mode?: string }):
     where += ` AND gm.code = $${params.length}`;
   }
 
-  return query<PracticeSummary>(
-    `${PRACTICE_SELECT} WHERE ${where} ORDER BY p.published_at DESC`,
+  const rawPage = opts?.page ?? 1;
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+  const rawLimit = opts?.limit ?? PUBLIC_PAGE_LIMIT_DEFAULT;
+  const limit =
+    Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= PUBLIC_PAGE_LIMIT_MAX
+      ? rawLimit
+      : PUBLIC_PAGE_LIMIT_DEFAULT;
+
+  const countRow = await queryOne<{ total: number }>(
+    `SELECT count(*)::int AS total
+     FROM practices p
+     JOIN game_modes gm ON gm.id = p.game_mode_id
+     LEFT JOIN users u ON u.id = p.creator_id
+     WHERE ${where}`,
     params
   );
+  const total = countRow?.total ?? 0;
+
+  params.push(limit, (page - 1) * limit);
+  const practicas = await query<PracticeSummary>(
+    `${PRACTICE_SELECT} WHERE ${where} ORDER BY p.published_at DESC, p.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+
+  return {
+    practicas,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
 }
 
 export async function getPractice(practiceId: string): Promise<PracticeSummary | null> {

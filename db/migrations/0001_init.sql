@@ -473,6 +473,9 @@ CREATE INDEX idx_practices_public  ON practices (status, published_at DESC)
     WHERE deleted_at IS NULL AND status = 'published';
 CREATE INDEX idx_practices_title   ON practices (lower(title))
     WHERE deleted_at IS NULL AND status = 'published';
+-- Orden estable para la paginacion del catalogo publico.
+CREATE INDEX idx_practices_pub_order ON practices (published_at DESC, id DESC)
+    WHERE deleted_at IS NULL AND status = 'published';
 
 -- Preguntas de la práctica → questions.practice_id (dueño único, arriba).
 
