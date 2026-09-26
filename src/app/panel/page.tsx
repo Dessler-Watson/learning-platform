@@ -101,13 +101,19 @@ export default function InicioPage() {
   }, [teacherId]);
 
   const handleDeleteActivity = useCallback((id: string) => {
-    audioManager.play('delete');
-    setActividades((prev) => prev.filter((a) => a.id !== id));
+    void inicioService.eliminarActividad(id).then((ok) => {
+      if (!ok) return;
+      audioManager.play('delete');
+      setActividades((prev) => prev.filter((a) => a.id !== id));
+    });
   }, []);
 
   const handleClearAll = useCallback(() => {
-    audioManager.play('delete');
-    setActividades([]);
+    void inicioService.limpiarActividades().then((ok) => {
+      if (!ok) return;
+      audioManager.play('delete');
+      setActividades([]);
+    });
   }, []);
 
   const clickLock = useClickLock(600);

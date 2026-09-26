@@ -18,6 +18,7 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = usePanelStore((s) => s.isAuthenticated);
   const docente = usePanelStore((s) => s.docente);
   const sidebarOpen = usePanelStore((s) => s.sidebarOpen);
+  const refreshAuth = usePanelStore((s) => s.refreshAuth);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -28,6 +29,12 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
   const isPublicPage = publicPaths.some((p) => pathname === p);
   const isAdminRoute = pathname.startsWith('/panel/admin');
   const isAdmin = docente?.rol === 'admin';
+
+  // Revalidar la sesión contra el servidor (la caché de localStorage no es la fuente de verdad).
+  useEffect(() => {
+    if (!hydrated || isPublicPage) return;
+    void refreshAuth();
+  }, [hydrated, isPublicPage, refreshAuth]);
 
   useEffect(() => {
     if (!hydrated || isPublicPage) return;

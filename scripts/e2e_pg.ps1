@@ -2879,6 +2879,195 @@ if ($cursoP -and $uidA) {
   Ok 'ligas: practica sin escritor de estrellas' $false 'curso/uidA missing'
 }
 
+# ═══ 10b. PANEL DOCENTE (Paso 10: perfil en PG, actividad real, authz) ═══
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'Panel Ten'; email = "panel10_$stamp@gmail.com"; password = 'secret123'; institution = 'Inst P10'; role = 'teacher'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spt10
+Ok 'p10: registro teacher' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $spt10 -UseBasicParsing
+$p10me = J $r
+$p10id = $p10me.user.id
+Ok 'p10: /me GET con institucion' ($r.StatusCode -eq 200 -and $p10me.user.role -eq 'teacher' -and $p10me.user.institution -eq 'Inst P10') "inst=$($p10me.user.institution)"
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -UseBasicParsing
+  Ok 'p10: /me sin sesion 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: /me sin sesion 401' ($code -eq 401) "code=$code"
+}
+
+# Perfil: persiste en PostgreSQL (nunca solo localStorage)
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{
+  nombre = "Panel Ten Edit $stamp"; correo = "panel10_edit_$stamp@gmail.com"; institucion = 'Inst P10 Edit'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'p10: perfil update 200' ($r.StatusCode -eq 200 -and (J $r).ok -eq $true) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $spt10 -UseBasicParsing
+$p10me2 = J $r
+Ok 'p10: /me refleja cambios' ($p10me2.user.nombre -eq "Panel Ten Edit $stamp" -and $p10me2.user.email -eq "panel10_edit_$stamp@gmail.com" -and $p10me2.user.institution -eq 'Inst P10 Edit') "n=$($p10me2.user.nombre)"
+
+if (Test-Path $psqlP8) {
+  $pgP10 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT u.nombre || '|' || u.email || '|' || coalesce(i.name, '') FROM users u LEFT JOIN institutions i ON i.id = u.institution_id WHERE u.id = '$p10id'" 2>$null)
+  Ok 'p10: perfil persiste en PG' ("$pgP10".Trim() -eq "Panel Ten Edit $stamp|panel10_edit_$stamp@gmail.com|Inst P10 Edit") "v=$pgP10"
+  $pgP10a = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE actor_id = '$p10id' AND entity_type = 'user' AND action = 'updated' AND metadata->>'via' = 'perfil'" 2>$null)
+  Ok 'p10: perfil con auditoria' ([int]"$pgP10a".Trim() -ge 1) "n=$pgP10a"
+} else {
+  Ok 'p10: perfil persiste en PG' $false 'psql missing'
+  Ok 'p10: perfil con auditoria' $false 'psql missing'
+}
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+  email = "panel10_edit_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'p10: login con correo nuevo' ($r.StatusCode -eq 200) $r.StatusCode
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "panel10_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: login con correo viejo 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: login con correo viejo 401' ($code -eq 401) "code=$code"
+}
+
+# Validaciones de perfil
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'Panel Ten B'; email = "panel10b_$stamp@gmail.com"; password = 'secret123'; institution = 'Inst P10'; role = 'teacher'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spt10b
+Ok 'p10: registro teacher B' ($r.StatusCode -eq 201) $r.StatusCode
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{ correo = "panel10b_$stamp@gmail.com" } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: perfil correo duplicado 409' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: perfil correo duplicado 409' ($code -eq 409) "code=$code"
+}
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{ correo = 'no-es-correo' } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: perfil correo invalido 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: perfil correo invalido 400' ($code -eq 400) "code=$code"
+}
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{ nombre = '' } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: perfil nombre vacio 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: perfil nombre vacio 400' ($code -eq 400) "code=$code"
+}
+
+# Estudiante: sin acceso al panel (perfil ni inicio)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{ nombre = 'Hack' } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: student /me 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: student /me 401' ($code -eq 401) "code=$code"
+}
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -WebSession $s1 -UseBasicParsing
+  Ok 'p10: student inicio GET 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: student inicio GET 403' ($code -eq 403) "code=$code"
+}
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{ action = 'clear_activities' } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: student inicio POST 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'p10: student inicio POST 403' ($code -eq 403) "code=$code"
+}
+
+# Actividad real desde audit_events + borrado con alcance por actor
+$r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{
+  action = 'create'; nombre = "Curso P10 $stamp"; gameModeId = 'decisiones'; descripcion = 'p10'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'p10: curso create' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -WebSession $spt10 -UseBasicParsing
+$p10feed = J $r
+$p10cursoActs = @($p10feed.actividades | Where-Object { $_.tipo -eq 'curso_creado' })
+Ok 'p10: actividad curso en feed' ($p10cursoActs.Count -ge 1) "n=$($p10cursoActs.Count)"
+Ok 'p10: estadisticas inicio reales' ([int]$p10feed.estadisticas.totalCursos -ge 1 -and $null -ne $p10feed.estadisticas.totalPreguntas) "c=$($p10feed.estadisticas.totalCursos)"
+$p10actId = ''
+if ($p10cursoActs.Count -ge 1) { $p10actId = $p10cursoActs[0].id }
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $spt10b -Body (@{
+  action = 'create'; nombre = "Curso P10B $stamp"; gameModeId = 'decisiones'; descripcion = 'p10b'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'p10: curso create B' ($r.StatusCode -eq 201) $r.StatusCode
+
+if ($p10actId) {
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -Method Post -ContentType 'application/json' -WebSession $spt10b -Body (@{
+      action = 'delete_activity'; id = $p10actId
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'p10: actividad ajena 404' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    Ok 'p10: actividad ajena 404' ($code -eq 404) "code=$code"
+  }
+
+  $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{
+    action = 'delete_activity'; id = $p10actId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'p10: actividad delete propia 200' ($r.StatusCode -eq 200) $r.StatusCode
+
+  $r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -WebSession $spt10 -UseBasicParsing
+  $p10feed2 = J $r
+  Ok 'p10: actividad fuera del feed' (@($p10feed2.actividades | Where-Object { $_.id -eq $p10actId }).Count -eq 0) "n=$(@($p10feed2.actividades).Count)"
+
+  if (Test-Path $psqlP8) {
+    $pgP10d = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE id = '$p10actId'" 2>$null)
+    Ok 'p10: actividad borrada en PG' ([int]"$pgP10d".Trim() -eq 0) "n=$pgP10d"
+  } else {
+    Ok 'p10: actividad borrada en PG' $false 'psql missing'
+  }
+} else {
+  Ok 'p10: actividad ajena 404' $false 'feed missing'
+  Ok 'p10: actividad delete propia 200' $false 'feed missing'
+  Ok 'p10: actividad fuera del feed' $false 'feed missing'
+  Ok 'p10: actividad borrada en PG' $false 'feed missing'
+}
+
+# clear_activities: borra solo el historial propio (el ajeno se conserva)
+$r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -Method Post -ContentType 'application/json' -WebSession $spt10 -Body (@{
+  action = 'clear_activities'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'p10: clear activities 200' ($r.StatusCode -eq 200) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/panel/inicio" -WebSession $spt10 -UseBasicParsing
+$p10feed3 = J $r
+Ok 'p10: clear deja feed en 0' (@($p10feed3.actividades).Count -eq 0) "n=$(@($p10feed3.actividades).Count)"
+
+if (Test-Path $psqlP8) {
+  $pgP10c = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT (SELECT count(*) FROM audit_events WHERE actor_id = '$p10id') || '/' || (SELECT count(*) FROM audit_events ae JOIN users u ON u.id = ae.actor_id WHERE u.email = 'panel10b_$stamp@gmail.com')" 2>$null)
+  $pgP10parts = "$pgP10c".Trim() -split '/'
+  Ok 'p10: clear solo propios' ([int]$pgP10parts[0] -eq 0 -and [int]$pgP10parts[1] -ge 1) "v=$pgP10c"
+} else {
+  Ok 'p10: clear solo propios' $false 'psql missing'
+}
+
+# Sin mocks/JSON/aleatoriedad en el flujo de negocio del panel
+$panelMock = 0
+foreach ($f in @(
+    "$PSScriptRoot\..\src\app\panel\services\index.ts",
+    "$PSScriptRoot\..\src\app\panel\store\usePanelStore.ts",
+    "$PSScriptRoot\..\src\app\panel\page.tsx",
+    "$PSScriptRoot\..\src\app\panel\perfil\page.tsx"
+  )) {
+  if (-not (Test-Path $f)) { $panelMock++; continue }
+  $panelMock += @(@(Select-String -Path $f -Pattern 'MOCK_|Math\.random|readData|@/lib/data')).Count
+}
+foreach ($f in (Get-ChildItem "$PSScriptRoot\..\src\app\api\panel" -Recurse -Filter route.ts)) {
+  $panelMock += @(@(Select-String -Path $f.FullName -Pattern 'MOCK_|Math\.random|readData|@/lib/data')).Count
+}
+Ok 'p10: panel sin mocks en negocio' ($panelMock -eq 0) "hits=$panelMock"
+
 # ═══ RESULTS ═══
 Write-Host "`n=== E2E RESULTS ==="
 $results | Format-Table -AutoSize -Wrap

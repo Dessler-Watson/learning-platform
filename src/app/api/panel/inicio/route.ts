@@ -110,3 +110,43 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Error' }, { status: 500 });
   }
 }
+
+// Borrado real del historial de actividad del docente (audit_events con alcance por actor).
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getSessionUser(req);
+    if (!session || session.role === 'student') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+    const body = await req.json();
+    const action = String(body.action ?? '');
+    const isAdmin = session.role === 'admin';
+
+    if (action === 'delete_activity') {
+      const id = String(body.id ?? '');
+      if (!id) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+      const deleted = await query<{ id: string }>(
+        `DELETE FROM audit_events WHERE id = $1 AND ($2::boolean OR actor_id = $3) RETURNING id`,
+        [id, isAdmin, session.id]
+      );
+      if (deleted.length === 0) {
+        return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'clear_activities') {
+      if (isAdmin) {
+        await query(`DELETE FROM audit_events`);
+      } else {
+        await query(`DELETE FROM audit_events WHERE actor_id = $1`, [session.id]);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+  } catch (err) {
+    console.error('[panel inicio POST]', err);
+    return NextResponse.json({ error: 'Error' }, { status: 500 });
+  }
+}

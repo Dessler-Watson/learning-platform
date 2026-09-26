@@ -33,6 +33,7 @@ interface PanelState {
     nombre?: string;
     correo?: string;
     contrasena?: string;
+    institucion?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   setCursoCopiado: (curso: Curso, preguntas: Pregunta[]) => void;
   limpiarCursoCopiado: () => void;
@@ -184,14 +185,27 @@ export const usePanelStore = create<PanelState>((set, get) => ({
   updateProfile: async (data) => {
     const current = get().docente;
     if (!current) return { success: false, error: 'No hay sesión activa.' };
-    // Profile updates for panel users go through estudiante/perfil or a dedicated route later.
-    // Keep optimistic local update for display name only.
-    if (data.nombre) {
-      const updated = { ...current, nombre: data.nombre, ultimaActividad: new Date().toISOString() };
-      saveAuth(updated);
-      set({ docente: updated });
+    try {
+      const res = await fetch('/api/panel/auth/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: data.nombre,
+          correo: data.correo,
+          institucion: data.institucion,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        return { success: false, error: result.error || 'Error al actualizar' };
+      }
+      const docente = toDocente(result.user);
+      saveAuth(docente);
+      set({ docente });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
     }
-    return { success: true };
   },
 
   setCursoCopiado: (curso, preguntas) => set({ cursoCopiado: { curso, preguntas } }),

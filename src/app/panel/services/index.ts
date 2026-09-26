@@ -243,6 +243,23 @@ export const inicioService = {
     const data = await api<{ actividades: Actividad[] }>('/api/panel/inicio');
     return data.actividades;
   },
+  // Paso 10: el borrado de historial es real (audit_events en PostgreSQL).
+  async eliminarActividad(id: string): Promise<boolean> {
+    try {
+      await api('/api/panel/inicio', { method: 'POST', body: JSON.stringify({ action: 'delete_activity', id }) });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  async limpiarActividades(): Promise<boolean> {
+    try {
+      await api('/api/panel/inicio', { method: 'POST', body: JSON.stringify({ action: 'clear_activities' }) });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // ─── Salas ───
