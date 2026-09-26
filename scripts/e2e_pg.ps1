@@ -120,9 +120,8 @@ Ok 'practica: public visible' ($null -ne $found) "found=$($null -ne $found)"
 $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
   action = 'submit'
   practice_id = $pracRId
-  correct = 1
-  total = 1
-} | ConvertTo-Json) -UseBasicParsing
+  answers = @(@{ index = 0; choice = 'A' })
+} | ConvertTo-Json -Depth 6) -UseBasicParsing
 Ok 'practica: submit' ($r.StatusCode -eq 201 -or $r.StatusCode -eq 200) $r.StatusCode
 
 $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
@@ -134,6 +133,299 @@ $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $s1 -UseBasicParsing
 $logrosPrac = J $r
 $dirtyPrac = @($logrosPrac.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
 Ok 'logros: practica no cuenta' ($dirtyPrac.Count -eq 0) "dirty=$($dirtyPrac.Count)"
+
+# ═══ 2b. PRACTICA BACKEND (Paso 8: servidor de verdad, 0 estrellas) ═══
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'PracB'; email = "e2e_prac_b_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spb
+Ok 'practica: userB register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = "GuestP8_$stamp"
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable sgp8
+Ok 'practica: guestP8 create' ($r.StatusCode -eq 201) $r.StatusCode
+
+$psqlP8 = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+$env:PGPASSWORD = 'casimiro123'
+$s1IdSql = "(SELECT id FROM users WHERE email = 'e2e_logros_$stamp@gmail.com')"
+
+# 1) Todo vive en PostgreSQL: práctica, creador real y preguntas/opciones
+if ((Test-Path $psqlP8) -and $pracRId) {
+  $pgP8 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices p JOIN users u ON u.id = p.creator_id WHERE p.id = '$pracRId' AND u.email = 'e2e_logros_$stamp@gmail.com' AND p.status = 'published' AND p.deleted_at IS NULL" 2>$null)
+  Ok 'practica: PG creador real' ([int]"$pgP8".Trim() -eq 1) "n=$pgP8"
+  $pgP8q = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT (SELECT count(*) FROM questions WHERE practice_id = '$pracRId' AND deleted_at IS NULL) || '/' || (SELECT count(*) FROM question_options o JOIN questions q ON q.id = o.question_id WHERE q.practice_id = '$pracRId') || '/' || (SELECT count(*) FROM question_options o JOIN questions q ON q.id = o.question_id WHERE q.practice_id = '$pracRId' AND o.is_correct)" 2>$null)
+  Ok 'practica: PG preguntas y opciones' ("$pgP8q".Trim() -eq '1/2/1') "v=$pgP8q"
+} else {
+  Ok 'practica: PG creador real' $false 'psql or id missing'
+  Ok 'practica: PG preguntas y opciones' $false 'psql or id missing'
+}
+
+# 2) Consultar propias / ajenas
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $s1 -UseBasicParsing
+$mine1 = J $r
+Ok 'practica: consultar propias' (@($mine1.practicas | Where-Object { $_.id -eq $pracRId }).Count -eq 1) "code=$($r.StatusCode)"
+
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $spb -UseBasicParsing
+$mineB = J $r
+Ok 'practica: ajenas fuera de mine' (@($mineB.practicas | Where-Object { $_.id -eq $pracRId }).Count -eq 0) "n=$(@($mineB.practicas).Count)"
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -UseBasicParsing
+  Ok 'practica: mine sin sesion 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: mine sin sesion 401' ($code -eq 401) "code=$code"
+}
+
+# 3) Jugar: obtener preguntas de una práctica pública ajena
+$r = Invoke-WebRequest -Uri "$base/api/practicas?practice_id=$pracRId" -WebSession $spb -UseBasicParsing
+$playP = J $r
+$q0 = @($playP.preguntas) | Select-Object -First 1
+Ok 'practica: jugar get preguntas' ($r.StatusCode -eq 200 -and @($playP.preguntas).Count -eq 1 -and $null -ne $q0.correct_index -and @($q0.options_raw).Count -eq 2) "code=$($r.StatusCode) ci=$($q0.correct_index)"
+
+# 4) El SERVIDOR califica: respuesta incorrecta => score 0 (el cliente no manda)
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+  action = 'submit'
+  practice_id = $pracRId
+  answers = @(@{ index = 0; choice = 'B' })
+} | ConvertTo-Json -Depth 6) -UseBasicParsing
+$gradeP = J $r
+Ok 'practica: servidor califica' ($r.StatusCode -eq 201 -and [int]$gradeP.score -eq 0 -and [int]$gradeP.correct -eq 0 -and [int]$gradeP.incorrect -eq 1) "code=$($r.StatusCode) score=$($gradeP.score) c=$($gradeP.correct) i=$($gradeP.incorrect)"
+
+# 5) Permisos de submit
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spb -Body (@{
+    action = 'submit'; practice_id = $pracId; answers = @(@{ index = 0; choice = 'A' })
+  } | ConvertTo-Json -Depth 6) -UseBasicParsing
+  Ok 'practica: privada ajena 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: privada ajena 403' ($code -eq 403) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'submit'; practice_id = $pracRId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'practica: submit sin respuestas 400' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: submit sin respuestas 400' ($code -eq 400) "code=$code"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -Body (@{
+    action = 'submit'; practice_id = $pracRId; answers = @(@{ index = 0; choice = 'A' })
+  } | ConvertTo-Json -Depth 6) -UseBasicParsing
+  Ok 'practica: submit sin sesion 401' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: submit sin sesion 401' ($code -eq 401) "code=$code"
+}
+
+# 6) El intento queda en PG (practice_plays + practice_answers + play_count)
+if ((Test-Path $psqlP8) -and $pracRId) {
+  $pgPl = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT (SELECT count(*) FROM practice_plays WHERE practice_id = '$pracRId' AND user_id = $s1IdSql) || '/' || (SELECT play_count FROM practices WHERE id = '$pracRId') || '/' || (SELECT count(*) FROM practice_answers pa JOIN practice_plays pp ON pp.id = pa.play_id WHERE pp.practice_id = '$pracRId') || '/' || (SELECT COALESCE(SUM(pa.is_correct::int),0) FROM practice_answers pa JOIN practice_plays pp ON pp.id = pa.play_id WHERE pp.practice_id = '$pracRId')" 2>$null)
+  Ok 'practica: PG intento' ("$pgPl".Trim() -eq '2/2/2/1') "v=$pgPl"
+} else {
+  Ok 'practica: PG intento' $false 'psql or id missing'
+}
+
+# 7) Estadísticas reales derivadas de v_practice_stats
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $s1 -UseBasicParsing
+$mine2 = J $r
+$agg = @($mine2.practicas) | Where-Object { $_.id -eq $pracRId } | Select-Object -First 1
+Ok 'practica: agregados reales' ([int]$agg.correct_answers -eq 1 -and [int]$agg.incorrect_answers -eq 1 -and [int]$agg.play_count -eq 2 -and $null -ne $agg.last_played_at) "c=$($agg.correct_answers) i=$($agg.incorrect_answers) pc=$($agg.play_count) lp=$($agg.last_played_at)"
+
+# 8) Historial separado por usuario
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=results" -WebSession $s1 -UseBasicParsing
+$res1 = J $r
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=results" -WebSession $spb -UseBasicParsing
+$resB = J $r
+$sepOk = (@($res1.resultados).Count -eq 2 -and @($resB.resultados).Count -eq 0)
+if ((Test-Path $psqlP8)) {
+  $pgSep = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practice_plays pp JOIN users u ON u.id = pp.user_id WHERE u.email = 'e2e_prac_b_$stamp@gmail.com'" 2>$null)
+  Ok 'practica: historial separado por usuario' ($sepOk -and [int]"$pgSep".Trim() -eq 0) "s1=$(@($res1.resultados).Count) b=$(@($resB.resultados).Count) pgB=$pgSep"
+} else {
+  Ok 'practica: historial separado por usuario' $false 'psql missing'
+}
+
+# 9) El invitado juega sin persistir historial y con 0 estrellas
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $sgp8 -Body (@{
+  action = 'submit'; practice_id = $pracRId; answers = @(@{ index = 0; choice = 'A' })
+} | ConvertTo-Json -Depth 6) -UseBasicParsing
+$guestSub = J $r
+$guestOk = ($r.StatusCode -eq 200 -and $guestSub.persisted -eq $false -and [int]$guestSub.score -eq 100)
+if ((Test-Path $psqlP8)) {
+  $pgGp = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practice_plays pp JOIN users u ON u.id = pp.user_id WHERE u.is_guest AND u.nombre = 'GuestP8_$stamp'" 2>$null)
+  Ok 'practica: invitado juega sin historial' ($guestOk -and [int]"$pgGp".Trim() -eq 0) "code=$($r.StatusCode) persisted=$($guestSub.persisted) pg=$pgGp"
+} else {
+  Ok 'practica: invitado juega sin historial' $false 'psql missing'
+}
+$r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $sgp8 -UseBasicParsing
+$stGp = J $r
+Ok 'practica: invitado 0 estrellas' ([int]$stGp.estrellas -eq 0) "stars=$($stGp.estrellas)"
+
+# 10) La práctica genera EXACTAMENTE 0 estrellas y 0 transacciones de liga
+$r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s1 -UseBasicParsing
+$stP8 = J $r
+$zeroTx = $false
+if ((Test-Path $psqlP8)) {
+  $pgTx = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM league_transactions lt JOIN users u ON u.id = lt.user_id WHERE u.email = 'e2e_logros_$stamp@gmail.com'" 2>$null)
+  $zeroTx = ([int]"$pgTx".Trim() -eq 0)
+}
+Ok 'practica: genera 0 estrellas y 0 tx' ([int]$stP8.estrellas -eq 0 -and $zeroTx) "stars=$($stP8.estrellas)"
+
+# 11) Publicada visible con su creador real
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=public" -UseBasicParsing
+$pubP8 = J $r
+$pubMe = @($pubP8.practicas) | Where-Object { $_.id -eq $pracRId } | Select-Object -First 1
+Ok 'practica: publicada con creador real' ($null -ne $pubMe -and $pubMe.is_public -eq $true -and $pubMe.creator_name -eq 'E2E Logros') "creator=$($pubMe.creator_name)"
+
+# 12) Nadie toca prácticas ajenas
+$codes8 = @()
+try { $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spb -Body (@{ action = 'publish'; practice_id = $pracRId } | ConvertTo-Json) -UseBasicParsing; $codes8 += $r.StatusCode } catch { $codes8 += [int]$_.Exception.Response.StatusCode.value__ }
+try { $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spb -Body (@{ action = 'unpublish'; practice_id = $pracRId } | ConvertTo-Json) -UseBasicParsing; $codes8 += $r.StatusCode } catch { $codes8 += [int]$_.Exception.Response.StatusCode.value__ }
+try { $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spb -Body (@{ action = 'delete'; practice_id = $pracRId } | ConvertTo-Json) -UseBasicParsing; $codes8 += $r.StatusCode } catch { $codes8 += [int]$_.Exception.Response.StatusCode.value__ }
+Ok 'practica: ajena no modifica' (($codes8 | Where-Object { $_ -eq 403 }).Count -eq 3) "codes=$($codes8 -join ',')"
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $sg -Body (@{ action = 'publish'; practice_id = $pracId } | ConvertTo-Json) -UseBasicParsing
+  Ok 'practica: invitado no publica' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: invitado no publica' ($code -eq 403) "code=$code"
+}
+
+if ((Test-Path $psqlP8) -and $pracRId) {
+  $pgInt = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE id = '$pracRId' AND status = 'published' AND deleted_at IS NULL" 2>$null)
+  Ok 'practica: ajena intacta en PG' ([int]"$pgInt".Trim() -eq 1) "n=$pgInt"
+} else {
+  Ok 'practica: ajena intacta en PG' $false 'psql or id missing'
+}
+
+# 13) Los datos sobreviven a la recarga (consultas nuevas, no caché del cliente)
+$r = Invoke-WebRequest -Uri "$base/api/practicas?scope=results" -WebSession $s1 -UseBasicParsing
+$res2 = J $r
+$scores8 = @($res2.resultados | ForEach-Object { [int]$_.score })
+Ok 'practica: recarga conserva historial' (@($res2.resultados).Count -eq 2 -and ($scores8 -contains 100) -and ($scores8 -contains 0)) "scores=$($scores8 -join ',')"
+
+# 14) Sin persistencia en localStorage (solo backend)
+$storeP8 = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\stores\practice.store.ts')
+$scrP8a = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\practice\PracticeScreen.tsx')
+$scrP8b = Get-Content -Raw -Path (Join-Path $PSScriptRoot '..\src\ui\screens\practice\PracticeResultsScreen.tsx')
+$lsBad = @()
+if ($storeP8 -match 'localStorage') { $lsBad += 'store' }
+if ($scrP8a -match 'localStorage\.setItem') { $lsBad += 'PracticeScreen' }
+if ($scrP8b -match 'localStorage\.setItem') { $lsBad += 'Results' }
+Ok 'practica: sin localStorage' ($lsBad.Count -eq 0) ($lsBad -join ',')
+
+# 15) Generación con IA existente (cualquier cuenta registrada).
+# Capacidad de Gemini (429/502/503) es EXTERNA: se documenta como skip;
+# 401/403 es fallo real de permisos y cualquier otro código también falla.
+$aiPrompt = 'Genera exactamente 2 preguntas de matematicas basicas (sumas hasta 20) para ninos de 8 anos, con dos opciones A y B donde solo una sea correcta. Responde UNICAMENTE con este JSON sin markdown ni texto extra: {"questions":[{"question":"texto?","optionA":"1","optionB":"2","correctAnswer":"A"}]}'
+$aiContent = $null
+$aiStatus = 0
+for ($aiTry = 0; $aiTry -lt 3 -and -not $aiContent; $aiTry++) {
+  if ($aiTry -gt 0) { Start-Sleep -Seconds (8 * $aiTry) }
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/ai/generate" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{ prompt = $aiPrompt } | ConvertTo-Json) -UseBasicParsing
+    $aiStatus = [int]$r.StatusCode
+    $aiJ = J $r
+    if ($aiStatus -eq 200 -and $aiJ.content) { $aiContent = "$($aiJ.content)" }
+  } catch {
+    try { $aiStatus = [int]$_.Exception.Response.StatusCode } catch { $aiStatus = 0 }
+    if ($aiStatus -eq 401 -or $aiStatus -eq 403) { break }
+  }
+}
+Ok 'practica: IA estudiante autorizado' ($aiStatus -ne 401 -and $aiStatus -ne 403 -and $aiStatus -ne 0) "status=$aiStatus"
+
+$aiQs = @()
+if ($aiContent) {
+  $aiClean = $aiContent -replace '```json', '' -replace '```', ''
+  $aiParsed = $null
+  try { $aiParsed = $aiClean | ConvertFrom-Json } catch { $aiParsed = $null }
+  if ($aiParsed -and $aiParsed.questions) { $aiQs = @($aiParsed.questions | Where-Object { $_.question -and $_.optionA -and $_.optionB }) }
+}
+$aiExternal = ($aiStatus -eq 429 -or $aiStatus -eq 502 -or $aiStatus -eq 503)
+$aiSkipped = ($aiQs.Count -eq 0 -and $aiExternal)
+if ($aiQs.Count -ge 1) {
+  Ok 'practica: IA generacion real' $true "n=$($aiQs.Count)"
+} elseif ($aiSkipped) {
+  Ok 'practica: IA generacion real' $true "SKIP: Gemini sin capacidad (status $aiStatus)"
+} else {
+  Ok 'practica: IA generacion real' $false "status=$aiStatus n=$($aiQs.Count)"
+}
+
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/ai/generate" -Method Post -ContentType 'application/json' -WebSession $sgp8 -Body (@{ prompt = $aiPrompt } | ConvertTo-Json) -UseBasicParsing
+  Ok 'practica: IA invitado 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'practica: IA invitado 403' ($code -eq 403) "code=$code"
+}
+
+$aiPracId = $null
+$aiExpected = 0
+if ($aiQs.Count -ge 1) {
+  $aiUse = @($aiQs | Select-Object -First 2)
+  $aiExpected = $aiUse.Count
+  $aiQuestions = @($aiUse | ForEach-Object {
+    @{ question = [string]$_.question; optionA = [string]$_.optionA; optionB = [string]$_.optionB; correctAnswer = $(if ("$($_.correctAnswer)" -eq 'B') { 'B' } else { 'A' }) }
+  })
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+      action = 'create'; title = "Prac IA $stamp"; topic = 'mates'; mode = 'lava'; questions = $aiQuestions
+    } | ConvertTo-Json -Depth 6) -UseBasicParsing
+    $aiC = J $r
+    if ($r.StatusCode -eq 201) { $aiPracId = $aiC.id }
+    Ok 'practica: IA guardada' ($r.StatusCode -eq 201) $r.StatusCode
+  } catch {
+    Ok 'practica: IA guardada' $false $_.Exception.Message
+  }
+} elseif ($aiSkipped) {
+  Ok 'practica: IA guardada' $true 'SKIP: Gemini sin capacidad'
+} else {
+  Ok 'practica: IA guardada' $false 'no generated questions'
+}
+
+if ((Test-Path $psqlP8) -and $aiPracId) {
+  $pgAi = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT (SELECT count(*) FROM questions WHERE practice_id = '$aiPracId' AND deleted_at IS NULL) || '/' || (SELECT count(*) FROM question_options o JOIN questions q ON q.id = o.question_id WHERE q.practice_id = '$aiPracId')" 2>$null)
+  Ok 'practica: IA preguntas en PG' ("$pgAi".Trim() -eq "$aiExpected/$($aiExpected * 2)") "v=$pgAi expect=$aiExpected"
+} elseif ($aiSkipped) {
+  Ok 'practica: IA preguntas en PG' $true 'SKIP: Gemini sin capacidad'
+} else {
+  Ok 'practica: IA preguntas en PG' $false 'psql or id missing'
+}
+
+# 16) Eliminar práctica propia (flujo normal, sin depender de IA)
+$delId = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'create'; title = "Prac Del $stamp"; topic = 'valores'; mode = 'decisiones'
+    questions = @(@{ question = 'Borrar?'; optionA = 'Si'; optionB = 'No'; correctAnswer = 'A' })
+  } | ConvertTo-Json -Depth 6) -UseBasicParsing
+  if ($r.StatusCode -eq 201) { $delId = (J $r).id }
+  $delCreate = ($r.StatusCode -eq 201)
+} catch { $delCreate = $false }
+
+if ($delId) {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $s1 -Body (@{
+    action = 'delete'; practice_id = $delId
+  } | ConvertTo-Json) -UseBasicParsing
+  $delOk = ($r.StatusCode -eq 200)
+  $r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $s1 -UseBasicParsing
+  $mineDel = J $r
+  $delOk = $delOk -and (@($mineDel.practicas | Where-Object { $_.id -eq $delId }).Count -eq 0)
+  if ((Test-Path $psqlP8)) {
+    $pgDel8 = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE id = '$delId' AND deleted_at IS NOT NULL" 2>$null)
+    Ok 'practica: eliminar propia' ($delOk -and [int]"$pgDel8".Trim() -eq 1) "pg=$pgDel8"
+  } else {
+    Ok 'practica: eliminar propia' $false 'psql missing'
+  }
+} else {
+  Ok 'practica: eliminar propia' $false "create failed=$delCreate"
+}
 
 # ═══ 3. ESTRELLAS SOLO SALA (panel teacher + student play) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{

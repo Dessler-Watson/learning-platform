@@ -1,5 +1,12 @@
 import { randomBytes } from 'crypto';
-import { query, queryOne } from './client';
+import { query, queryOne, getPool } from './client';
+
+export class PracticeValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PracticeValidationError';
+  }
+}
 
 export interface PracticeSummary {
   id: string;
@@ -15,6 +22,39 @@ export interface PracticeSummary {
   created_by: string;
   creator_name: string;
   play_count: number;
+  correct_answers: number;
+  incorrect_answers: number;
+  last_played_at: string | null;
+}
+
+export interface PracticeQuestionRow {
+  id: string;
+  question_text: string;
+  options_raw: Array<{ id: string; text: string }>;
+  correct_option_id: string | null;
+  correct_index: number | null;
+  explanation: string | null;
+  sort_order: number;
+}
+
+export interface PracticeAnswerInput {
+  index: number;
+  choice: 'A' | 'B' | null;
+}
+
+export interface GradedPracticeAnswer {
+  position: number;
+  questionId: string;
+  optionId: string | null;
+  isCorrect: boolean | null;
+}
+
+export interface GradedPractice {
+  correct: number;
+  incorrect: number;
+  total: number;
+  score: number;
+  answers: GradedPracticeAnswer[];
 }
 
 export interface PracticeResultSummary {
@@ -48,10 +88,14 @@ const PRACTICE_SELECT = `
          (SELECT count(*)::int FROM questions q WHERE q.practice_id = p.id AND q.deleted_at IS NULL) AS question_count,
          (p.status = 'published') AS is_public, p.created_at::text AS created_at, p.creator_id AS created_by,
          coalesce(u.nombre, 'Docente') AS creator_name,
-         p.play_count
+         p.play_count,
+         coalesce(vs.correct_answers, 0) AS correct_answers,
+         coalesce(vs.incorrect_answers, 0) AS incorrect_answers,
+         vs.last_played_at::text AS last_played_at
   FROM practices p
   JOIN game_modes gm ON gm.id = p.game_mode_id
   LEFT JOIN users u ON u.id = p.creator_id
+  LEFT JOIN v_practice_stats vs ON vs.practice_id = p.id
 `;
 
 export async function listPractices(userId: string): Promise<PracticeSummary[]> {
@@ -104,41 +148,55 @@ export async function createPractice(input: {
 }): Promise<string> {
   const mode = await queryOne<{ id: string }>(`SELECT id FROM game_modes WHERE code = $1`, [input.modeCode]);
   if (!mode) throw new Error(`Modo no encontrado: ${input.modeCode}`);
-  const code = await freeCode();
 
   const isPublic = Boolean(input.isPublic);
-  const created = await queryOne<{ id: string }>(
-    `INSERT INTO practices (code, creator_id, game_mode_id, title, description, topic, status, published_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::practice_status, CASE WHEN $8::boolean THEN now() ELSE NULL END)
-     RETURNING id`,
-    [code, input.createdBy, mode.id, input.title, input.description ?? null, input.topic ?? input.title, isPublic ? 'published' : 'private', isPublic]
-  );
-  if (!created) throw new Error('No se pudo crear la práctica');
+  let lastError: unknown = null;
 
-  for (const q of input.questions) {
-    const question = await queryOne<{ id: string }>(
-      `INSERT INTO questions (course_id, practice_id, author_id, prompt, explanation, sort_order)
-       VALUES (NULL, $1, $2, $3, $4, $5)
-       RETURNING id`,
-      [created.id, input.createdBy, q.question_text, q.explanation ?? null, 0]
-    );
-    if (!question) continue;
-    for (let i = 0; i < q.options.length; i++) {
-      await query(
-        `INSERT INTO question_options (question_id, text, sort_order, is_correct)
-         VALUES ($1, $2, $3, $4)`,
-        [question.id, q.options[i], i, i === q.correct_index]
+  // Práctica + preguntas + opciones se insertan en UNA sola transacción:
+  // o se crea completa, o no se crea nada (código única reintentado si choca).
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = await freeCode();
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const created = await client.query<{ id: string }>(
+        `INSERT INTO practices (code, creator_id, game_mode_id, title, description, topic, status, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::practice_status, CASE WHEN $8::boolean THEN now() ELSE NULL END)
+         RETURNING id`,
+        [code, input.createdBy, mode.id, input.title, input.description ?? null, input.topic ?? input.title, isPublic ? 'published' : 'private', isPublic]
       );
+      const practiceId = created.rows[0].id;
+
+      for (let i = 0; i < input.questions.length; i++) {
+        const q = input.questions[i];
+        const question = await client.query<{ id: string }>(
+          `INSERT INTO questions (course_id, practice_id, author_id, prompt, explanation, sort_order)
+           VALUES (NULL, $1, $2, $3, $4, $5)
+           RETURNING id`,
+          [practiceId, input.createdBy, q.question_text, q.explanation ?? null, i]
+        );
+        const questionId = question.rows[0].id;
+        for (let o = 0; o < q.options.length; o++) {
+          await client.query(
+            `INSERT INTO question_options (question_id, text, sort_order, is_correct)
+             VALUES ($1, $2, $3, $4)`,
+            [questionId, q.options[o], o, o === q.correct_index]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return practiceId;
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch { /* conexión rota: ya abajo */ }
+      lastError = err;
+      if ((err as { code?: string }).code === '23505' && attempt < 2) continue;
+      throw err;
+    } finally {
+      client.release();
     }
-    // keep sort_order sequential by re-indexing after insert is fine; set once
-    await query(
-      `UPDATE questions SET sort_order = (
-         SELECT coalesce(max(sort_order), 0) + 1 FROM questions WHERE practice_id = $1
-       ) WHERE id = $2`,
-      [created.id, question.id]
-    );
   }
-  return created.id;
+  throw lastError instanceof Error ? lastError : new Error('No se pudo crear la práctica');
 }
 
 export async function publishPractice(practiceId: string, userId: string): Promise<boolean> {
@@ -171,8 +229,8 @@ export async function deletePractice(practiceId: string, userId: string): Promis
   return result.length > 0;
 }
 
-export async function getPracticeQuestions(practiceId: string) {
-  return query(
+export async function getPracticeQuestions(practiceId: string): Promise<PracticeQuestionRow[]> {
+  return query<PracticeQuestionRow>(
     `SELECT q.id, q.prompt AS question_text,
             (SELECT coalesce(json_agg(json_build_object('id', o.id, 'text', o.text) ORDER BY o.sort_order), '[]'::json)
              FROM question_options o WHERE o.question_id = q.id) AS options_raw,
@@ -186,30 +244,79 @@ export async function getPracticeQuestions(practiceId: string) {
   );
 }
 
+/**
+ * El servidor califica: recibe las elecciones del cliente (posición + A/B/null)
+ * y las compara contra is_correct en BD. El front NUNCA envía aciertos ni score.
+ */
+export function gradePracticeAnswers(
+  questions: PracticeQuestionRow[],
+  answers: PracticeAnswerInput[]
+): GradedPractice {
+  const choiceByPosition = new Map<number, 'A' | 'B'>();
+  for (const a of answers) {
+    if (!Number.isInteger(a.index) || a.index < 0 || a.index >= questions.length) {
+      throw new PracticeValidationError(`Respuesta fuera de rango: ${a.index}`);
+    }
+    if (a.choice !== null) choiceByPosition.set(a.index, a.choice);
+  }
+
+  const graded: GradedPracticeAnswer[] = [];
+  let correct = 0;
+  let incorrect = 0;
+
+  for (let position = 0; position < questions.length; position++) {
+    const q = questions[position];
+    const choice = choiceByPosition.get(position) ?? null;
+    if (choice === null) {
+      graded.push({ position, questionId: q.id, optionId: null, isCorrect: null });
+      continue;
+    }
+    const optionIndex = choice === 'A' ? 0 : 1;
+    const optionId = q.options_raw[optionIndex]?.id ?? null;
+    const isCorrect = q.correct_index === optionIndex;
+    if (isCorrect) correct += 1;
+    else incorrect += 1;
+    graded.push({ position, questionId: q.id, optionId, isCorrect });
+  }
+
+  const total = questions.length;
+  const score = total > 0 ? Math.round((correct / total) * 100) : 0;
+  return { correct, incorrect, total, score, answers: graded };
+}
+
 export async function recordPracticeResult(input: {
   userId: string;
   practiceId: string;
-  score: number;
-  correct: number;
-  total: number;
-  incorrect?: number;
+  graded: GradedPractice;
 }): Promise<string> {
-  const created = await queryOne<{ id: string }>(
-    `INSERT INTO practice_plays (practice_id, user_id, score, correct_count, incorrect_count, total_questions, finished_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now())
-     RETURNING id`,
-    [
-      input.practiceId,
-      input.userId,
-      input.score,
-      input.correct,
-      input.incorrect ?? Math.max(0, input.total - input.correct),
-      input.total,
-    ]
-  );
-  if (!created) throw new Error('No se pudo guardar el resultado');
-  await query(`UPDATE practices SET play_count = play_count + 1 WHERE id = $1`, [input.practiceId]);
-  return created.id;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const play = await client.query<{ id: string }>(
+      `INSERT INTO practice_plays (practice_id, user_id, score, correct_count, incorrect_count, total_questions, finished_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       RETURNING id`,
+      [input.practiceId, input.userId, input.graded.score, input.graded.correct, input.graded.incorrect, input.graded.total]
+    );
+    const playId = play.rows[0].id;
+    for (const a of input.graded.answers) {
+      await client.query(
+        `INSERT INTO practice_answers (play_id, question_id, option_id, question_position, is_correct)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [playId, a.questionId, a.optionId, a.position, a.isCorrect]
+      );
+    }
+    // play_count es la caché de ordenación; se incrementa en el mismo commit
+    // del play (la verdad exacta es COUNT(practice_plays) / v_practice_stats).
+    await client.query(`UPDATE practices SET play_count = play_count + 1 WHERE id = $1`, [input.practiceId]);
+    await client.query('COMMIT');
+    return playId;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* conexión rota: ya abajo */ }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getPracticeStats(userId: string) {

@@ -107,11 +107,11 @@ export function PracticeResultsScreen() {
       return;
     }
 
-    if (result.practiceId) {
+    if (result.practiceId && result.answeredQuestions.length > 0) {
+      // Solo se envían las elecciones por posición: el servidor califica
       void store.recordPlayResult(
         result.practiceId,
-        result.correctAnswers,
-        result.incorrectAnswers
+        result.answeredQuestions.map((q, index) => ({ index, choice: q.playerChoice }))
       );
       setResultSaved(true);
     } else {

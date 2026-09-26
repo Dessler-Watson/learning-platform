@@ -30,8 +30,7 @@ interface PracticeStore {
   loadQuestions: (id: string) => Promise<GeneratedQuestion[]>;
   recordPlayResult: (
     practiceId: string,
-    correctAnswers: number,
-    incorrectAnswers: number
+    answers: Array<{ index: number; choice: 'A' | 'B' | null }>
   ) => Promise<void>;
   getUserResults: () => PracticeResult[];
   getPracticeResults: (practiceId: string) => PracticeResult[];
@@ -64,6 +63,9 @@ interface ApiPractice {
   created_by: string;
   creator_name?: string | null;
   play_count?: number;
+  correct_answers?: number;
+  incorrect_answers?: number;
+  last_played_at?: string | null;
 }
 
 function mapPractice(row: ApiPractice): Practice {
@@ -79,11 +81,11 @@ function mapPractice(row: ApiPractice): Practice {
     questions: [],
     questionCount: row.question_count,
     createdAt: toIsoMs(row.created_at),
-    lastPlayedAt: null,
+    lastPlayedAt: row.last_played_at ? toIsoMs(row.last_played_at) : null,
     isPublic: row.is_public,
-    playCount: row.play_count ?? 0,
-    correctAnswers: 0,
-    incorrectAnswers: 0,
+    playCount: Number(row.play_count ?? 0),
+    correctAnswers: Number(row.correct_answers ?? 0),
+    incorrectAnswers: Number(row.incorrect_answers ?? 0),
   };
 }
 
@@ -309,22 +311,28 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
     return questions;
   },
 
-  recordPlayResult: async (practiceId, correctAnswers, incorrectAnswers) => {
+  recordPlayResult: async (practiceId, answers) => {
     if (!isRegisteredUser()) return;
-    await apiPost('/api/practicas', {
+    const data = await apiPost<{
+      ok: boolean;
+      score: number;
+      correct: number;
+      incorrect: number;
+      total: number;
+    }>('/api/practicas', {
       action: 'submit',
       practice_id: practiceId,
-      correct: correctAnswers,
-      incorrect: incorrectAnswers,
-      total: correctAnswers + incorrectAnswers,
+      answers,
     });
+    if (!data?.ok) return;
+    // El servidor califica: el historial local usa sus valores, no los del cliente
     const practice = get().getPracticeById(practiceId);
     const result: PracticeResult = {
       practiceId,
       userId: 0,
-      correctAnswers,
-      incorrectAnswers,
-      totalQuestions: practice?.questionCount ?? correctAnswers + incorrectAnswers,
+      correctAnswers: data.correct,
+      incorrectAnswers: data.incorrect,
+      totalQuestions: data.total,
       playedAt: Date.now(),
       mode: practice?.mode ?? 'decisiones',
     };

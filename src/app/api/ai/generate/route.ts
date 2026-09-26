@@ -6,7 +6,9 @@ import { getSessionUser } from '@/lib/db';
  */
 export async function POST(req: NextRequest) {
   const session = await getSessionUser(req);
-  if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+  // Cualquier cuenta registrada (estudiante/docente/admin) genera preguntas
+  // para su práctica; los invitados no.
+  if (!session || session.is_guest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
   const apiKey = process.env.GEMINI_API_KEY;
