@@ -3068,6 +3068,342 @@ foreach ($f in (Get-ChildItem "$PSScriptRoot\..\src\app\api\panel" -Recurse -Fil
 }
 Ok 'p10: panel sin mocks en negocio' ($panelMock -eq 0) "hits=$panelMock"
 
+# == 14. REALTIME SSE (Paso 11: canal en tiempo real, authz, idempotencia) ==
+[System.Net.ServicePointManager]::DefaultConnectionLimit = 100
+try { ([System.Net.ServicePointManager]::FindServicePoint([uri]$base)).ConnectionLimit = 100 } catch { }
+$env:PGPASSWORD = 'casimiro123'
+
+function SseOpen($path, $session, $timeoutMs) {
+  $req = [System.Net.HttpWebRequest]::Create("$base$path")
+  $req.Method = 'GET'
+  $req.Accept = 'text/event-stream'
+  $req.Timeout = $timeoutMs
+  $req.ReadWriteTimeout = 600000
+  $req.AllowReadStreamBuffering = $false
+  if ($null -ne $session) { $req.CookieContainer = $session.Cookies }
+  $resp = $req.GetResponse()
+  $ct = $resp.GetResponseHeader('Content-Type')
+  $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
+  return @{ req = $req; resp = $resp; reader = $reader; ctype = $ct; closed = $false; pending = $null }
+}
+
+function SseClose($sse) {
+  if ($sse.closed) { return }
+  $sse.closed = $true
+  try { $sse.reader.Close() } catch { }
+  try { $sse.resp.Close() } catch { }
+}
+
+function SseRead($sse, $timeoutMs) {
+  # Lectura NO bloqueante con plazo: usa ReadLineAsync + Wait por ventana.
+  # Un ReadLine sincrono con timeout destruye la conexion TCP en .NET, asi
+  # que la tarea pendiente se conserva entre llamadas y nunca se cancela.
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($timeoutMs)
+  $events = @()
+  while ([DateTime]::UtcNow -lt $deadline) {
+    if ($null -eq $sse.pending) {
+      try { $sse.pending = $sse.reader.ReadLineAsync() } catch { break }
+    }
+    $remain = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+    if ($remain -lt 0) { $remain = 0 }
+    $done = $false
+    try { $done = $sse.pending.Wait($remain) } catch { $sse.pending = $null; break }
+    if (-not $done) { break }
+    $line = $null
+    try { $line = $sse.pending.Result } catch { $sse.pending = $null; break }
+    $sse.pending = $null
+    if ($null -eq $line) { break }
+    if ($line.StartsWith('data: ')) {
+      try { $events += @($line.Substring(6) | ConvertFrom-Json) } catch { }
+    }
+  }
+  return ,$events
+}
+
+function SseCount($events, $type) {
+  return @($events | Where-Object { $_ -and $_.type -eq $type }).Count
+}
+
+function SseStatus($path, $session) {
+  try {
+    $sse = SseOpen $path $session 30000
+    SseClose $sse
+    return 200
+  } catch {
+    $ex = $_.Exception
+    while ($null -ne $ex -and -not ($ex -is [System.Net.WebException])) { $ex = $ex.InnerException }
+    if ($null -ne $ex -and $null -ne $ex.Response) { return [int]$ex.Response.StatusCode }
+    return 0
+  }
+}
+
+# Sesiones propias de la seccion
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'Real Time'; email = "realtime_t_$stamp@gmail.com"; password = 'secret123'; institution = 'Inst RT'; role = 'teacher'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable srtT
+Ok 'rt: teacher register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'RealS'; email = "realtime_s_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable srtS
+Ok 'rt: student register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'RealO'; email = "realtime_o_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable srtO
+Ok 'rt: outsider register' ($r.StatusCode -eq 201) $r.StatusCode
+
+# Curso + preguntas del modo decisiones
+$cursoRT = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'create'; nombre = "Curso RT $stamp"; gameModeId = 'decisiones'; descripcion = 'rt'
+  } | ConvertTo-Json) -UseBasicParsing
+  $ncRT = J $r
+  if ($ncRT.curso) { $cursoRT = $ncRT.curso } elseif ($ncRT.id) { $cursoRT = $ncRT }
+  Ok 'rt: curso create' ($r.StatusCode -eq 201 -and $null -ne $cursoRT.id) $r.StatusCode
+} catch {
+  Ok 'rt: curso create' $false $_.Exception.Message
+}
+
+$okQRt = 0
+if ($cursoRT) {
+  1..2 | ForEach-Object {
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+        action = 'create'; cursoId = $cursoRT.id; enunciado = "PregRT$_ $stamp"; opciones = @('Si', 'No'); respuestaCorrecta = 'Si'
+      } | ConvertTo-Json -Depth 5) -UseBasicParsing
+      if ($r.StatusCode -eq 201) { $okQRt++ }
+    } catch { }
+  }
+}
+Ok 'rt: seed 2 preguntas' ($okQRt -eq 2) "n=$okQRt"
+
+$salaRT = $null
+$codRT = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'create'; name = "RT $stamp"; mode = 'decisiones'; course_id = $cursoRT.id
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'rt: sala create' ($r.StatusCode -eq 201) $r.StatusCode
+  $salaRT = (J $r).sala.id
+  $codRT = (J $r).sala.code
+} catch {
+  Ok 'rt: sala create' $false $_.Exception.Message
+}
+
+# Authz del canal: 401 sin sesion, 403 sin participar, 200 para el dueno
+$codeRT = SseStatus "/api/salas/$salaRT/events" $null
+Ok 'rt: sse sin sesion 401' ($codeRT -eq 401) "code=$codeRT"
+$codeRT = SseStatus "/api/salas/$salaRT/events" $srtO
+Ok 'rt: sse outsider 403' ($codeRT -eq 403) "code=$codeRT"
+
+$sseT = $null
+try {
+  $sseT = SseOpen "/api/salas/$salaRT/events" $srtT 30000
+  Ok 'rt: sse docente 200 stream' ($sseT.ctype -like 'text/event-stream*') "$($sseT.ctype)"
+} catch {
+  Ok 'rt: sse docente 200 stream' $false $_.Exception.Message
+}
+$evSync1 = @()
+if ($null -ne $sseT) { $evSync1 = SseRead $sseT 4000 }
+Ok 'rt: sync al conectar' ((SseCount $evSync1 'sync') -eq 1) "n=$(SseCount $evSync1 'sync')"
+
+# Union del estudiante: el canal del docente lo recibe al instante
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtS -Body (@{
+    action = 'join'; code = $codRT
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'rt: join estudiante' ($r.StatusCode -eq 200) $r.StatusCode
+} catch {
+  Ok 'rt: join estudiante' $false $_.Exception.Message
+}
+$evJoin = @()
+if ($null -ne $sseT) { $evJoin = SseRead $sseT 3500 }
+Ok 'rt: join propaga room:updated 1' ((SseCount $evJoin 'room:updated') -eq 1) "n=$(SseCount $evJoin 'room:updated')"
+
+# El estudiante (participante) tambien abre su canal
+$sseS = $null
+try {
+  $sseS = SseOpen "/api/salas/$salaRT/events" $srtS 30000
+  Ok 'rt: sse estudiante 200' ($true) "$($sseS.ctype)"
+} catch {
+  Ok 'rt: sse estudiante 200' $false $_.Exception.Message
+}
+$evSyncS = @()
+if ($null -ne $sseS) { $evSyncS = SseRead $sseS 3500 }
+Ok 'rt: estudiante sync al conectar' ((SseCount $evSyncS 'sync') -eq 1) "n=$(SseCount $evSyncS 'sync')"
+
+# Reconexion: cerrar y volver a abrir recibe sync (recuperacion de estado)
+if ($null -ne $sseT) { SseClose $sseT }
+$sseT = $null
+try { $sseT = SseOpen "/api/salas/$salaRT/events" $srtT 30000 } catch { }
+$allT = @()
+$evSync2 = @()
+if ($null -ne $sseT) { $evSync2 = SseRead $sseT 4000; $allT += $evSync2 }
+Ok 'rt: reconexion sync' ((SseCount $evSync2 'sync') -eq 1) "n=$(SseCount $evSync2 'sync')"
+
+# Aislamiento: eventos de otra sala no llegan a este canal
+$salaRT2 = $null
+$codRT2 = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'create'; name = "RT2 $stamp"; mode = 'decisiones'; course_id = $cursoRT.id
+  } | ConvertTo-Json) -UseBasicParsing
+  $salaRT2 = (J $r).sala.id
+  $codRT2 = (J $r).sala.code
+  Ok 'rt: sala2 create' ($r.StatusCode -eq 201) $r.StatusCode
+} catch {
+  Ok 'rt: sala2 create' $false $_.Exception.Message
+}
+if ($salaRT2) {
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtO -Body (@{
+      action = 'join'; code = $codRT2
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'rt: join sala2' ($r.StatusCode -eq 200) $r.StatusCode
+  } catch {
+    Ok 'rt: join sala2' $false $_.Exception.Message
+  }
+} else {
+  Ok 'rt: join sala2' $false 'sala2 missing'
+}
+$evIso = @()
+if ($null -ne $sseT) { $evIso = SseRead $sseT 2500; $allT += $evIso }
+Ok 'rt: aislado por sala' ((SseCount $evIso 'room:updated') -eq 0) "n=$(SseCount $evIso 'room:updated')"
+
+# Inicio: room:started + match:started exactamente una vez en cada canal
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'start'; room_id = $salaRT
+  } | ConvertTo-Json) -UseBasicParsing
+  $startRT = J $r
+  Ok 'rt: start crea match' ($r.StatusCode -eq 200 -and $null -ne $startRT.partida.id) "code=$($r.StatusCode)"
+} catch {
+  Ok 'rt: start crea match' $false $_.Exception.Message
+}
+$evStart = @()
+if ($null -ne $sseT) { $evStart = SseRead $sseT 3500; $allT += $evStart }
+Ok 'rt: room:started sin duplicados' ((SseCount $evStart 'room:started') -eq 1) "n=$(SseCount $evStart 'room:started')"
+Ok 'rt: match:started sin duplicados' ((SseCount $evStart 'match:started') -eq 1) "n=$(SseCount $evStart 'match:started')"
+$evStartS = @()
+if ($null -ne $sseS) { $evStartS = SseRead $sseS 2500 }
+Ok 'rt: estudiante ve inicio sin refrescar' ((SseCount $evStartS 'room:started') -ge 1) "n=$(SseCount $evStartS 'room:started')"
+
+# Respuesta en vivo: match:progress al canal; duplicada no emite otro evento
+$partRT = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/partida?room_id=$salaRT" -WebSession $srtS -UseBasicParsing
+  $partRT = J $r
+  Ok 'rt: partida estado 200' ($r.StatusCode -eq 200 -and @($partRT.preguntas).Count -ge 1) "n=$(@($partRT.preguntas).Count)"
+} catch {
+  Ok 'rt: partida estado 200' $false $_.Exception.Message
+}
+$qRT = $null
+$optRT = $null
+if ($partRT) {
+  $qRT = @($partRT.preguntas)[0]
+  $optRT = @(@($qRT.options) | Where-Object { $_.text -eq 'Si' } | Select-Object -First 1)
+}
+if ($qRT -and $optRT) {
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $srtS -Body (@{
+      action = 'answer'; room_id = $salaRT; question_id = $qRT.id; option_id = $optRT[0].id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'rt: respuesta 200' ($r.StatusCode -eq 200) $r.StatusCode
+  } catch {
+    Ok 'rt: respuesta 200' $false $_.Exception.Message
+  }
+  $evProg = @()
+  if ($null -ne $sseT) { $evProg = SseRead $sseT 3500; $allT += $evProg }
+  Ok 'rt: match:progress sin duplicados' ((SseCount $evProg 'match:progress') -eq 1) "n=$(SseCount $evProg 'match:progress')"
+
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/partida" -Method Post -ContentType 'application/json' -WebSession $srtS -Body (@{
+      action = 'answer'; room_id = $salaRT; question_id = $qRT.id; option_id = $optRT[0].id
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok 'rt: duplicada 409' ($false) "unexpected $($r.StatusCode)"
+  } catch {
+    $codeRT = $_.Exception.Response.StatusCode.value__
+    Ok 'rt: duplicada 409' ($codeRT -eq 409) "code=$codeRT"
+  }
+  $evDup = @()
+  if ($null -ne $sseT) { $evDup = SseRead $sseT 3000; $allT += $evDup }
+  Ok 'rt: duplicada sin evento extra' ((SseCount $evDup 'match:progress') -eq 0) "n=$(SseCount $evDup 'match:progress')"
+} else {
+  Ok 'rt: partida estado 200' $false 'preguntas missing'
+  Ok 'rt: respuesta 200' $false 'preguntas missing'
+  Ok 'rt: match:progress sin duplicados' $false 'preguntas missing'
+  Ok 'rt: duplicada 409' $false 'preguntas missing'
+  Ok 'rt: duplicada sin evento extra' $false 'preguntas missing'
+}
+
+# Fallback: el polling por API sigue funcionando con el canal abierto
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas?id=$salaRT&join=0" -WebSession $srtT -UseBasicParsing
+  $pollRT = J $r
+  Ok 'rt: fallback polling 200' ($r.StatusCode -eq 200) $r.StatusCode
+  Ok 'rt: fallback polling consistente' ($pollRT.sala.status -eq 'in_progress' -and @($pollRT.participantes).Count -ge 2) "st=$($pollRT.sala.status) n=$(@($pollRT.participantes).Count)"
+} catch {
+  Ok 'rt: fallback polling 200' $false $_.Exception.Message
+  Ok 'rt: fallback polling consistente' $false 'skip'
+}
+
+# Fin: room:finished + match:finished exactamente una vez en cada canal
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'finish'; room_id = $salaRT
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'rt: finish 200' ($r.StatusCode -eq 200 -and (J $r).ok -eq $true) $r.StatusCode
+} catch {
+  Ok 'rt: finish 200' $false $_.Exception.Message
+}
+$evFin = @()
+if ($null -ne $sseT) { $evFin = SseRead $sseT 3500; $allT += $evFin }
+Ok 'rt: room:finished sin duplicados' ((SseCount $evFin 'room:finished') -eq 1) "n=$(SseCount $evFin 'room:finished')"
+Ok 'rt: match:finished sin duplicados' ((SseCount $evFin 'match:finished') -eq 1) "n=$(SseCount $evFin 'match:finished')"
+$evFinS = @()
+if ($null -ne $sseS) { $evFinS = SseRead $sseS 3000 }
+Ok 'rt: estudiante ve fin sin refrescar' ((SseCount $evFinS 'room:finished') -ge 1) "n=$(SseCount $evFinS 'room:finished')"
+
+# Totales del canal docente (2a conexion): exactamente una vez cada evento
+$cS = SseCount $allT 'sync'
+$cU = SseCount $allT 'room:updated'
+$cSt = SseCount $allT 'room:started'
+$cMs = SseCount $allT 'match:started'
+$cMp = SseCount $allT 'match:progress'
+$cF = SseCount $allT 'room:finished'
+$cMf = SseCount $allT 'match:finished'
+Ok 'rt: docente totales sin duplicados' ($cS -eq 1 -and $cU -eq 0 -and $cSt -eq 1 -and $cMs -eq 1 -and $cMp -eq 1 -and $cF -eq 1 -and $cMf -eq 1) "sync=$cS upd=$cU st=$cSt ms=$cMs mp=$cMp fin=$cF mf=$cMf"
+
+# Totales del canal estudiante: flujo completo una sola vez
+$allS = @()
+$allS += $evSyncS
+$allS += $evStartS
+$allS += $evFinS
+$sS = SseCount $allS 'sync'
+$sU = SseCount $allS 'room:updated'
+$sSt = SseCount $allS 'room:started'
+$sMs = SseCount $allS 'match:started'
+$sMp = SseCount $allS 'match:progress'
+$sF = SseCount $allS 'room:finished'
+$sMf = SseCount $allS 'match:finished'
+Ok 'rt: estudiante totales sin duplicados' ($sS -eq 1 -and $sU -eq 0 -and $sSt -eq 1 -and $sMs -eq 1 -and $sMp -eq 1 -and $sF -eq 1 -and $sMf -eq 1) "sync=$sS upd=$sU st=$sSt ms=$sMs mp=$sMp fin=$sF mf=$sMf"
+
+# PostgreSQL sigue siendo la fuente de verdad
+if (Test-Path $psqlP8) {
+  $pgRT = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT status::text FROM rooms WHERE id = '$salaRT'" 2>$null)
+  Ok 'rt: PG sala finished' ("$pgRT".Trim() -eq 'finished') "v=$pgRT"
+  $pgRTa = (& $psqlP8 -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM participant_answers pa JOIN matches m ON m.id = pa.match_id WHERE m.room_id = '$salaRT'" 2>$null)
+  Ok 'rt: PG respuestas registradas' ([int]"$pgRTa".Trim() -eq 1) "n=$pgRTa"
+} else {
+  Ok 'rt: PG sala finished' $false 'psql missing'
+  Ok 'rt: PG respuestas registradas' $false 'psql missing'
+}
+
+if ($null -ne $sseT) { SseClose $sseT }
+if ($null -ne $sseS) { SseClose $sseS }
+
 # ═══ RESULTS ═══
 Write-Host "`n=== E2E RESULTS ==="
 $results | Format-Table -AutoSize -Wrap

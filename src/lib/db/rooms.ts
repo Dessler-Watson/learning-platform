@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { getPool, query, queryOne } from './client';
+import { publishRoomEvent } from '../realtime';
 
 export interface RoomRow {
   id: string;
@@ -235,6 +236,7 @@ export async function joinRoom(roomId: string, userId: string): Promise<{ joined
       [roomId, userId, displayName, u?.avatar_id ?? null]
     );
     await client.query('COMMIT');
+    publishRoomEvent('room:updated', roomId);
     return { joined: true };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -251,6 +253,7 @@ export async function leaveRoom(roomId: string, userId: string): Promise<boolean
      RETURNING room_id`,
     [roomId, userId]
   );
+  if (result.length > 0) publishRoomEvent('room:updated', roomId);
   return result.length > 0;
 }
 
@@ -268,7 +271,10 @@ export async function startRoom(
      RETURNING id, status::text AS status`,
     [roomId, actorId, opts?.isAdmin === true]
   );
-  if (result.length > 0) return { ok: true };
+  if (result.length > 0) {
+    publishRoomEvent('room:started', roomId);
+    return { ok: true };
+  }
 
   const room = await getRoomById(roomId);
   if (!room) return { ok: false, reason: 'not_found' };
@@ -300,6 +306,7 @@ export async function finishRoom(
     if (!opts?.isAdmin && room.teacher_id !== actorId) return { ok: false, reason: 'forbidden' };
     return { ok: false, reason: 'bad_status' };
   }
+  publishRoomEvent('room:finished', roomId);
 
   const ranking = await query<{ user_id: string; display_name: string }>(
     `SELECT user_id, display_name FROM room_participants WHERE room_id = $1 AND left_at IS NULL ORDER BY joined_at`,

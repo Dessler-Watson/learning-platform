@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { getPool, query, queryOne } from './client';
 import { applyStarsDeltaInTx } from './leagues';
+import { publishRoomEvent } from '../realtime';
 
 export interface ModeRules {
   correctPoints: number;
@@ -174,6 +175,7 @@ export async function ensureActiveMatch(roomId: string, startedBy: string): Prom
 
     const created = await insertMatchWithParticipants(client, room, startedBy);
     await client.query('COMMIT');
+    if (created) publishRoomEvent('match:started', roomId);
     return created;
   } catch (err) {
     try {
@@ -472,6 +474,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
     }
 
     await client.query('COMMIT');
+    publishRoomEvent('match:progress', input.roomId);
 
     const correctOptionRes = input.timedOut
       ? null
@@ -604,6 +607,8 @@ export async function finalizeMatch(
     );
 
     await client.query('COMMIT');
+    if (matchIds.length > 0) publishRoomEvent('match:finished', roomId);
+    publishRoomEvent('room:finished', roomId);
     return { ok: true, matchIds, awarded };
   } catch (err) {
     try {

@@ -16,6 +16,7 @@ import { Sala } from '../../../types';
 import { useClickLock } from '../../../hooks/useClickLock';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
 import { StudentAvatar } from '../../../components/shared/StudentAvatar';
+import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -41,11 +42,18 @@ export default function LobbyPage() {
     if (updated) setSala(updated);
   }, [salaId]);
 
+  // Paso 11: SSE refresca al instante ante cambios (nuevos jugadores,
+  // inicio de la sala); el evento solo señala el cambio.
+  const realtimeConnected = useRoomEvents(salaId, () => {
+    void refresh();
+  });
+
   useEffect(() => {
     if (!sala || sala.estado !== 'esperando') return;
-    const interval = setInterval(refresh, 3000);
+    const period = realtimeConnected ? 8000 : 3000;
+    const interval = setInterval(refresh, period);
     return () => clearInterval(interval);
-  }, [sala?.estado, salaId, refresh]);
+  }, [sala?.estado, salaId, refresh, realtimeConnected]);
 
   const handleStart = async () => {
     if (!salaId || !clickLock()) return;

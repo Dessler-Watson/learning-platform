@@ -9,6 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { gameRouteFor, type RoomData } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
 import { getCustomAvatar } from '@/lib/custom-avatar';
+import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
 interface Player {
   id: string;
@@ -197,14 +198,28 @@ export function WaitingRoomScreen() {
     leaveRequestedRef.current = false;
     setPhase('loading');
     loadRoom({ join: true });
-    pollRef.current = setInterval(() => {
-      if (!startedRef.current && !leaveRequestedRef.current) loadRoom({ join: false });
-    }, 2000);
     return () => {
       clearTimers();
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [loadRoom]);
+
+  // Paso 11: cambios en tiempo real (entrada, inicio, fin) vía SSE; el
+  // evento solo señala el cambio y se vuelve a leer el estado real.
+  const realtimeConnected = useRoomEvents(snapshot?.room.id ?? null, () => {
+    if (!startedRef.current && !leaveRequestedRef.current) loadRoom({ join: false });
+  });
+
+  // Polling de respaldo: rápido si el canal no responde, relajado si lo hace.
+  useEffect(() => {
+    const period = realtimeConnected ? 8000 : 2000;
+    pollRef.current = setInterval(() => {
+      if (!startedRef.current && !leaveRequestedRef.current) loadRoom({ join: false });
+    }, period);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [loadRoom, realtimeConnected]);
 
   const salir = async () => {
     leaveRequestedRef.current = true;

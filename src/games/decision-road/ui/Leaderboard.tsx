@@ -5,6 +5,7 @@ import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { avatarUrl } from '@/lib/avatares';
 import { fetchMatchResult, getMatchRoomId } from '@/lib/partida-client';
+import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
 interface Competitor {
   id: string;
@@ -27,6 +28,14 @@ export function Leaderboard() {
   }
 
   const visible = !isPractice && (phase === 'playing' || phase === 'question' || phase === 'correctFeedback' || phase === 'incorrectFeedback');
+
+  const cargarRef = useRef<(() => void) | null>(null);
+
+  // Paso 11: SSE actualiza el ranking al instante tras cada respuesta de
+  // cualquier jugador; el evento solo señala el cambio.
+  const realtimeConnected = useRoomEvents(roomIdRef.current, () => {
+    cargarRef.current?.();
+  });
 
   // Ranking real de la sala (Paso 5): se consulta al servidor; sin sala no hay rivales.
   useEffect(() => {
@@ -60,13 +69,16 @@ export function Leaderboard() {
         /* sin conexión: se conserva el último ranking conocido */
       }
     };
+    cargarRef.current = cargar;
     cargar();
-    const interval = setInterval(cargar, 2500);
+    const period = realtimeConnected ? 8000 : 2500;
+    const interval = setInterval(cargar, period);
     return () => {
       cancelado = true;
+      cargarRef.current = null;
       clearInterval(interval);
     };
-  }, [visible]);
+  }, [visible, realtimeConnected]);
 
   const playerEntry = {
     id: 'player',

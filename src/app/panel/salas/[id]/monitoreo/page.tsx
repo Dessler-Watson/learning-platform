@@ -17,6 +17,7 @@ import { Sala, ParticipanteSala } from '../../../types';
 import { useClickLock } from '../../../hooks/useClickLock';
 import { AnimatedBackground } from '../../../components/shared/AnimatedBackground';
 import { StudentAvatar } from '../../../components/shared/StudentAvatar';
+import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
 const ESTADO_COLOR: Record<string, string> = {
   esperando: 'bg-amber-50 text-amber-600 border border-amber-200',
@@ -53,11 +54,17 @@ export default function MonitoreoPage() {
     }
   }, [salaId, router]);
 
+  // Paso 11: SSE refresca al instante (respuestas, progreso, finalización).
+  const realtimeConnected = useRoomEvents(salaId, () => {
+    void poll();
+  });
+
   useEffect(() => {
     if (!sala || sala.estado !== 'en_curso') return;
-    const interval = setInterval(poll, 2500);
+    const period = realtimeConnected ? 8000 : 2500;
+    const interval = setInterval(poll, period);
     return () => clearInterval(interval);
-  }, [sala?.estado, salaId, poll]);
+  }, [sala?.estado, salaId, poll, realtimeConnected]);
 
   const handleFinish = async () => {
     if (!salaId || !clickLock()) return;
