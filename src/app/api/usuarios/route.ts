@@ -16,7 +16,9 @@ function calcularEdad(fechaISO: string): number {
 export async function GET(req: NextRequest) {
   try {
     const session = await getSessionUser(req);
-    if (!session || (session.role !== 'teacher' && session.role !== 'admin')) {
+    // PII sensible (email, fecha de nacimiento, sexo) de TODOS los usuarios:
+    // solo administradores. Los docentes usan /api/panel/{docentes,estudiantes}.
+    if (!session || session.role !== 'admin') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -78,6 +80,9 @@ export async function POST(req: NextRequest) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
       return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
+    }
+    if (fechaNacimiento && !/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento)) {
+      return NextResponse.json({ error: 'Fecha de nacimiento inválida' }, { status: 400 });
     }
     if (fechaNacimiento && calcularEdad(fechaNacimiento) < 3) {
       return NextResponse.json({ error: 'Debes tener al menos 3 anos para usar la aplicacion' }, { status: 400 });

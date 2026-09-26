@@ -806,6 +806,15 @@ try {
   $code = $_.Exception.Response.StatusCode.value__
   Ok 'seguridad: student 403 usuarios' ($code -eq 403) "code=$code"
 }
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/usuarios" -WebSession $stch -UseBasicParsing
+  Ok 'seguridad: teacher 403 usuarios' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'seguridad: teacher 403 usuarios' ($code -eq 403) "code=$code"
+}
+$r = Invoke-WebRequest -Uri "$base/api/usuarios" -WebSession $sadm -UseBasicParsing
+Ok 'seguridad: admin 200 usuarios' ($r.StatusCode -eq 200) $r.StatusCode
 
 try {
   $r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -WebSession $s1 -UseBasicParsing
@@ -828,27 +837,49 @@ Ok 'migrate: admin give guest stars' ($r.StatusCode -eq 200) $r.StatusCode
 
 $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
   nombre = 'MigUser'; email = "e2e_mig_$stamp@gmail.com"; password = 'secret123'
-} | ConvertTo-Json) -UseBasicParsing -SessionVariable s2
+} | ConvertTo-Json) -UseBasicParsing -WebSession $sg2
 Ok 'migrate: register' ($r.StatusCode -eq 201) $r.StatusCode
 
-$r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $s2 -Body (@{
+$r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $sg2 -Body (@{
   guest_id = $guestId
 } | ConvertTo-Json) -UseBasicParsing
 $mig = J $r
 Ok 'migrate: guest_id merge' ($r.StatusCode -eq 200 -and $mig.ok) "migrated=$($mig.migrated_stars)"
 Ok 'migrate: stars preserved >0' ([int]$mig.migrated_stars -eq 7) "migrated_stars=$($mig.migrated_stars)"
 
-$r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $s2 -UseBasicParsing
+$r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $sg2 -UseBasicParsing
 $st4 = J $r
 Ok 'migrate: new user has stars' ([int]$st4.estrellas -ge 7) "stars=$($st4.estrellas)"
 
-Invoke-WebRequest -Uri "$base/api/auth/logout" -Method Post -WebSession $s2 -UseBasicParsing | Out-Null
+Invoke-WebRequest -Uri "$base/api/auth/logout" -Method Post -WebSession $sg2 -UseBasicParsing | Out-Null
 try {
-  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -WebSession $s2 -UseBasicParsing
+  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -WebSession $sg2 -UseBasicParsing
   Ok 'auth: logout clears session' ($r.StatusCode -eq 200 -and (J $r).user -eq $null) "still=$($r.StatusCode)"
 } catch {
   $code = $_.Exception.Response.StatusCode.value__
   Ok 'auth: logout clears session' ($code -eq 401) "code=$code"
+}
+
+# Anti-IDOR: un usuario autenticado sin vinculo no puede fusionar invitados ajenos
+$r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{ nombre = 'GuestVictim' } | ConvertTo-Json) -UseBasicParsing -SessionVariable sgvic
+$victimId = (J $r).user.id
+Ok 'migrate: victim guest create' ($r.StatusCode -eq 201 -and $victimId) "$victimId"
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+    guest_id = $victimId
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'migrate: ajeno sin vinculo 403' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'migrate: ajeno sin vinculo 403' ($code -eq 403) "code=$code"
+}
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/auth/me" -WebSession $sgvic -UseBasicParsing
+  $vic = (J $r).user
+  Ok 'migrate: victima sigue activa' ($r.StatusCode -eq 200 -and $vic.is_guest -eq $true) "code=$($r.StatusCode) guest=$($vic.is_guest)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'migrate: victima sigue activa' $false "code=$code"
 }
 
 # ═══ 7. WAITING ROOM (API real: join → jugadores → start → estado) ═══
@@ -2382,6 +2413,18 @@ if ($cursoE2E) {
     $upq = J $r
     Ok 'preguntas: update answer' ($upq.pregunta.respuestaCorrecta -eq 'Opción B') "$($upq.pregunta.respuestaCorrecta)"
 
+    # update parcial invalido: solo opciones sin respuestaCorrecta → 400
+    # (evita marcar silenciosamente la opcion A como correcta)
+    try {
+      $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
+        action = 'update'; id = $pregE2E; opciones = @('X parcial', 'Y parcial')
+      } | ConvertTo-Json -Depth 5) -UseBasicParsing
+      Ok 'preguntas: update parcial 400' ($false) "unexpected $($r.StatusCode)"
+    } catch {
+      $code = $_.Exception.Response.StatusCode.value__
+      Ok 'preguntas: update parcial 400' ($code -eq 400) "code=$code"
+    }
+
     # other teacher cannot update/delete
     try {
       $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch2 -Body (@{
@@ -2665,22 +2708,32 @@ if ($curso) {
 
     # Registrar cuenta y migrar: el progreso del invitado se conserva (PG, no localStorage)
     $r = $null
+    $regOk = $false
+    # Captura el token original del invitado ANTES de registrarse: register
+    # sobrescribe el cookie de sesion en la misma jar (sgB) y emite el cookie
+    # de vinculo eduplay_guest_merge.
+    $gBtok = ''
+    try {
+      $gBck = @($sgB.Cookies.GetCookies([uri]$base) | Where-Object { $_.Name -eq 'eduplay_session' }) | Select-Object -First 1
+      if ($gBck) { $gBtok = "$($gBck.Value)" }
+    } catch { }
     try {
       $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
         nombre = 'MigLogros'; email = "e2e_miglog_$stamp@gmail.com"; password = 'secret123'
-      } | ConvertTo-Json) -UseBasicParsing -SessionVariable smig
+      } | ConvertTo-Json) -UseBasicParsing -WebSession $sgB
       Ok 'logros: mig register' ($r.StatusCode -eq 201) $r.StatusCode
+      $regOk = ($r.StatusCode -eq 201)
     } catch { Ok 'logros: mig register' $false $_.Exception.Message }
 
-    if ($smig) {
-      $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $smig -Body (@{
+    if ($regOk) {
+      $r = Invoke-WebRequest -Uri "$base/api/auth/migrate" -Method Post -ContentType 'application/json' -WebSession $sgB -Body (@{
         guest_id = $guestB
       } | ConvertTo-Json) -UseBasicParsing
       $migL = J $r
       Ok 'logros: migrate evalua datos' ($r.StatusCode -eq 200 -and $migL.ok -eq $true -and [int]$migL.migrated_achievements -ge 2) "migrated_ach=$($migL.migrated_achievements)"
 
       # Estrellas: la cuenta fusionada conserva EXACTAMENTE las del invitado
-      $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $smig -UseBasicParsing
+      $r = Invoke-WebRequest -Uri "$base/api/estrellas" -WebSession $sgB -UseBasicParsing
       $estM = J $r
       if ($null -ne $pgGS) {
         Ok 'estrellas: invitado conserva al migrar' ($pgGS -gt 0 -and [int]$estM.estrellas -eq $pgGS) "mig=$($estM.estrellas) guest=$pgGS"
@@ -2696,19 +2749,25 @@ if ($curso) {
         Ok 'estrellas: tx migration registrada' $false 'psql missing'
       }
 
-      $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $smig -UseBasicParsing
+      $r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $sgB -UseBasicParsing
       $migLog = J $r
       $mA1 = @($migLog.logros | Where-Object { $_.code -eq 'ach_001' }) | Select-Object -First 1
       $mA2 = @($migLog.logros | Where-Object { $_.code -eq 'ach_002' }) | Select-Object -First 1
       Ok 'logros: progreso invitado conservado' ($mA1.completado -eq $true -and $mA2.completado -eq $true -and [int]$mA1.progreso -ge 1 -and [int]$mA2.progreso -ge 1) "a1=$($mA1.progreso) a2=$($mA2.progreso)"
 
       # tras migrar, la sesión de invitado queda revocada (cuenta fusionada)
-      try {
-        $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $sgB -Body (@{ action = 'sync' } | ConvertTo-Json) -UseBasicParsing
-        Ok 'logros: guest sesion revocada tras migrate' $false "unexpected $($r.StatusCode)"
-      } catch {
-        $code = $_.Exception.Response.StatusCode.value__
-        Ok 'logros: guest sesion revocada tras migrate' ($code -eq 401) "code=$code"
+      # Se prueba con el token ORIGINAL de invitado: la jar sgB ya contiene la
+      # sesion nueva de la cuenta registrada (register sobrescribio el cookie).
+      if (-not $gBtok) {
+        Ok 'logros: guest sesion revocada tras migrate' $false 'guest token missing'
+      } else {
+        try {
+          $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -Headers @{ Cookie = "eduplay_session=$gBtok" } -Body (@{ action = 'sync' } | ConvertTo-Json) -UseBasicParsing
+          Ok 'logros: guest sesion revocada tras migrate' $false "unexpected $($r.StatusCode)"
+        } catch {
+          $code = $_.Exception.Response.StatusCode.value__
+          Ok 'logros: guest sesion revocada tras migrate' ($code -eq 401) "code=$code"
+        }
       }
     } else {
       Ok 'logros: migrate evalua datos' $false 'register missing'
@@ -3349,6 +3408,17 @@ try {
   Ok 'rt: fallback polling consistente' $false 'skip'
 }
 
+# Anti-huerfanos: no se puede eliminar una sala con partida en curso (409)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'delete'; id = $salaRT
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'rt: delete en curso 409' ($false) "unexpected $($r.StatusCode)"
+} catch {
+  $code = $_.Exception.Response.StatusCode.value__
+  Ok 'rt: delete en curso 409' ($code -eq 409) "code=$code"
+}
+
 # Fin: room:finished + match:finished exactamente una vez en cada canal
 try {
   $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
@@ -3399,6 +3469,16 @@ if (Test-Path $psqlP8) {
 } else {
   Ok 'rt: PG sala finished' $false 'psql missing'
   Ok 'rt: PG respuestas registradas' $false 'psql missing'
+}
+
+# Tras finalizar la partida, la sala si puede eliminarse (borrado logico)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $srtT -Body (@{
+    action = 'delete'; id = $salaRT
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'rt: delete tras finish 200' ($r.StatusCode -eq 200) $r.StatusCode
+} catch {
+  Ok 'rt: delete tras finish 200' $false $_.Exception.Message
 }
 
 if ($null -ne $sseT) { SseClose $sseT }

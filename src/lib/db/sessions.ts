@@ -3,6 +3,12 @@ import { cookies } from 'next/headers';
 import { query, queryOne } from './client';
 
 export const SESSION_COOKIE = 'eduplay_session';
+/**
+ * Cookie de vínculo invitado→cuenta: contiene el token de sesión del invitado
+ * vigente en el momento de registrarse/iniciar sesión. /api/auth/migrate la
+ * exige para demostrar la propiedad del guest_id (previene IDOR de fusión).
+ */
+export const GUEST_MERGE_COOKIE = 'eduplay_guest_merge';
 const SESSION_TTL_DAYS = 30;
 
 export function hashToken(token: string): string {
@@ -68,6 +74,34 @@ function isHttpsRequest(req?: Request): boolean {
   }
 }
 
+export function readCookie(req: Request | undefined, name: string): string | null {
+  const cookieHeader = req?.headers.get('cookie');
+  if (cookieHeader) {
+    for (const part of cookieHeader.split(';')) {
+      const [key, ...rest] = part.trim().split('=');
+      if (key === name) {
+        const value = rest.join('=');
+        if (value) return decodeURIComponent(value);
+      }
+    }
+  }
+  return null;
+}
+
+function secureAttr(req?: Request): string {
+  if (process.env.NODE_ENV === 'production') return '; Secure';
+  return isHttpsRequest(req) ? '; Secure' : '';
+}
+
+export function setGuestMergeCookie(guestToken: string, req?: Request): string {
+  const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
+  return `${GUEST_MERGE_COOKIE}=${encodeURIComponent(guestToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureAttr(req)}`;
+}
+
+export function clearGuestMergeCookie(req?: Request): string {
+  return `${GUEST_MERGE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureAttr(req)}`;
+}
+
 export async function getUserBySessionToken(token: string): Promise<SessionUser | null> {
   if (!token) return null;
   const row = await queryOne<SessionUser & { expires_at: Date; revoked_at: Date | null }>(
@@ -98,16 +132,8 @@ export async function getUserBySessionToken(token: string): Promise<SessionUser 
 }
 
 export function getSessionTokenFromRequest(req?: Request): string | null {
-  const cookieHeader = req?.headers.get('cookie');
-  if (cookieHeader) {
-    for (const part of cookieHeader.split(';')) {
-      const [name, ...rest] = part.trim().split('=');
-      if (name === SESSION_COOKIE) {
-        const value = rest.join('=');
-        if (value) return decodeURIComponent(value);
-      }
-    }
-  }
+  const fromHeader = readCookie(req, SESSION_COOKIE);
+  if (fromHeader) return fromHeader;
   // Next.js cookies() for server actions / route handlers without explicit req
   try {
     const store = cookies();
@@ -125,11 +151,9 @@ export async function getSessionUser(req?: Request): Promise<SessionUser | null>
 
 export function setSessionCookie(token: string, req?: Request): string {
   const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
-  const secure = isHttpsRequest(req) ? '; Secure' : '';
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureAttr(req)}`;
 }
 
 export function clearSessionCookie(req?: Request): string {
-  const secure = isHttpsRequest(req) ? '; Secure' : '';
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureAttr(req)}`;
 }

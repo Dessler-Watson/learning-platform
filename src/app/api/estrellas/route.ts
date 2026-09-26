@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, getLeagueProgress, ensureLeagueProgress, applyStarsDelta, listLeagues } from '@/lib/db';
+import { getSessionUser, getLeagueProgress, ensureLeagueProgress, applyStarsDelta, listLeagues, queryOne } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,16 @@ export async function POST(req: NextRequest) {
     const delta = Number(body.delta ?? 0);
     if (!userId || !Number.isFinite(delta) || delta === 0) {
       return NextResponse.json({ error: 'user_id y delta requeridos' }, { status: 400 });
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      return NextResponse.json({ error: 'user_id inválido' }, { status: 400 });
+    }
+    const target = await queryOne<{ id: string }>(
+      `SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+    if (!target) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
     const progress = await applyStarsDelta(userId, delta, 'adjustment', { reason: body.reason ?? 'Ajuste admin' });
     return NextResponse.json({ ok: true, estrellas: progress?.stars ?? 0 });

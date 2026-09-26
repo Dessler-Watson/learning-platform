@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, getRoomById } from '@/lib/db';
+import { getSessionUser, getRoomById, queryOne } from '@/lib/db';
 import {
   ensureActiveMatch,
   getLatestMatch,
@@ -36,6 +36,17 @@ export async function GET(req: NextRequest) {
     }
     if (room.status === 'waiting') {
       return NextResponse.json({ error: 'La partida no ha comenzado' }, { status: 409 });
+    }
+
+    // Autorización ANTES de resolveMatch: solo un miembro activo de la sala
+    // puede disparar la creación/lectura de la partida (evita que cualquier
+    // usuario autenticado cree partidas ajenas como 'started_by').
+    const member = await queryOne<{ one: number }>(
+      `SELECT 1 AS one FROM room_participants WHERE room_id = $1 AND user_id = $2 AND left_at IS NULL`,
+      [room.id, session.id]
+    );
+    if (!member) {
+      return NextResponse.json({ error: 'No eres participante de esta partida' }, { status: 403 });
     }
 
     const match = await resolveMatch(room.id, session.id, room.status);

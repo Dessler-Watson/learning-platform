@@ -5,6 +5,9 @@ import {
   hashPassword,
   createSession,
   setSessionCookie,
+  getSessionTokenFromRequest,
+  getUserBySessionToken,
+  setGuestMergeCookie,
   updateLastLogin,
 } from '@/lib/db';
 
@@ -60,6 +63,13 @@ export async function POST(req: NextRequest) {
     await updateLastLogin(user.id);
     const token = await createSession(user.id, req.headers.get('user-agent'), req.headers.get('x-forwarded-for'));
 
+    // Si la sesión entrante pertenece a un invitado, conserva su token en una
+    // cookie de vínculo para que /api/auth/migrate pueda verificar la propiedad
+    // del guest_id (el cookie de sesión queda sobrescrito por el nuevo).
+    const incomingToken = getSessionTokenFromRequest(req);
+    const incomingUser = incomingToken ? await getUserBySessionToken(incomingToken) : null;
+    const guestMerge = incomingUser?.is_guest ? setGuestMergeCookie(incomingToken!, req) : null;
+
     const res = NextResponse.json({
       user: {
         id: user.id,
@@ -74,6 +84,7 @@ export async function POST(req: NextRequest) {
       },
     }, { status: 201 });
     res.headers.set('Set-Cookie', setSessionCookie(token, req));
+    if (guestMerge) res.headers.append('Set-Cookie', guestMerge);
     return res;
   } catch (err) {
     console.error('[auth/register]', err);

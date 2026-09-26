@@ -308,6 +308,14 @@ export async function POST(req: NextRequest) {
       if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
+      // No se puede borrar una sala con partida en curso: dejaría matches y
+      // match_participants huérfanos en estado 'in_progress' para siempre.
+      if (room.status === 'in_progress') {
+        return NextResponse.json(
+          { error: 'No se puede eliminar una sala con la partida en curso; finalízala primero' },
+          { status: 409 }
+        );
+      }
       await query(`UPDATE rooms SET deleted_at = now() WHERE id = $1`, [id]);
       return NextResponse.json({ ok: true });
     }

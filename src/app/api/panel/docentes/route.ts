@@ -133,6 +133,13 @@ export async function POST(req: NextRequest) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
           return NextResponse.json({ error: 'Correo inválido' }, { status: 400 });
         }
+        const dup = await queryOne<{ id: string }>(
+          `SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2 AND deleted_at IS NULL LIMIT 1`,
+          [newEmail, id]
+        );
+        if (dup) {
+          return NextResponse.json({ error: 'Ya existe una cuenta con ese correo' }, { status: 409 });
+        }
       }
       if (body.contrasena || body.password) {
         const password = String(body.contrasena ?? body.password);

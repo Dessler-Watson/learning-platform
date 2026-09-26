@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { revokeSession, clearSessionCookie, getSessionTokenFromRequest } from '@/lib/db';
+import { revokeSession, clearSessionCookie, clearGuestMergeCookie, getSessionTokenFromRequest } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,11 +11,13 @@ export async function POST(req: NextRequest) {
     }
     const res = NextResponse.json({ ok: true });
     res.headers.set('Set-Cookie', clearSessionCookie(req));
+    res.headers.append('Set-Cookie', clearGuestMergeCookie(req));
     return res;
   } catch (err) {
     console.error('[auth/logout]', err);
     const res = NextResponse.json({ ok: true });
     res.headers.set('Set-Cookie', clearSessionCookie(req));
+    res.headers.append('Set-Cookie', clearGuestMergeCookie(req));
     return res;
   }
 }

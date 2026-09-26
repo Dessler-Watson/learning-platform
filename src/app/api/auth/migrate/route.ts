@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyStarsDeltaInTx, evaluateAchievements, getSessionUser, getPool } from '@/lib/db';
+import {
+  applyStarsDeltaInTx,
+  evaluateAchievements,
+  getSessionUser,
+  getPool,
+  readCookie,
+  getUserBySessionToken,
+  GUEST_MERGE_COOKIE,
+  clearGuestMergeCookie,
+} from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +19,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Body: { guest_id?: string }
  * Estrellas y logros se derivan SIEMPRE de PostgreSQL (partidas del invitado):
  * nunca del body del cliente.
+ *
+ * Seguridad (anti-IDOR): el guest_id solo se acepta si la request presenta la
+ * cookie de vínculo eduplay_guest_merge con el token de SESIÓN del invitado,
+ * emitida por /register o /login cuando había una sesión de invitado vigente.
+ * Así ningún usuario autenticado puede fusionar (y desactivar) invitados ajenos.
  */
 export async function POST(req: NextRequest) {
   const pool = getPool();
@@ -34,6 +48,17 @@ export async function POST(req: NextRequest) {
     }
     if (guestId === user.id) {
       return NextResponse.json({ error: 'No puedes migrarte a ti mismo' }, { status: 400 });
+    }
+
+    // Prueba de propiedad: la cookie de vínculo debe resolver a una sesión de
+    // invitado VIGENTE cuyo usuario sea exactamente el guest_id pedido.
+    const mergeToken = readCookie(req, GUEST_MERGE_COOKIE);
+    const claimant = mergeToken ? await getUserBySessionToken(mergeToken) : null;
+    if (!claimant || !claimant.is_guest || claimant.id !== guestId) {
+      return NextResponse.json(
+        { error: 'No se pudo verificar la relación con ese invitado' },
+        { status: 403 }
+      );
     }
 
     await client.query('BEGIN');
@@ -107,11 +132,14 @@ export async function POST(req: NextRequest) {
     ]);
 
     await client.query('COMMIT');
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
       migrated_stars: migratedStars,
       migrated_achievements: evalResult.nuevos.length,
     });
+    // Vínculo consumido: la fusión ya no se puede repetir.
+    res.headers.set('Set-Cookie', clearGuestMergeCookie(req));
+    return res;
   } catch (err) {
     try {
       await client.query('ROLLBACK');

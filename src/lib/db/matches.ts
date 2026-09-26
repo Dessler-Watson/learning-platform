@@ -383,11 +383,15 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       optionId = opt.id;
     }
 
-    // Respuesta duplicada: bloqueada por índice único (participant_id, question_position).
+    // Respuesta duplicada: bloqueada por índice único (participant_id,
+    // question_position) y, además, por question_id — si un docente edita el
+    // curso a mitad de partida las posiciones se desplazan y la misma pregunta
+    // podría alcanzar otra posición (evita doble puntuación de la misma
+    // pregunta). La respuesta se rechaza en cualquier caso (409 duplicate).
     const dupRes = await client.query<{ is_correct: boolean | null; points_delta: number }>(
       `SELECT is_correct, points_delta FROM participant_answers
-       WHERE participant_id = $1 AND question_position = $2`,
-      [participant.id, position]
+       WHERE participant_id = $1 AND (question_position = $2 OR question_id = $3)`,
+      [participant.id, position, input.questionId]
     );
     if (dupRes.rowCount) {
       const dup = dupRes.rows[0];

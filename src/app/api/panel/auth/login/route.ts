@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
     if (!user || !user.password_hash || (user.role !== 'teacher' && user.role !== 'admin')) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
     }
-    if (user.status !== 'active') {
-      return NextResponse.json({ error: 'Cuenta desactivada' }, { status: 403 });
-    }
+    // Verificar la contraseña antes del estado evita enumerar cuentas
+    // desactivadas sin credenciales.
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) {
       return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+    }
+    if (user.status !== 'active') {
+      return NextResponse.json({ error: 'Cuenta desactivada' }, { status: 403 });
     }
 
     await updateLastLogin(user.id);

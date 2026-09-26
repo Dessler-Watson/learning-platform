@@ -223,10 +223,15 @@ export async function POST(req: NextRequest) {
 
       let ab: { opciones: [string, string]; respuestaCorrecta: string } | null = null;
       if (body.opciones != null || body.respuestaCorrecta != null) {
-        const validated = validateAB(
-          body.opciones ?? [body.respuestaCorrecta, ''],
-          body.respuestaCorrecta ?? (Array.isArray(body.opciones) ? body.opciones[0] : '')
-        );
+        // Ambos campos van juntos: recibir solo uno marcaría silenciosamente la
+        // opción A como correcta o destruiría las opciones existentes.
+        if (body.opciones == null || body.respuestaCorrecta == null) {
+          return NextResponse.json(
+            { error: 'Debes enviar opciones y respuestaCorrecta juntas' },
+            { status: 400 }
+          );
+        }
+        const validated = validateAB(body.opciones, body.respuestaCorrecta);
         if ('error' in validated) return NextResponse.json({ error: validated.error }, { status: 400 });
         ab = validated;
       }
