@@ -88,8 +88,9 @@ export interface GenerateOptions {
  * Reintenta automaticamente en caso de rate limit o errores temporales.
  */
 const MAX_RETRIES = 5;
-// Backoff corto: el servidor ya hace fallback entre modelos en cada intento,
-// asi que reintentar rapido es mejor que esperas largas sin respuesta.
+// Backoff corto: el servidor usa un modelo unico (gemini-3.5-flash) y devuelve
+// 503 reintentable (type 'overloaded') cuando Gemini esta saturado, asi que
+// reintentar rapido es mejor que esperas largas sin respuesta.
 const RETRY_DELAYS = [3000, 8000, 15000, 30000, 45000];
 const ATTEMPT_TIMEOUT_MS = 75_000;
 

@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { TierrasPhase, TierrasQuestion, PlatformChoice, TierrasResult } from '@/games/tierras-hundidas/types';
 import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
-import { recordAchievementEvent } from '@/shared/lib/achievement-service';
+import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
 import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
 
 interface TierrasStore {
@@ -176,7 +176,7 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
   })),
 
   completeLevel: () => {
-    const { questions, correctCount, score, xp } = get();
+    const { questions, correctCount, score, xp, answers } = get();
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
     const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0;
@@ -204,6 +204,9 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
         defeated: false,
         hadError: get().incorrectCount > 0,
         incorrectCount: get().incorrectCount,
+        correct: correctCount,
+        total,
+        bestStreak: bestStreakOf(answers),
       },
     });
   },
@@ -241,6 +244,9 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
         fallenInWater: true,
         hadError: state.incorrectCount > 0,
         incorrectCount: state.incorrectCount,
+        correct: state.correctCount,
+        total,
+        bestStreak: bestStreakOf(state.answers),
       },
     });
   },

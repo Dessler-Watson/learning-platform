@@ -134,6 +134,110 @@ $logrosPrac = J $r
 $dirtyPrac = @($logrosPrac.logros | Where-Object { [int]$_.progreso -ne 0 -or $_.completado -eq $true })
 Ok 'logros: practica no cuenta' ($dirtyPrac.Count -eq 0) "dirty=$($dirtyPrac.Count)"
 
+# --- record_play: jugadas locales/practica (sin sala) declaradas por el cliente ---
+$psqlS = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+$env:PGPASSWORD = 'casimiro123'
+
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'SoloPlay'; email = "e2e_solo_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable ssolo
+Ok 'record_play: register' ($r.StatusCode -eq 201) $r.StatusCode
+
+# Sin sesion -> 401
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -UseBasicParsing -Body (@{ action = 'record_play'; mode = 'abismos' } | ConvertTo-Json)
+  Ok 'record_play: sin sesion 401' $false "unexpected $($r.StatusCode)"
+} catch {
+  $codeS = 0; try { $codeS = [int]$_.Exception.Response.StatusCode } catch { $codeS = 0 }
+  Ok 'record_play: sin sesion 401' ($codeS -eq 401) "code=$codeS"
+}
+
+# Invitado -> 403 (no acumula historial)
+$r = Invoke-WebRequest -Uri "$base/api/auth/guest" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = "SoloGuest_$stamp"
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable ssguest
+Ok 'record_play: guest create' ($r.StatusCode -eq 201) $r.StatusCode
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $ssguest -UseBasicParsing -Body (@{ action = 'record_play'; mode = 'abismos'; completed = $true } | ConvertTo-Json)
+  Ok 'record_play: guest 403' $false "unexpected $($r.StatusCode)"
+} catch {
+  $codeS = 0; try { $codeS = [int]$_.Exception.Response.StatusCode } catch { $codeS = 0 }
+  Ok 'record_play: guest 403' ($codeS -eq 403) "code=$codeS"
+}
+
+# Modo invalido -> 400
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $ssolo -UseBasicParsing -Body (@{ action = 'record_play'; mode = 'minecraft' } | ConvertTo-Json)
+  Ok 'record_play: modo invalido 400' $false "unexpected $($r.StatusCode)"
+} catch {
+  $codeS = 0; try { $codeS = [int]$_.Exception.Response.StatusCode } catch { $codeS = 0 }
+  Ok 'record_play: modo invalido 400' ($codeS -eq 400) "code=$codeS"
+}
+
+# 1) Partida abismos COMPLETADA con error: desbloquea jugadas/respuestas/tras-error
+$r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $ssolo -UseBasicParsing -Body (@{
+  action = 'record_play'; mode = 'abismos'; score = 60; xp = 40
+  correct = 2; total = 5; best_streak = 2; completed = $true; had_error = $true
+} | ConvertTo-Json)
+Ok 'record_play: play1 200' ($r.StatusCode -eq 200) $r.StatusCode
+$rp1 = J $r
+$a101 = @($rp1.logros | Where-Object { $_.code -eq 'ach_101' }) | Select-Object -First 1
+$a109 = @($rp1.logros | Where-Object { $_.code -eq 'ach_109' }) | Select-Object -First 1
+$a116 = @($rp1.logros | Where-Object { $_.code -eq 'ach_116' }) | Select-Object -First 1
+$a121 = @($rp1.logros | Where-Object { $_.code -eq 'ach_121' }) | Select-Object -First 1
+$a141 = @($rp1.logros | Where-Object { $_.code -eq 'ach_141' }) | Select-Object -First 1
+Ok 'record_play: play1 desbloquea' ($a101.completado -eq $true -and [int]$a101.progreso -eq 1 -and $a109.completado -eq $true -and $a141.completado -eq $true -and [int]$a141.progreso -eq 1) "p101=$($a101.progreso) p109=$($a109.progreso) p141=$($a141.progreso)"
+Ok 'record_play: play1 racha sin meta' ([int]$a116.progreso -eq 2 -and $a116.completado -eq $false) "p116=$($a116.progreso) done=$($a116.completado)"
+Ok 'record_play: play1 no perfecta' ([int]$a121.progreso -eq 0 -and $a121.completado -eq $false) "p121=$($a121.progreso)"
+Ok 'record_play: play1 notifica nuevos' (@($rp1.nuevos) -contains 'ach_101' -and @($rp1.nuevos) -contains 'ach_141') "nuevos=$($rp1.nuevos -join ',')"
+
+if (Test-Path $psqlS) {
+  $pgS1 = (& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) || '/' || (SELECT COALESCE(SUM(correct_count),0) FROM solo_plays sp JOIN users u2 ON u2.id = sp.user_id WHERE u2.email = 'e2e_solo_$stamp@gmail.com') FROM solo_plays sp JOIN users u ON u.id = sp.user_id WHERE u.email = 'e2e_solo_$stamp@gmail.com'" 2>$null)
+  Ok 'record_play: PG solo_plays play1' ("$pgS1".Trim() -eq '1/2') "v=$pgS1"
+} else {
+  Ok 'record_play: PG solo_plays play1' $false 'psql missing'
+}
+
+# Persiste tras GET
+$r = Invoke-WebRequest -Uri "$base/api/logros" -WebSession $ssolo -UseBasicParsing
+$rpG = J $r
+$a101g = @($rpG.logros | Where-Object { $_.code -eq 'ach_101' }) | Select-Object -First 1
+Ok 'record_play: persiste en GET' ($a101g.completado -eq $true -and [int]$a101g.progreso -eq 1) "p=$($a101g.progreso)"
+
+# 2) Segunda partida DERROTADA sin error: sube jugadas, NO suma tras-error
+$r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $ssolo -UseBasicParsing -Body (@{
+  action = 'record_play'; mode = 'abismos'; score = 10; xp = 0
+  correct = 1; total = 3; best_streak = 1; completed = $false; had_error = $false
+} | ConvertTo-Json)
+Ok 'record_play: play2 200' ($r.StatusCode -eq 200) $r.StatusCode
+$rp2 = J $r
+$b101 = @($rp2.logros | Where-Object { $_.code -eq 'ach_101' }) | Select-Object -First 1
+$b110 = @($rp2.logros | Where-Object { $_.code -eq 'ach_110' }) | Select-Object -First 1
+$b116 = @($rp2.logros | Where-Object { $_.code -eq 'ach_116' }) | Select-Object -First 1
+$b141 = @($rp2.logros | Where-Object { $_.code -eq 'ach_141' }) | Select-Object -First 1
+Ok 'record_play: play2 progreso tope goal' ([int]$b101.progreso -eq 1 -and $b101.completado -eq $true) "p101=$($b101.progreso)"
+Ok 'record_play: play2 respuestas' ([int]$b110.progreso -eq 3) "p110=$($b110.progreso)"
+Ok 'record_play: play2 racha pico' ([int]$b116.progreso -eq 2) "p116=$($b116.progreso)"
+Ok 'record_play: play2 no suma tras-error' ([int]$b141.progreso -eq 1) "p141=$($b141.progreso)"
+
+# 3) user_id del body se IGNORA: siempre la sesion
+$victimId = ''
+if (Test-Path $psqlS) {
+  $victimId = "$((& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT id FROM users WHERE email = 'e2e_logros_$stamp@gmail.com'" 2>$null))".Trim()
+}
+$r = Invoke-WebRequest -Uri "$base/api/logros" -Method Post -ContentType 'application/json' -WebSession $ssolo -UseBasicParsing -Body (@{
+  action = 'record_play'; mode = 'decisiones'; user_id = $victimId
+  score = 15; xp = 15; correct = 1; total = 1; best_streak = 1; completed = $true; had_error = $false
+} | ConvertTo-Json)
+Ok 'record_play: user_id body 200' ($r.StatusCode -eq 200) $r.StatusCode
+if ((Test-Path $psqlS) -and $victimId) {
+  $pgS3 = (& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT (SELECT count(*) FROM solo_plays sp JOIN users u ON u.id = sp.user_id WHERE u.email = 'e2e_logros_$stamp@gmail.com') || '/' || (SELECT count(*) FROM solo_plays sp JOIN users u ON u.id = sp.user_id WHERE u.email = 'e2e_solo_$stamp@gmail.com')" 2>$null)
+  Ok 'record_play: user_id ignorado' ("$pgS3".Trim() -eq '0/3') "v=$pgS3"
+} else {
+  Ok 'record_play: user_id ignorado' $false 'psql missing'
+}
+
+
 # ═══ 2b. PRACTICA BACKEND (Paso 8: servidor de verdad, 0 estrellas) ═══
 $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
   nombre = 'PracB'; email = "e2e_prac_b_$stamp@gmail.com"; password = 'secret123'
@@ -661,6 +765,12 @@ $codigo = $null
 $questionId = $null
 
 if ($curso) {
+  # Limpieza de fixtures: cada corrida deja 1 "Preg E2E <stamp>" sin borrar y el
+  # curso se reutiliza; sin limpieza se llega al limite de 30 y el create da 400.
+  if (Test-Path $psqlS) {
+    $null = & $psqlS -U postgres -d eduplay_db -c "UPDATE questions SET deleted_at = now() WHERE course_id = '$($curso.id)' AND deleted_at IS NULL AND prompt LIKE 'Preg E2E %'" 2>$null
+  }
+
   # Ensure at least one question exists for answer FK
   $r = Invoke-WebRequest -Uri "$base/api/panel/preguntas" -Method Post -ContentType 'application/json' -WebSession $stch -Body (@{
     action = 'create'; cursoId = $curso.id; enunciado = "Preg E2E $stamp"; opciones = @('Si', 'No'); respuestaCorrecta = 'Si'

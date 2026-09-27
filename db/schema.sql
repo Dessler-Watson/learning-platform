@@ -513,6 +513,27 @@ CREATE TABLE practice_answers (
 CREATE INDEX idx_practanswers_play     ON practice_answers (play_id);
 CREATE INDEX idx_practanswers_question ON practice_answers (question_id);
 
+-- Jugadas locales/práctica (sin sala) declaradas por el cliente vía
+-- POST /api/logros { action: 'record_play' } y acotadas por el servidor.
+-- Solo usuarios registrados (los invitados no acumulan historial).
+-- El evaluador de logros (computeUserStats) agrega estas filas junto a los
+-- matches con la misma semántica de picos/acumulados por modo.
+CREATE TABLE solo_plays (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    mode            TEXT NOT NULL CHECK (mode IN ('decisiones', 'lava', 'tierras', 'abismos')),
+    score           INTEGER NOT NULL DEFAULT 0,
+    xp              INTEGER NOT NULL DEFAULT 0,
+    correct_count   INTEGER NOT NULL DEFAULT 0,
+    total_questions INTEGER NOT NULL DEFAULT 0,
+    best_streak     INTEGER NOT NULL DEFAULT 0,
+    ticks           INTEGER,
+    completed       BOOLEAN NOT NULL DEFAULT FALSE,
+    had_error       BOOLEAN NOT NULL DEFAULT FALSE,
+    played_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_solo_plays_user ON solo_plays (user_id, played_at DESC);
+
 -- ============================================================================
 -- AUDITORÍA / ACTIVIDAD
 -- ============================================================================

@@ -14,10 +14,14 @@ function getCtx(): AudioContext {
   return ctx;
 }
 
-/* Force AudioContext ready — call on first user gesture */
+/* Force AudioContext ready — call on first user gesture.
+   Además reintenta el `play()` de las pistas de música: si el navegador
+   bloqueó el autoplay al montar el canvas, sin este reintento la música
+   queda en silencio aunque el usuario ya haya interactuado. */
 export function initAudio() {
   const c = getCtx();
   if (c.state === 'suspended') c.resume();
+  resumeMusicPlayback();
 }
 
 /* ---- volume state ---- */
@@ -376,95 +380,168 @@ interface LoopTrack {
   elB: HTMLAudioElement;
   active: 'A' | 'B';
   duration: number;
+  targetVol: number;
   intervalId: ReturnType<typeof setInterval> | null;
-  fadeId: ReturnType<typeof setTimeout> | null;
+  fadeIds: Array<ReturnType<typeof setInterval>>;
+  pauseId: ReturnType<typeof setTimeout> | null;
+  lastCrossfade: number;
 }
 
-const MUSIC_VOL = 0.35;
+/**
+ * Volumen por capa: índice 0 = pista ambiente (grabaciones muy silenciosas,
+ * se sube para que se ESCUCHE), índice 1 = música principal.
+ * league tiene una sola pista (ya es música).
+ */
+const MUSIC_VOLS: Record<string, number[]> = {
+  decisiones: [0.7, 0.4],
+  lava: [0.7, 0.4],
+  league: [0.5],
+  tierras: [0.7, 0.4],
+  abismos: [0.7, 0.4],
+};
+const CROSSFADE_MS = 1500;
+const CROSSFADE_COOLDOWN_MS = 5000;
 let activeTracks: LoopTrack[] = [];
 
-function fadeAudio(el: HTMLAudioElement, from: number, to: number, ms: number) {
-  el.volume = from;
+function clamp01(v: number) {
+  return Math.max(0, Math.min(1, v));
+}
+
+function tryPlay(el: HTMLAudioElement) {
+  try {
+    const p = el.play();
+    if (p && typeof p.then === 'function') p.catch(() => {});
+  } catch {}
+}
+
+function cancelFades(track: LoopTrack) {
+  track.fadeIds.forEach((id) => clearInterval(id));
+  track.fadeIds = [];
+  if (track.pauseId) {
+    clearTimeout(track.pauseId);
+    track.pauseId = null;
+  }
+}
+
+function fadeTo(track: LoopTrack, el: HTMLAudioElement, from: number, to: number, ms: number) {
+  el.volume = clamp01(from);
   const steps = 20;
   const stepMs = ms / steps;
   const delta = (to - from) / steps;
   let i = 0;
   const id = setInterval(() => {
     i++;
-    el.volume = Math.max(0, Math.min(1, from + delta * i));
-    if (i >= steps) clearInterval(id);
+    el.volume = clamp01(from + delta * i);
+    if (i >= steps) {
+      clearInterval(id);
+      track.fadeIds = track.fadeIds.filter((x) => x !== id);
+    }
   }, stepMs);
-  return id;
+  track.fadeIds.push(id);
 }
 
-function createSeamlessLoop(file: string): LoopTrack {
+/**
+ * Loop "seamless": dos elementos alternan con crossfade cerca del final.
+ * Ambos llevan `loop = true` como red de seguridad: si el crossfade no
+ * puede arrancar la otra pista (autoplay/búfer), la pista activa sigue
+ * sonando por sí sola en vez de dejarse en silencio.
+ */
+function createSeamlessLoop(file: string, targetVol: number): LoopTrack {
   const elA = new Audio(file);
-  elA.volume = MUSIC_VOL;
   elA.preload = 'auto';
   const elB = new Audio(file);
-  elB.volume = 0;
   elB.preload = 'auto';
+  elA.loop = true;
+  elB.loop = true;
+  elA.volume = targetVol;
+  elB.volume = 0;
 
   const track: LoopTrack = {
     elA, elB,
     active: 'A',
     duration: 0,
+    targetVol,
     intervalId: null,
-    fadeId: null,
+    fadeIds: [],
+    pauseId: null,
+    lastCrossfade: 0,
   };
 
   elA.addEventListener('loadedmetadata', () => {
-    if (track.duration === 0) track.duration = elA.duration;
+    if (track.duration === 0 && Number.isFinite(elA.duration)) track.duration = elA.duration;
   });
 
-  elA.play().catch(() => {});
+  tryPlay(elA);
 
   const crossfade = () => {
-    const fadeTime = 1500;
-    if (track.active === 'A') {
-      track.elB.currentTime = 0;
-      track.elB.play().catch(() => {});
-      fadeAudio(track.elB, 0, MUSIC_VOL, fadeTime);
-      fadeAudio(track.elA, MUSIC_VOL, 0, fadeTime);
-      if (track.fadeId) clearTimeout(track.fadeId);
-      track.fadeId = setTimeout(() => { try { track.elA.pause(); } catch {} }, fadeTime + 100);
-      track.active = 'B';
-    } else {
-      track.elA.currentTime = 0;
-      track.elA.play().catch(() => {});
-      fadeAudio(track.elA, 0, MUSIC_VOL, fadeTime);
-      fadeAudio(track.elB, MUSIC_VOL, 0, fadeTime);
-      if (track.fadeId) clearTimeout(track.fadeId);
-      track.fadeId = setTimeout(() => { try { track.elB.pause(); } catch {} }, fadeTime + 100);
-      track.active = 'A';
+    const now = Date.now();
+    if (now - track.lastCrossfade < CROSSFADE_COOLDOWN_MS) return;
+    track.lastCrossfade = now;
+    cancelFades(track);
+
+    const from = track.active === 'A' ? track.elA : track.elB;
+    const to = track.active === 'A' ? track.elB : track.elA;
+    const nextActive = track.active === 'A' ? 'B' : 'A';
+    let started = false;
+    const doFade = () => {
+      if (started) return;
+      started = true;
+      fadeTo(track, to, 0, track.targetVol, CROSSFADE_MS);
+      fadeTo(track, from, from.volume, 0, CROSSFADE_MS);
+      track.pauseId = setTimeout(() => {
+        try { from.pause(); } catch {}
+        track.pauseId = null;
+      }, CROSSFADE_MS + 100);
+      track.active = nextActive;
+    };
+
+    try {
+      to.currentTime = 0;
+      const p = to.play();
+      if (p && typeof p.then === 'function') {
+        // Solo se hace el fade si la nueva pista arrancó: si no, la
+        // actual sigue sonando (loop propio) y se reintentará al final.
+        p.then(doFade).catch(() => {});
+      } else {
+        doFade();
+      }
+    } catch {
+      /* conserva la pista actual */
     }
   };
 
   track.intervalId = setInterval(() => {
-    const el = track.active === 'A' ? track.elA : track.elB;
     if (track.duration <= 0) return;
+    const el = track.active === 'A' ? track.elA : track.elB;
     const remaining = track.duration - el.currentTime;
-    if (remaining <= 2.5 && remaining > 0) {
-      crossfade();
-    }
+    if (remaining <= 2.5 && remaining > 0) crossfade();
   }, 300);
 
   return track;
 }
 
+/** Reintenta el play() de la pista activa de cada loop (gesto del usuario). */
+function resumeMusicPlayback() {
+  for (const t of activeTracks) {
+    const el = t.active === 'A' ? t.elA : t.elB;
+    if (el.paused) tryPlay(el);
+  }
+}
+
 function startMusic(mode: 'decisiones' | 'lava' | 'league' | 'tierras' | 'abismos') {
   stopMusic();
   if (!masterEnabled) return;
-  const files = MUSIC_FILES[mode];
-  files.forEach((file) => {
-    activeTracks.push(createSeamlessLoop(file));
+  const files = MUSIC_FILES[mode] ?? [];
+  const vols = MUSIC_VOLS[mode] ?? [];
+  files.forEach((file, i) => {
+    activeTracks.push(createSeamlessLoop(file, vols[i] ?? 0.35));
   });
 }
 
 function stopMusic() {
   activeTracks.forEach((t) => {
     if (t.intervalId) clearInterval(t.intervalId);
-    if (t.fadeId) clearTimeout(t.fadeId);
+    cancelFades(t);
     try { t.elA.pause(); t.elA.src = ''; } catch {}
     try { t.elB.pause(); t.elB.src = ''; } catch {}
   });
@@ -479,7 +556,17 @@ export const gameAudio = {
   // ---- Volume ----
   setSfxVolume(v: number) { sfxVol = Math.max(0, Math.min(1, v)); },
   getSfxVolume() { return sfxVol; },
-  setEnabled(v: boolean) { masterEnabled = v; if (!v) stopHeartbeat(); },
+  setEnabled(v: boolean) {
+    masterEnabled = v;
+    if (!v) {
+      stopHeartbeat();
+      activeTracks.forEach((t) => {
+        try { t.elA.pause(); t.elB.pause(); } catch {}
+      });
+    } else {
+      resumeMusicPlayback();
+    }
+  },
   isEnabled() { return masterEnabled; },
 
   // ---- Decision Road SFX ----

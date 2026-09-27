@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { gameAudio } from '@/shared/lib/gameAudio';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
 
 function useAnimatedNumber(target: number, duration = 500) {
   const [display, setDisplay] = useState(target);
@@ -95,6 +96,7 @@ export function AbismosHUD() {
   const submitAnswer = useAbismosStore((s) => s.submitAnswer);
 
   const isPractice = useIsPractice();
+  const isMobile = useIsMobile();
   const animatedScore = useAnimatedNumber(score);
   const totalQuestions = questions.length;
   const currentQuestion = questions[currentQuestionIndex];
@@ -137,7 +139,7 @@ export function AbismosHUD() {
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             style={{
               position: 'fixed',
-              top: 16,
+              top: isMobile ? 64 : 16,
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 50,
@@ -169,7 +171,7 @@ export function AbismosHUD() {
               background: 'linear-gradient(160deg, rgba(15,25,50,0.94) 0%, rgba(10,18,35,0.96) 100%)',
               backdropFilter: 'blur(24px)',
               borderRadius: 20,
-              padding: '18px 24px',
+              padding: isMobile ? '14px 16px' : '18px 24px',
               border: '1px solid rgba(80,140,220,0.15)',
               boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(100,180,255,0.06)',
               overflow: 'hidden',
@@ -189,7 +191,7 @@ export function AbismosHUD() {
                 position: 'relative',
                 zIndex: 1,
                 color: 'rgba(255,255,255,0.95)',
-                fontSize: 16,
+                fontSize: isMobile ? 14 : 16,
                 fontWeight: 700,
                 textAlign: 'center',
                 margin: '0 0 14px',
@@ -233,11 +235,11 @@ export function AbismosHUD() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }}
               style={{
-                fontSize: 60,
+                fontSize: isMobile ? 36 : 60,
                 fontWeight: 900,
                 fontFamily: 'var(--font-baloo)',
                 lineHeight: 1,
-                letterSpacing: '-2px',
+                letterSpacing: isMobile ? '-1px' : '-2px',
                 whiteSpace: 'nowrap',
                 textAlign: 'center',
                 ...(isCorrectFeedback ? {
@@ -384,16 +386,22 @@ function PlatformCounter({ platforms, maxPlatforms, phase }: {
   maxPlatforms: number;
   phase: string;
 }) {
+  const isMobile = useIsMobile();
   if (phase === 'loading' || phase === 'completed' || phase === 'defeat' || phase === 'results') return null;
+  // En móvil el panel de pregunta cubre casi toda la pantalla: esta columna
+  // se oculta mientras se responde y reaparece en libre/cruce arriba del D-pad.
+  if (isMobile && phase === 'questions') return null;
 
   const slots = Array.from({ length: maxPlatforms }, (_, i) => i < platforms);
+  const slotSize = isMobile ? 26 : 34;
 
   return (
     <div style={{
       position: 'fixed',
-      left: 16,
-      top: '50%',
-      transform: 'translateY(-50%)',
+      left: isMobile ? 8 : 16,
+      top: isMobile ? undefined : '50%',
+      bottom: isMobile ? 274 : undefined,
+      transform: isMobile ? undefined : 'translateY(-50%)',
       zIndex: 50,
       pointerEvents: 'none',
     }}>
@@ -405,14 +413,14 @@ function PlatformCounter({ platforms, maxPlatforms, phase }: {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 8,
+          gap: isMobile ? 6 : 8,
           background: 'linear-gradient(165deg, rgba(48,42,32,0.94) 0%, rgba(28,24,18,0.9) 55%, rgba(20,17,12,0.92) 100%)',
           backdropFilter: 'blur(16px)',
           borderRadius: 18,
-          padding: '16px 14px 12px',
+          padding: isMobile ? '12px 10px 10px' : '16px 14px 12px',
           boxShadow: '0 14px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,230,180,0.08), inset 0 -2px 0 rgba(0,0,0,0.35)',
           border: '1px solid rgba(180,150,100,0.22)',
-          minWidth: 58,
+          minWidth: isMobile ? 50 : 58,
         }}
       >
         <span style={{
@@ -427,13 +435,13 @@ function PlatformCounter({ platforms, maxPlatforms, phase }: {
         </span>
 
         <div style={{
-          width: 34,
+          width: isMobile ? 26 : 34,
           height: 2,
           borderRadius: 2,
           background: 'linear-gradient(90deg, transparent, rgba(200,170,110,0.45), transparent)',
         }} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
           {slots.map((filled, i) => (
             <motion.div
               key={i}
@@ -445,9 +453,9 @@ function PlatformCounter({ platforms, maxPlatforms, phase }: {
               }}
               transition={{ type: 'spring', stiffness: 320, damping: 18 }}
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
+                width: slotSize,
+                height: slotSize,
+                borderRadius: isMobile ? 8 : 10,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -469,7 +477,7 @@ function PlatformCounter({ platforms, maxPlatforms, phase }: {
 
         <div style={{
           marginTop: 2,
-          fontSize: 22,
+          fontSize: isMobile ? 18 : 22,
           fontWeight: 900,
           fontFamily: 'var(--font-baloo)',
           color: platforms >= maxPlatforms ? '#FFD54F' : '#E8C87A',

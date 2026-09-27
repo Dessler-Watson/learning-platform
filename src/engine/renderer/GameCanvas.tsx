@@ -15,7 +15,7 @@ import { useGameStore } from '@/stores/game.store';
 import { useAchievementStore } from '@/stores/achievement.store';
 import { GameAchievementNotification } from '@/ui/components/GameAchievementNotification';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
-import { MobileControls } from '@/games/decision-road/ui/MobileControls';
+import { MobileControls } from '@/shared/ui/MobileControls';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';

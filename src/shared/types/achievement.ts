@@ -37,5 +37,9 @@ export interface AchievementEvent {
     hadError?: boolean;
     incorrectCount?: number;
     platforms?: number;
+    /** En eventos terminales: sirve para record_play (jugadas sin sala). */
+    correct?: number;
+    total?: number;
+    bestStreak?: number;
   };
 }

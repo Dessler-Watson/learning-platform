@@ -137,7 +137,7 @@ export function MobileControls() {
         bottom: 80,
         left: 0,
         right: 0,
-        zIndex: 15,
+        zIndex: 55,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-end',

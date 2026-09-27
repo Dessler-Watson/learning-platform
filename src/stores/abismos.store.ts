@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { AbismosPhase, AbismosQuestion, AbismosResult, PlatformChoice } from '@/games/entre-abismos/types';
-import { recordAchievementEvent } from '@/shared/lib/achievement-service';
+import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
 import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
 
 interface AbismosStore {
@@ -165,7 +165,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
   })),
 
   completeQuestions: () => {
-    const { questions, correctCount, incorrectCount, score, xp, platforms, phase, fellInAbyss } = get();
+    const { questions, correctCount, incorrectCount, score, xp, platforms, phase, fellInAbyss, answers } = get();
     if (phase === 'defeat' || fellInAbyss) return;
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
@@ -201,6 +201,9 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
           platforms: 0,
           hadError: incorrectCount > 0,
           incorrectCount,
+          correct: correctCount,
+          total,
+          bestStreak: bestStreakOf(answers),
         },
       });
       return;
@@ -215,7 +218,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     const { phase, fellInAbyss } = get();
     if (phase === 'defeat' || phase === 'completed' || fellInAbyss) return;
 
-    const { questions, correctCount, incorrectCount, platforms } = get();
+    const { questions, correctCount, incorrectCount, platforms, answers } = get();
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
@@ -250,12 +253,15 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
         platforms,
         hadError: incorrectCount > 0,
         incorrectCount,
+        correct: correctCount,
+        total,
+        bestStreak: bestStreakOf(answers),
       },
     });
   },
 
   triggerVictory: () => {
-    const { questions, correctCount, incorrectCount, score, xp, platforms, starsEarned } = get();
+    const { questions, correctCount, incorrectCount, score, xp, platforms, starsEarned, answers } = get();
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
     const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0;
@@ -290,6 +296,9 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
         platforms,
         hadError: incorrectCount > 0,
         incorrectCount,
+        correct: correctCount,
+        total,
+        bestStreak: bestStreakOf(answers),
       },
     });
   },

@@ -6,9 +6,16 @@ import { ACHIEVEMENTS } from '@/shared/lib/achievements-data';
 import { onAchievementEvent } from '@/shared/lib/achievement-service';
 import { audioManager } from '@/shared/lib/audio';
 import { isRegisteredUser } from '@/shared/lib/userStorage';
+import { getMatchRoomId } from '@/lib/partida-client';
 
 /** El servidor (PostgreSQL) es la única fuente de verdad del progreso. */
 const SYNC_DEBOUNCE_MS = 400;
+
+/** Eventos que indican que una partida terminó (candidate a record_play). */
+const TERMINAL_EVENTS: ReadonlySet<AchievementEvent['type']> = new Set([
+  'game_completed',
+  'game_defeated',
+]);
 
 interface LogroRow {
   code: string;
@@ -133,6 +140,46 @@ export const useAchievementStore = create<AchievementStore>((set, get) => {
     }, SYNC_DEBOUNCE_MS);
   };
 
+  /**
+   * Jugada local/práctica terminada (sin sala): registra la partida en el
+   * servidor y aplica la respuesta. Si la red falla, cae a un sync normal
+   * (el progreso se recupera, la jugada se pierde — el servidor es autoridad).
+   */
+  const recordSoloPlay = async (event: AchievementEvent) => {
+    try {
+      const md = event.metadata ?? {};
+      const res = await fetch('/api/logros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'record_play',
+          mode: event.mode,
+          score: Math.round(md.score ?? 0),
+          xp: Math.round(md.xp ?? 0),
+          correct: Math.round(md.correct ?? 0),
+          total: Math.round(md.total ?? 0),
+          best_streak: Math.round(md.bestStreak ?? 0),
+          ticks: typeof md.ticks === 'number' ? Math.round(md.ticks) : null,
+          completed: event.type === 'game_completed',
+          had_error: md.hadError === true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.logros)) {
+          applyRemote(
+            data.logros as LogroRow[],
+            Array.isArray(data?.nuevos) ? (data.nuevos as string[]) : []
+          );
+        }
+        return;
+      }
+    } catch {
+      /* sin red — el próximo evento reintenta */
+    }
+    scheduleSync();
+  };
+
   return {
     progress: [],
     newAchievementIds: [],
@@ -193,12 +240,25 @@ export const useAchievementStore = create<AchievementStore>((set, get) => {
     },
 
     /**
-     * Los eventos del cliente solo disparan una sincronización (debounce).
+     * - Eventos terminales sin sala (local/práctica): record_play registra la
+     *   jugada y el servidor la evalúa junto a las partidas en sala.
+     * - Eventos terminales en sala: solo sync — la partida ya está en PG y
+     *   contarla dos veces duplicaría los acumulados.
+     * - El resto: sync con debounce; la práctica (sin evento terminal) no
+     *   dispara nada.
      * El progreso y los desbloqueos los calcula el servidor desde PostgreSQL:
      * nada de localStorage ni de contadores manipulables en el cliente.
      */
     processEvent: (event) => {
       if (!isRegisteredUser() || !get().initialized) return;
+      if (TERMINAL_EVENTS.has(event.type)) {
+        if (getMatchRoomId()) {
+          scheduleSync();
+          return;
+        }
+        void recordSoloPlay(event);
+        return;
+      }
       if (event.metadata?.isPractice) return;
       scheduleSync();
     },

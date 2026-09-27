@@ -3,16 +3,11 @@ import { getSessionUser } from '@/lib/db';
 
 /**
  * Proxy server-side para mantener la API Key segura.
- * Cadena de modelos: si el principal esta saturado (503/429 "high demand")
- * o no responde, se prueba el siguiente antes de devolver un error.
+ * Modelo unico: exactamente `gemini-3.5-flash` (sin cadena de modelos, para
+ * no consumir cuota con llamadas repetidas). Si esta saturado (429/503/504)
+ * se devuelve 503 type 'overloaded' y el cliente reintenta.
  */
-const MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-flash-latest',
-  'gemini-3.6-flash',
-  'gemini-2.5-flash',
-];
+const MODEL = 'gemini-3.5-flash';
 const MODEL_TIMEOUT_MS = 45_000;
 
 interface ModelFailure {
@@ -169,39 +164,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta el prompt.', type: 'bad_request' }, { status: 400 });
   }
 
-  let lastFailure: ModelFailure | null = null;
-  let sawOverload = false;
-  let sawAuth = false;
-
-  for (const model of MODELS) {
-    const result = await callModel(apiKey, model, String(prompt));
-    if ('content' in result) {
-      return NextResponse.json({ content: result.content, model });
-    }
-    if (result.type === 'auth_error') {
-      sawAuth = true;
-      lastFailure = result;
-      break;
-    }
-    if (result.overloaded) sawOverload = true;
-    lastFailure = result;
+  const result = await callModel(apiKey, MODEL, String(prompt));
+  if ('content' in result) {
+    return NextResponse.json({ content: result.content, model: MODEL });
   }
-
-  if (sawAuth && lastFailure) {
-    return NextResponse.json({ error: lastFailure.error, type: lastFailure.type }, { status: lastFailure.status });
-  }
-  if (sawOverload) {
-    // Reintentable desde el cliente: el servidor ya agoto la cadena de modelos.
+  if (result.overloaded && result.type !== 'timeout') {
+    // Reintentable desde el cliente (el intento 2 vuelve a llamar a la ruta).
     return NextResponse.json(
       { error: 'Gemini esta saturado en este momento. Se reintentara automaticamente.', type: 'overloaded' },
       { status: 503 }
     );
   }
-  if (lastFailure) {
-    return NextResponse.json({ error: lastFailure.error, type: lastFailure.type }, { status: lastFailure.status });
-  }
-  return NextResponse.json(
-    { error: 'Ocurrio un error al comunicarse con Gemini. Intenta de nuevo mas tarde.', type: 'api_error' },
-    { status: 502 }
-  );
+  return NextResponse.json({ error: result.error, type: result.type }, { status: result.status });
 }

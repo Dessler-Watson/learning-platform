@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { LavaPhase, LavaPlayer } from '@/games/lava-knowledge/types';
 import type { GameQuestion } from '@/games/decision-road/types';
-import { recordAchievementEvent } from '@/shared/lib/achievement-service';
+import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
 
 interface LavaStore {
   phase: LavaPhase; questions: GameQuestion[]; currentQuestionIndex: number;
@@ -108,9 +108,35 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     const accuracy = total > 0 ? Math.round((state.correctCount / total) * 100) : 0;
     if (defeated) {
       recordAchievementEvent({ type: 'elimination', mode: 'lava' });
-      recordAchievementEvent({ type: 'game_defeated', mode: 'lava', metadata: { accuracy, defeated: true, ticks: state.ticks } });
+      recordAchievementEvent({
+        type: 'game_defeated',
+        mode: 'lava',
+        metadata: {
+          accuracy,
+          score: state.score,
+          defeated: true,
+          ticks: state.ticks,
+          correct: state.correctCount,
+          total,
+          bestStreak: bestStreakOf(state.answerHistory),
+          hadError: state.incorrectCount > 0,
+        },
+      });
     } else {
-      recordAchievementEvent({ type: 'game_completed', mode: 'lava', metadata: { accuracy, score: state.score, defeated: false, ticks: state.ticks } });
+      recordAchievementEvent({
+        type: 'game_completed',
+        mode: 'lava',
+        metadata: {
+          accuracy,
+          score: state.score,
+          defeated: false,
+          ticks: state.ticks,
+          correct: state.correctCount,
+          total,
+          bestStreak: bestStreakOf(state.answerHistory),
+          hadError: state.incorrectCount > 0,
+        },
+      });
     }
   },
 

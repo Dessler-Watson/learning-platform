@@ -4,7 +4,7 @@ import { GameMenuButton } from '@/ui/components/navigation/GameMenuButton';
 
 export default function EntreAbismosPage() {
   return (
-    <div className="h-screen w-screen overflow-hidden">
+    <div className="w-screen overflow-hidden" style={{ height: '100dvh' }}>
       <AbismosCanvas />
       <GameMenuButton />
     </div>

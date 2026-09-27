@@ -16,6 +16,7 @@ import { GameAchievementNotification } from '@/ui/components/GameAchievementNoti
 import { AbismosLoadingScreen } from '@/games/entre-abismos/ui/AbismosLoadingScreen';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { MobileControls } from '@/shared/ui/MobileControls';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -148,6 +149,7 @@ export function AbismosCanvas() {
       <AbismosHUD />
       <DangerOverlay />
       <GameAchievementNotification />
+      {phase === 'done' && (gamePhase === 'freeMove' || gamePhase === 'crossing') && <MobileControls />}
 
       <CompletionOverlay
         show={gamePhase === 'completed' && !!result}

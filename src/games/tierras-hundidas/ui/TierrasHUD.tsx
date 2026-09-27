@@ -148,7 +148,7 @@ export function TierrasHUD() {
             transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             style={{
               position: 'fixed',
-              bottom: isMobile ? 80 : 120,
+              bottom: isMobile ? 160 : 120,
               right: isMobile ? 8 : 16,
               zIndex: 50,
               maxWidth: isMobile ? 300 : 440,

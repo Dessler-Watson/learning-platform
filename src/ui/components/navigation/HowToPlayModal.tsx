@@ -100,6 +100,10 @@ function DecisionesInstructions() {
               <Gamepad2 size={14} className="text-surface-400" />
               <span><b className="text-white">Espacio</b> — Saltar</span>
             </div>
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={14} className="text-surface-400" />
+              <span><b className="text-white">Tablet / celular:</b> botones tactiles en pantalla (D-pad a la izquierda, salto a la derecha)</span>
+            </div>
           </div>
         </div>
 
@@ -156,6 +160,10 @@ function TierrasInstructions() {
             <div className="flex items-center gap-2">
               <Gamepad2 size={14} className="text-surface-400" />
               <span><b className="text-white">Espacio</b> — Saltar (solo en el suelo; no se puede saltar en el aire)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={14} className="text-surface-400" />
+              <span><b className="text-white">Tablet / celular:</b> botones tactiles en pantalla (D-pad a la izquierda, salto a la derecha)</span>
             </div>
           </div>
         </div>
@@ -218,6 +226,10 @@ function AbismosInstructions() {
             <div className="flex items-center gap-2">
               <Gamepad2 size={14} className="text-surface-400" />
               <span><b className="text-white">Espacio</b> — Saltar (solo en el suelo; no se puede saltar en el aire)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Gamepad2 size={14} className="text-surface-400" />
+              <span><b className="text-white">Tablet / celular:</b> botones tactiles en pantalla (D-pad a la izquierda, salto a la derecha)</span>
             </div>
           </div>
         </div>

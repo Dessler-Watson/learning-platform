@@ -176,6 +176,7 @@ export function AbismosCharacterController() {
       const diff = targetAngle - currentAngle;
       const smoothed = Math.atan2(Math.sin(diff), Math.cos(diff));
       avatarRef.current.rotation.y += smoothed * Math.min(CHARACTER.rotationSpeed * delta, 1);
+      if (grounded.current) gameAudio.decisionFootstep();
     }
   });
 

@@ -16,6 +16,7 @@ import { TierrasLoadingScreen } from './TierrasLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { MobileControls } from '@/shared/ui/MobileControls';
 import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
@@ -117,7 +118,7 @@ export function TierrasCanvas() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '100dvh', position: 'relative' }}>
       {phase !== 'done' && (
         <TierrasLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -141,6 +142,9 @@ export function TierrasCanvas() {
       </Canvas>
 
       <TierrasHUD />
+      {phase === 'done' && tierrasPhase !== 'loading' && tierrasPhase !== 'completed' && tierrasPhase !== 'results' && (
+        <MobileControls />
+      )}
 
       <CompletionOverlay
         show={tierrasPhase === 'completed' && !fallenInWater}

@@ -81,9 +81,56 @@ interface AggRow extends QueryResultRow {
   max_pos: number;
 }
 
+interface SoloPlayRow extends QueryResultRow {
+  mode: string;
+  score: number;
+  xp: number;
+  correct_count: number;
+  total_questions: number;
+  best_streak: number;
+  ticks: number | null;
+  completed: boolean;
+  had_error: boolean;
+  played_at: Date;
+}
+
+export interface SoloPlayInput {
+  mode: string;
+  score: number;
+  xp: number;
+  correct: number;
+  total: number;
+  bestStreak: number;
+  ticks: number | null;
+  completed: boolean;
+  hadError: boolean;
+}
+
+/** Inserta una jugada local/práctica terminada (valores ya acotados por la API). */
+export async function recordSoloPlay(userId: string, input: SoloPlayInput): Promise<void> {
+  await query(
+    `INSERT INTO solo_plays
+       (user_id, mode, score, xp, correct_count, total_questions, best_streak, ticks, completed, had_error)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      userId,
+      input.mode,
+      input.score,
+      input.xp,
+      input.correct,
+      input.total,
+      input.bestStreak,
+      input.ticks,
+      input.completed,
+      input.hadError,
+    ]
+  );
+}
+
 /**
- * Estadísticas server-side de un usuario derivadas SOLO de partidas en sala
- * (matches / match_participants / participant_answers), nunca de datos del cliente.
+ * Estadísticas server-side de un usuario derivadas de partidas en sala
+ * (matches / match_participants / participant_answers) MÁS jugadas locales y
+ * de práctica declaradas por el cliente (solo_plays, acotadas por el servidor).
  *
  * Convenciones (documentadas en el reporte del Paso 6):
  * - Partidas canceladas se excluyen por completo.
@@ -91,7 +138,8 @@ interface AggRow extends QueryResultRow {
  *   última pregunta (max_pos = question_count - 1).
  * - "Completada" = terminó sin ser eliminado. Las partidas cerradas por el
  *   docente antes de que el jugador respondiera todo NO cuentan como completadas.
- * - La práctica y el juego local sin sala no están en estas tablas: no cuentan.
+ * - Jugadas sin sala: solo cuentan si terminaron y el cliente las registró vía
+ *   record_play (eventos terminales). Los abandonos sin evento no cuentan.
  */
 async function computeUserStats(run: DbRunner, userId: string): Promise<Record<string, number>> {
   const parts = await run<ParticipationRow>(
@@ -221,6 +269,45 @@ async function computeUserStats(run: DbRunner, userId: string): Promise<Record<s
         joinedAt: p.joined_at ? new Date(p.joined_at).getTime() : 0,
       });
     }
+  }
+
+  // Jugadas locales/práctica: el cliente registra el evento terminal y el
+  // servidor acota los valores. Misma semántica que las partidas en sala.
+  const solos = await run<SoloPlayRow>(
+    `SELECT mode, score, xp, correct_count, total_questions, best_streak,
+            ticks, completed, had_error, played_at
+     FROM solo_plays
+     WHERE user_id = $1
+     ORDER BY played_at ASC`,
+    [userId]
+  );
+  for (const s of solos) {
+    const mode = s.mode;
+    const total = Math.max(0, s.total_questions);
+    const correct = Math.max(0, s.correct_count);
+    const incorrect = Math.max(0, total - correct);
+    const completed = s.completed === true;
+    const playedAt = s.played_at ? new Date(s.played_at).getTime() : 0;
+
+    bump(`${mode}_correct_answers`, correct);
+    peak(`${mode}_best_score`, s.score);
+    peak(`${mode}_best_streak`, s.best_streak);
+    if (mode === 'decisiones') bump('decisiones_total_xp', s.xp);
+    if (mode === 'lava') bump('lava_total_score', s.score);
+    if (total > 0) peak(`${mode}_best_accuracy`, Math.round((100 * correct) / total));
+    if (mode === 'lava' && s.ticks !== null) peak('lava_max_ticks_reached', s.ticks);
+    if (mode === 'tierras' || mode === 'abismos') {
+      bump(`${mode}_games_played`);
+      bump(`${mode}_total_score`, s.score);
+    }
+    if (completed) {
+      bump(`${mode}_games_completed`);
+      bump(`${mode}_games_won`);
+      bump(`${mode}_games_survived`);
+      if (total > 0 && correct >= total && !s.had_error) bump(`${mode}_perfect_games`);
+      if (incorrect > 0 || s.had_error) bump(`${mode}_games_after_error`);
+    }
+    endedRuns.push({ mode, completed, startedAt: playedAt, joinedAt: playedAt });
   }
 
   // Lava: replay de ticks por participación (mismo orden/semántica que

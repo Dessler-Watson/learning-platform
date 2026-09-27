@@ -1,7 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import type { GamePhase, GameQuestion, DoorChoice, GameResult } from '@/games/decision-road/types';
-import { recordAchievementEvent } from '@/shared/lib/achievement-service';
+import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
 import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
 
 interface GameStore {
@@ -78,7 +78,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   setExplanation: (text) => set({ explanation: text }),
   advanceQuestion: () => set((s) => ({ currentQuestionIndex: s.currentQuestionIndex + 1, selectedDoor: null, explanation: null })),
-  completeLevel: () => { const { questions, correctCount, score, xp } = get(); const total = questions.length; const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0; const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0; set({ result: { totalQuestions: total, correctAnswers: correctCount, incorrectAnswers: total - correctCount, score, xp, stars, accuracy, completedAt: Date.now() } }); recordAchievementEvent({ type: 'game_completed', mode: 'decisiones', metadata: { accuracy, score, xp, defeated: false } }); },
+  completeLevel: () => { const { questions, correctCount, score, xp, answers } = get(); const total = questions.length; const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0; const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0; set({ result: { totalQuestions: total, correctAnswers: correctCount, incorrectAnswers: total - correctCount, score, xp, stars, accuracy, completedAt: Date.now() } }); recordAchievementEvent({ type: 'game_completed', mode: 'decisiones', metadata: { accuracy, score, xp, defeated: false, correct: correctCount, total, bestStreak: bestStreakOf(answers), hadError: correctCount < total } }); },
   reset: () => set({ phase: 'loading', currentQuestionIndex: 0, questions: [], answers: [], correctCount: 0, incorrectCount: 0, score: 0, xp: 0, streak: 0, result: null, explanation: null, selectedDoor: null, countTick: 0, starsEarned: 0 }),
   triggerScoreCount: () => set((s) => ({ countTick: s.countTick + 1 })),
 }));
