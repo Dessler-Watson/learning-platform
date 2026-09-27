@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -31,9 +31,10 @@ import {
 } from '../../ui/dialog';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { useToast } from '../../ui/toast';
+import { Pagination } from '../../components/shared/Pagination';
 import { audioManager } from '../../lib/audio';
 import { estudiantesService } from '../../services';
-import { CuentaJugador } from '../../types';
+import { CuentaJugador, ResumenEstudiantes } from '../../types';
 
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
@@ -60,6 +61,15 @@ export default function AdminEstudiantesPage() {
 
   const [estudiantes, setEstudiantes] = useState<CuentaJugador[]>([]);
   const [busqueda, setBusqueda] = useState('');
+  const [qApplied, setQApplied] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [resumen, setResumen] = useState<ResumenEstudiantes>({ total: 0, activos: 0, suspendidos: 0, estrellas: 0 });
+  const [cargandoLista, setCargandoLista] = useState(false);
+  const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [showEliminarMuchosDialog, setShowEliminarMuchosDialog] = useState(false);
+  const reqRef = useRef(0);
   const [selected, setSelected] = useState<CuentaJugador | null>(null);
   const [showVerModal, setShowVerModal] = useState(false);
   const [showEditarModal, setShowEditarModal] = useState(false);
@@ -74,32 +84,77 @@ export default function AdminEstudiantesPage() {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const cargarDatos = useCallback(() => {
-    estudiantesService.listar().then(({ estudiantes }) => {
-      setEstudiantes(estudiantes);
-    }).catch(() => {
-      setEstudiantes([]);
-    });
+  const cargarDatos = useCallback((page: number, q: string) => {
+    const reqId = ++reqRef.current;
+    setCargandoLista(true);
+    estudiantesService
+      .listar({ q, page, limit: 15 })
+      .then((res) => {
+        if (reqId !== reqRef.current) return;
+        setEstudiantes(res.estudiantes);
+        setPagina(res.page);
+        setTotalPaginas(res.totalPages);
+        setTotal(res.total);
+        setResumen(res.resumen);
+      })
+      .catch(() => {
+        if (reqId !== reqRef.current) return;
+        setEstudiantes([]);
+      })
+      .finally(() => {
+        if (reqId === reqRef.current) setCargandoLista(false);
+      });
   }, []);
 
+  // Búsqueda con debounce: reset a página 1; los filtros se conservan al paginar.
   useEffect(() => {
-    cargarDatos();
-  }, [cargarDatos]);
+    const timer = setTimeout(() => {
+      const q = busqueda.trim();
+      if (q === qApplied) return;
+      setQApplied(q);
+      setSeleccion([]);
+      setPagina(1);
+      cargarDatos(1, q);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [busqueda, qApplied, cargarDatos]);
 
-  const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    if (!q) return estudiantes;
-    return estudiantes.filter(
-      (e) => e.nombre.toLowerCase().includes(q) || e.correo.toLowerCase().includes(q)
-    );
-  }, [estudiantes, busqueda]);
+  const cambiarPagina = useCallback(
+    (p: number) => {
+      if (p < 1 || p > totalPaginas || p === pagina || cargandoLista) return;
+      setPagina(p);
+      cargarDatos(p, qApplied ?? '');
+    },
+    [pagina, totalPaginas, cargandoLista, qApplied, cargarDatos]
+  );
+
+  const recargar = useCallback(
+    () => cargarDatos(pagina, qApplied ?? ''),
+    [pagina, qApplied, cargarDatos]
+  );
+
+  const todosEnPagina = estudiantes.length > 0 && estudiantes.every((e) => seleccion.includes(e.id));
+
+  const toggleTodos = useCallback(() => {
+    setSeleccion((prev) => {
+      const idsPagina = estudiantes.map((e) => e.id);
+      if (idsPagina.length > 0 && idsPagina.every((id) => prev.includes(id))) {
+        return prev.filter((id) => !idsPagina.includes(id));
+      }
+      return Array.from(new Set([...prev, ...idsPagina]));
+    });
+  }, [estudiantes]);
+
+  const toggleUno = useCallback((id: string) => {
+    setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
 
   const stats = useMemo(() => ({
-    total: estudiantes.length,
-    activos: estudiantes.filter((e) => e.estado === 'activo').length,
-    suspendidos: estudiantes.filter((e) => e.estado === 'suspendido').length,
-    estrellas: estudiantes.reduce((acc, e) => acc + (e.estrellas || 0), 0),
-  }), [estudiantes]);
+    total: resumen.total,
+    activos: resumen.activos,
+    suspendidos: resumen.suspendidos,
+    estrellas: resumen.estrellas,
+  }), [resumen]);
 
   const handleVer = useCallback((c: CuentaJugador) => {
     audioManager.play('select');
@@ -136,11 +191,31 @@ export default function AdminEstudiantesPage() {
       toast(`Cuenta de ${selected.nombre} eliminada`, 'success');
       setShowEliminarDialog(false);
       setSelected(null);
-      cargarDatos();
+      setSeleccion((prev) => prev.filter((id) => id !== selected.id));
+      recargar();
     } else {
       toast(result.error || 'Error al eliminar', 'error');
     }
-  }, [selected, toast, cargarDatos]);
+  }, [selected, toast, recargar]);
+
+  const confirmarEliminarMuchos = useCallback(async () => {
+    if (seleccion.length === 0) return;
+    const ids = [...seleccion];
+    setCargandoLista(true);
+    const result = await estudiantesService.eliminarMuchos(ids);
+    setCargandoLista(false);
+    setShowEliminarMuchosDialog(false);
+    if (result.success) {
+      toast(
+        result.deleted === 1 ? '1 cuenta eliminada' : `${result.deleted} cuentas eliminadas`,
+        'success'
+      );
+      setSeleccion([]);
+      recargar();
+    } else {
+      toast(result.error || 'Error al eliminar', 'error');
+    }
+  }, [seleccion, toast, recargar]);
 
   const guardarEdicion = useCallback(() => {
     if (!selected) return;
@@ -163,12 +238,12 @@ export default function AdminEstudiantesPage() {
         toast('Estudiante actualizado correctamente', 'success');
         setShowEditarModal(false);
         setSelected(null);
-        cargarDatos();
+        recargar();
       } else {
         toast(result.error || 'Error al actualizar', 'error');
       }
     })();
-  }, [selected, editForm, toast, cargarDatos]);
+  }, [selected, editForm, toast, recargar]);
 
   const guardarContrasena = useCallback(() => {
     if (!selected) return;
@@ -242,12 +317,52 @@ export default function AdminEstudiantesPage() {
         </CardContent>
       </Card>
 
+      {seleccion.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 shadow-sm"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-rose-600">
+            <Trash2 className="h-4 w-4" />
+            {seleccion.length} cuenta{seleccion.length === 1 ? '' : 's'} seleccionada
+            {seleccion.length === 1 ? '' : 's'}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+              Limpiar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-rose-500 text-white hover:bg-rose-600"
+              onClick={() => setShowEliminarMuchosDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Eliminar seleccionados
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       <Card variant="emerald">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
+                  <th className="px-6 py-4 text-left">
+                    <input
+                      type="checkbox"
+                      ref={(el) => {
+                        if (el) el.indeterminate = seleccion.length > 0 && !todosEnPagina;
+                      }}
+                      checked={todosEnPagina}
+                      onChange={toggleTodos}
+                      disabled={estudiantes.length === 0}
+                      aria-label="Seleccionar todos los de esta pagina"
+                      className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Nombre</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400 hidden md:table-cell">Correo</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Estado</th>
@@ -257,9 +372,18 @@ export default function AdminEstudiantesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtrados.length === 0 ? (
+                {cargandoLista && estudiantes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Search className="h-8 w-8 text-gray-300 animate-pulse" />
+                        <p className="text-sm text-gray-400">Cargando estudiantes...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : estudiantes.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Search className="h-8 w-8 text-gray-300" />
                         <p className="text-sm text-gray-400">No se encontraron estudiantes</p>
@@ -268,15 +392,24 @@ export default function AdminEstudiantesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtrados.map((est) => {
+                  estudiantes.map((est) => {
                     const online = isOnline(est.ultimaActividad);
                     return (
                       <motion.tr
                         key={est.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="group hover:bg-gray-50/50 transition-colors"
+                        className={`group transition-colors ${seleccion.includes(est.id) ? 'bg-[#00A0B5]/5' : 'hover:bg-gray-50/50'}`}
                       >
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={seleccion.includes(est.id)}
+                            onChange={() => toggleUno(est.id)}
+                            aria-label={`Seleccionar ${est.nombre}`}
+                            className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative">
@@ -358,6 +491,16 @@ export default function AdminEstudiantesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-between text-xs font-semibold text-gray-400">
+        <span>
+          {total} cuenta{total === 1 ? '' : 's'} en total
+        </span>
+        <span>
+          Mostrando {estudiantes.length} en esta pagina
+        </span>
+      </div>
+      <Pagination page={pagina} totalPages={totalPaginas} disabled={cargandoLista} onPage={cambiarPagina} />
 
       <Dialog open={showVerModal} onOpenChange={setShowVerModal}>
         <DialogContent>
@@ -581,6 +724,17 @@ export default function AdminEstudiantesPage() {
         cancelLabel="Cancelar"
         variant="destructive"
         onConfirm={confirmarEliminar}
+      />
+
+      <ConfirmDialog
+        open={showEliminarMuchosDialog}
+        onOpenChange={setShowEliminarMuchosDialog}
+        title="Eliminar cuentas seleccionadas"
+        description={`¿Estás seguro de que deseas eliminar ${seleccion.length} cuenta${seleccion.length === 1 ? '' : 's'}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        onConfirm={confirmarEliminarMuchos}
       />
     </div>
   );

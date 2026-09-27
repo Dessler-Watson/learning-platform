@@ -47,7 +47,9 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
   const [editForm, setEditForm] = useState({ question: '', optionA: '', optionB: '', correctAnswer: 'A' as 'A' | 'B' });
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
+  const [progressMsg, setProgressMsg] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (step === 'loading') {
@@ -69,6 +71,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
     setEditingIndex(null);
     setRegeneratingIndex(null);
     setConfirmDeleteIndex(null);
+    setProgressMsg(null);
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -101,22 +104,41 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
 
     audioManager.play('start');
     setError(null);
+    setProgressMsg(null);
     setStep('loading');
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const result = await generateQuestions(topic, description, amount);
+      const result = await generateQuestions(topic, description, amount, [], {
+        signal: controller.signal,
+        onProgress: setProgressMsg,
+      });
       setQuestions(result);
       setStep('review');
       audioManager.play('success');
     } catch (err) {
-      audioManager.play('error');
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No fue posible generar las preguntas. Verifica la conexion e intentalo nuevamente.'
-      );
-      setStep('config');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setStep('config');
+      } else {
+        audioManager.play('error');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'No fue posible generar las preguntas. Verifica la conexion e intentalo nuevamente.'
+        );
+        setStep('config');
+      }
+    } finally {
+      setProgressMsg(null);
+      abortRef.current = null;
     }
+  };
+
+  const handleCancelGenerate = () => {
+    audioManager.play('back');
+    abortRef.current?.abort();
   };
 
   const startEdit = (index: number) => {
@@ -267,8 +289,13 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                 </div>
                 <div className="text-center space-y-2">
                   <p className="text-lg font-medium text-foreground">{LOADING_MESSAGES[messageIndex]}</p>
-                  <p className="text-sm text-gray-500">Generando {amount} preguntas...</p>
+                  <p className="text-sm text-gray-500">
+                    {progressMsg ?? `Generando ${amount} preguntas...`}
+                  </p>
                 </div>
+                <Button variant="outline" size="sm" onClick={handleCancelGenerate}>
+                  Cancelar
+                </Button>
               </motion.div>
             )}
 

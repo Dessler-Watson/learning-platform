@@ -2266,6 +2266,178 @@ try {
   Ok 'estud: no self-delete 400' ($code -eq 400 -or $code -eq 404) "code=$code"
 }
 
+# ═══ 10b. CUENTAS: PAGINACION + BORRADO MASIVO ═══
+
+# --- docentes: envase paginado por defecto (15/pagina) ---
+$d0 = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -WebSession $sadm -UseBasicParsing
+  $d0 = J $r
+  $d0Pages = [Math]::Max(1, [Math]::Ceiling([int]$d0.total / 15))
+  Ok 'cpag: docentes defaults 15' ($r.StatusCode -eq 200 -and $d0.page -eq 1 -and $d0.limit -eq 15 -and (@($d0.docentes).Count -le 15) -and [int]$d0.totalPages -eq $d0Pages -and ($null -ne $d0.resumen) -and ($null -ne $d0.instituciones)) "code=$($r.StatusCode) count=$(@($d0.docentes).Count) total=$($d0.total) pages=$($d0.totalPages)"
+} catch { Ok 'cpag: docentes defaults 15' $false $_.Exception.Message }
+
+# --- docentes: params invalidos 400 ---
+$dcodes = @()
+foreach ($badQ in @('page=0', 'page=abc', 'page=2.5', 'limit=0', 'limit=101', 'limit=abc')) {
+  try {
+    $null = Invoke-WebRequest -Uri "$base/api/panel/docentes?$badQ" -WebSession $sadm -UseBasicParsing
+    $dcodes += 'no400'
+  } catch {
+    $dcodes += [int]$_.Exception.Response.StatusCode.value__
+  }
+}
+Ok 'cpag: docentes params invalidos 400' ($dcodes.Count -eq 6 -and @($dcodes | Where-Object { $_ -ne 400 }).Count -eq 0) ($dcodes -join ',')
+
+# --- estudiantes: envase + resumen + params invalidos ---
+$e0 = $null
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?page=1&limit=5" -WebSession $sadm -UseBasicParsing
+  $e0 = J $r
+  Ok 'cpag: estudiantes limit 5 envase' ($r.StatusCode -eq 200 -and $e0.page -eq 1 -and $e0.limit -eq 5 -and (@($e0.estudiantes).Count -le 5) -and [int]$e0.total -ge 5 -and [int]$e0.totalPages -ge 2 -and ($null -ne $e0.resumen) -and ($null -ne $e0.resumen.estrellas)) "count=$(@($e0.estudiantes).Count) total=$($e0.total) pages=$($e0.totalPages)"
+} catch { Ok 'cpag: estudiantes limit 5 envase' $false $_.Exception.Message }
+
+$ecodes = @()
+foreach ($badQ in @('page=0', 'page=abc', 'page=2.5', 'limit=0', 'limit=101', 'limit=abc')) {
+  try {
+    $null = Invoke-WebRequest -Uri "$base/api/panel/estudiantes?$badQ" -WebSession $sadm -UseBasicParsing
+    $ecodes += 'no400'
+  } catch {
+    $ecodes += [int]$_.Exception.Response.StatusCode.value__
+  }
+}
+Ok 'cpag: estudiantes params invalidos 400' ($ecodes.Count -eq 6 -and @($ecodes | Where-Object { $_ -ne 400 }).Count -eq 0) ($ecodes -join ',')
+
+# --- estudiantes: paginas disjuntas y orden estable con limit 5 ---
+$ep1 = J (Invoke-WebRequest -Uri "$base/api/panel/estudiantes?page=1&limit=5" -WebSession $sadm -UseBasicParsing)
+$ep2 = J (Invoke-WebRequest -Uri "$base/api/panel/estudiantes?page=2&limit=5" -WebSession $sadm -UseBasicParsing)
+$eids1 = @($ep1.estudiantes | ForEach-Object { $_.id })
+$eids2 = @($ep2.estudiantes | ForEach-Object { $_.id })
+$eover = @($eids1 | Where-Object { $eids2 -contains $_ })
+Ok 'cpag: estudiantes paginas disjuntas' ($eids1.Count -eq 5 -and $eids2.Count -eq 5 -and $eover.Count -eq 0 -and [int]$ep1.total -eq [int]$ep2.total -and [int]$ep1.totalPages -eq [int]$ep2.totalPages) "c1=$($eids1.Count) c2=$($eids2.Count) overlap=$($eover.Count) total=$($ep1.total)"
+$ep1b = J (Invoke-WebRequest -Uri "$base/api/panel/estudiantes?page=1&limit=5" -WebSession $sadm -UseBasicParsing)
+Ok 'cpag: estudiantes orden estable' (($eids1 -join ',') -eq (@($ep1b.estudiantes | ForEach-Object { $_.id }) -join ','))
+
+# --- docentes: semilla de 2 para bulk (create) ---
+$r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{
+  action = 'create'; nombre = 'BulkT A'; correo = "e2ebulka_$stamp@gmail.com"; contrasena = 'secret123'; institucion = 'E2E'; rol = 'docente'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'cbulk: docente seed A' ($r.StatusCode -eq 201) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{
+  action = 'create'; nombre = 'BulkT B'; correo = "e2ebulkb_$stamp@gmail.com"; contrasena = 'secret123'; institucion = 'E2E'; rol = 'docente'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'cbulk: docente seed B' ($r.StatusCode -eq 201) $r.StatusCode
+
+# --- docentes: q server-side + limit 3 paginas disjuntas (con semillas) ---
+$dq = J (Invoke-WebRequest -Uri "$base/api/panel/docentes?q=e2ebulk&limit=50" -WebSession $sadm -UseBasicParsing)
+$bulkDocIds = @($dq.docentes | Where-Object { $_.correo -like "e2ebulk*_$stamp@gmail.com" } | ForEach-Object { $_.id })
+$badMatch = @($dq.docentes | Where-Object { $_.correo -notlike '*e2ebulk*' })
+Ok 'cpag: docentes q server-side' ($bulkDocIds.Count -eq 2 -and $badMatch.Count -eq 0) "ids=$($bulkDocIds.Count) bad=$($badMatch.Count) total=$($dq.total)"
+
+$da1 = J (Invoke-WebRequest -Uri "$base/api/panel/docentes?page=1&limit=3" -WebSession $sadm -UseBasicParsing)
+$da2 = J (Invoke-WebRequest -Uri "$base/api/panel/docentes?page=2&limit=3" -WebSession $sadm -UseBasicParsing)
+$daids1 = @($da1.docentes | ForEach-Object { $_.id })
+$daids2 = @($da2.docentes | ForEach-Object { $_.id })
+$daover = @($daids1 | Where-Object { $daids2 -contains $_ })
+Ok 'cpag: docentes paginas disjuntas' ($daids1.Count -eq 3 -and $daids2.Count -eq 3 -and $daover.Count -eq 0 -and [int]$da1.totalPages -ge 2) "c1=$($daids1.Count) c2=$($daids2.Count) overlap=$($daover.Count) total=$($da1.total) pages=$($da1.totalPages)"
+
+# --- bulk docentes: authz y validaciones ---
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $stch -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($bulkDocIds) } | ConvertTo-Json)
+  Ok 'cbulk: teacher 403 docentes' $false 'unexpected 200'
+} catch { Ok 'cbulk: teacher 403 docentes' ([int]$_.Exception.Response.StatusCode.value__ -eq 403) $_.Exception.Response.StatusCode.value__ }
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($bulkDocIds) } | ConvertTo-Json)
+  Ok 'cbulk: sin sesion 403 docentes' $false 'unexpected 200'
+} catch { Ok 'cbulk: sin sesion 403 docentes' ([int]$_.Exception.Response.StatusCode.value__ -eq 403) $_.Exception.Response.StatusCode.value__ }
+
+$dbulkCodes = @()
+foreach ($badBody in @(
+  (@{ action = 'bulk_delete'; ids = @() } | ConvertTo-Json),
+  (@{ action = 'bulk_delete'; ids = @('no-uuid') } | ConvertTo-Json),
+  (@{ action = 'bulk_delete' } | ConvertTo-Json)
+)) {
+  try {
+    $null = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body $badBody
+    $dbulkCodes += 'no400'
+  } catch { $dbulkCodes += [int]$_.Exception.Response.StatusCode.value__ }
+}
+Ok 'cbulk: docentes validaciones 400' ($dbulkCodes.Count -eq 3 -and @($dbulkCodes | Where-Object { $_ -ne 400 }).Count -eq 0) ($dbulkCodes -join ',')
+
+$adminId = ((Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $sadm -UseBasicParsing | J).user.id)
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($adminId) } | ConvertTo-Json)
+  Ok 'cbulk: docentes no self-delete 400' $false 'unexpected 200'
+} catch { Ok 'cbulk: docentes no self-delete 400' ([int]$_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
+
+# --- bulk docentes: borrado real + verificacion ---
+$r = Invoke-WebRequest -Uri "$base/api/panel/docentes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body (@{
+  action = 'bulk_delete'; ids = $bulkDocIds
+} | ConvertTo-Json)
+$dbulk = J $r
+Ok 'cbulk: docentes delete 2' ($r.StatusCode -eq 200 -and $dbulk.ok -and [int]$dbulk.deleted -eq 2) "code=$($r.StatusCode) deleted=$($dbulk.deleted)"
+$dgone = J (Invoke-WebRequest -Uri "$base/api/panel/docentes?q=e2ebulk&limit=50" -WebSession $sadm -UseBasicParsing)
+$dgoneIds = @($dgone.docentes | Where-Object { $_.correo -like "e2ebulk*_$stamp@gmail.com" })
+Ok 'cbulk: docentes gone' ($dgoneIds.Count -eq 0 -and @($dgone.docentes | Where-Object { $_.correo -like "*_$stamp@gmail.com" }).Count -eq 0) "restantes=$($dgoneIds.Count)"
+
+# --- bulk estudiantes: semilla de 3 alumnos ---
+foreach ($n in 1..3) {
+  try {
+    $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+      nombre = "E2E BulkSt$n"; email = "e2ebulk${n}_$stamp@gmail.com"; password = 'secret123'
+    } | ConvertTo-Json) -UseBasicParsing
+    Ok "cbulk: student seed $n" ($r.StatusCode -eq 201) $r.StatusCode
+  } catch { Ok "cbulk: student seed $n" $false $_.Exception.Message }
+}
+$eq = J (Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=e2ebulk&limit=50" -WebSession $sadm -UseBasicParsing)
+$bulkStuIds = @($eq.estudiantes | Where-Object { $_.correo -like "e2ebulk*_$stamp@gmail.com" } | ForEach-Object { $_.id })
+$badMatchE = @($eq.estudiantes | Where-Object { $_.correo -notlike '*e2ebulk*' })
+Ok 'cbulk: estudiantes semilla list' ($bulkStuIds.Count -eq 3 -and $badMatchE.Count -eq 0) "ids=$($bulkStuIds.Count) bad=$($badMatchE.Count) total=$($eq.total)"
+
+# --- bulk estudiantes: authz y validaciones ---
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $s1 -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($bulkStuIds) } | ConvertTo-Json)
+  Ok 'cbulk: student 403 estudiantes' $false 'unexpected 200'
+} catch { Ok 'cbulk: student 403 estudiantes' ([int]$_.Exception.Response.StatusCode.value__ -eq 403) $_.Exception.Response.StatusCode.value__ }
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($bulkStuIds) } | ConvertTo-Json)
+  Ok 'cbulk: sin sesion 403 estudiantes' $false 'unexpected 200'
+} catch { Ok 'cbulk: sin sesion 403 estudiantes' ([int]$_.Exception.Response.StatusCode.value__ -eq 403) $_.Exception.Response.StatusCode.value__ }
+
+$ebulkCodes = @()
+foreach ($badBody in @(
+  (@{ action = 'bulk_delete'; ids = @() } | ConvertTo-Json),
+  (@{ action = 'bulk_delete'; ids = @('no-uuid') } | ConvertTo-Json),
+  (@{ action = 'bulk_delete' } | ConvertTo-Json)
+)) {
+  try {
+    $null = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body $badBody
+    $ebulkCodes += 'no400'
+  } catch { $ebulkCodes += [int]$_.Exception.Response.StatusCode.value__ }
+}
+Ok 'cbulk: estudiantes validaciones 400' ($ebulkCodes.Count -eq 3 -and @($ebulkCodes | Where-Object { $_ -ne 400 }).Count -eq 0) ($ebulkCodes -join ',')
+
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body (@{ action = 'bulk_delete'; ids = @($adminId) } | ConvertTo-Json)
+  Ok 'cbulk: estudiantes no self-delete 400' $false 'unexpected 200'
+} catch { Ok 'cbulk: estudiantes no self-delete 400' ([int]$_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
+
+# --- bulk estudiantes: borrado real + verificacion + login bloqueado ---
+$r = Invoke-WebRequest -Uri "$base/api/panel/estudiantes" -Method Post -ContentType 'application/json' -WebSession $sadm -UseBasicParsing -Body (@{
+  action = 'bulk_delete'; ids = $bulkStuIds
+} | ConvertTo-Json)
+$ebulk = J $r
+Ok 'cbulk: estudiantes delete 3' ($r.StatusCode -eq 200 -and $ebulk.ok -and [int]$ebulk.deleted -eq 3) "code=$($r.StatusCode) deleted=$($ebulk.deleted)"
+$egone = J (Invoke-WebRequest -Uri "$base/api/panel/estudiantes?q=e2ebulk&limit=50" -WebSession $sadm -UseBasicParsing)
+$egoneIds = @($egone.estudiantes | Where-Object { $_.correo -like "e2ebulk*_$stamp@gmail.com" })
+Ok 'cbulk: estudiantes gone' ($egoneIds.Count -eq 0 -and @($egone.estudiantes | Where-Object { $_.correo -like "*_$stamp@gmail.com" }).Count -eq 0) "restantes=$($egoneIds.Count)"
+try {
+  $null = Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = "e2ebulk1_$stamp@gmail.com"; password = 'secret123'
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'cbulk: deleted login 401' $false 'unexpected 200'
+} catch { Ok 'cbulk: deleted login 401' ([int]$_.Exception.Response.StatusCode.value__ -eq 401) $_.Exception.Response.StatusCode.value__ }
+
 # ═══ 11. CURSOS Y PREGUNTAS (Paso 2) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
   email = 'carlos.lopez@gmail.com'; password = 'demo123'

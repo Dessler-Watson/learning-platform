@@ -8,6 +8,9 @@ import {
   EstadisticasInicio,
   Docente,
   CuentaJugador,
+  PaginaMeta,
+  ResumenDocentes,
+  ResumenEstudiantes,
 } from '../types';
 import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJuego, RespuestaDetalleSala, ResultadosSala } from '../types';
 import { MODE_THEME, GameModeId } from '@/shared/lib/game-modes';
@@ -374,9 +377,24 @@ export const salasService = {
 
 // ─── Docentes (admin) ───
 
+export interface DocentesPage extends PaginaMeta {
+  docentes: Docente[];
+  instituciones: string[];
+  resumen: ResumenDocentes;
+}
+
 export const docentesService = {
-  async obtenerTodos(): Promise<{ docentes: Docente[]; instituciones: string[] }> {
-    return api<{ docentes: Docente[]; instituciones: string[] }>('/api/panel/docentes');
+  async listar(
+    opts?: { q?: string; institucion?: string; page?: number; limit?: number }
+  ): Promise<DocentesPage> {
+    const p = new URLSearchParams();
+    const q = (opts?.q ?? '').trim();
+    const institucion = (opts?.institucion ?? '').trim();
+    if (q) p.set('q', q);
+    if (institucion && institucion !== 'todas') p.set('institucion', institucion);
+    p.set('page', String(opts?.page ?? 1));
+    p.set('limit', String(opts?.limit ?? 15));
+    return api<DocentesPage>(`/api/panel/docentes?${p.toString()}`);
   },
   async existe(correo: string): Promise<boolean> {
     const res = await api<{ existe: boolean }>('/api/panel/docentes', {
@@ -404,14 +422,37 @@ export const docentesService = {
       return { success: false, error: e instanceof Error ? e.message : 'Error al eliminar' };
     }
   },
+  async eliminarMuchos(ids: string[]): Promise<{ success: boolean; deleted: number; error?: string }> {
+    try {
+      const res = await api<{ ok: boolean; deleted: number }>('/api/panel/docentes', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'bulk_delete', ids }),
+      });
+      return { success: res.ok, deleted: res.deleted ?? 0 };
+    } catch (e) {
+      return { success: false, deleted: 0, error: e instanceof Error ? e.message : 'Error al eliminar' };
+    }
+  },
 };
 
 // ─── Estudiantes / jugadores (admin) ───
 
+export interface EstudiantesPage extends PaginaMeta {
+  estudiantes: CuentaJugador[];
+  resumen: ResumenEstudiantes;
+}
+
 export const estudiantesService = {
-  async listar(q?: string): Promise<{ estudiantes: CuentaJugador[] }> {
-    const url = q ? `/api/panel/estudiantes?q=${encodeURIComponent(q)}` : '/api/panel/estudiantes';
-    return api<{ estudiantes: CuentaJugador[] }>(url);
+  async listar(
+    opts?: { q?: string; page?: number; limit?: number } | string
+  ): Promise<EstudiantesPage> {
+    const normalized = typeof opts === 'string' ? { q: opts } : opts ?? {};
+    const p = new URLSearchParams();
+    const q = (normalized.q ?? '').trim();
+    if (q) p.set('q', q);
+    p.set('page', String(normalized.page ?? 1));
+    p.set('limit', String(normalized.limit ?? 15));
+    return api<EstudiantesPage>(`/api/panel/estudiantes?${p.toString()}`);
   },
   async actualizar(
     id: string,
@@ -430,6 +471,17 @@ export const estudiantesService = {
       return { success: true };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error al eliminar' };
+    }
+  },
+  async eliminarMuchos(ids: string[]): Promise<{ success: boolean; deleted: number; error?: string }> {
+    try {
+      const res = await api<{ ok: boolean; deleted: number }>('/api/panel/estudiantes', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'bulk_delete', ids }),
+      });
+      return { success: res.ok, deleted: res.deleted ?? 0 };
+    } catch (e) {
+      return { success: false, deleted: 0, error: e instanceof Error ? e.message : 'Error al eliminar' };
     }
   },
 };

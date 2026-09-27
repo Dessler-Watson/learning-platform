@@ -3,7 +3,150 @@ import { getSessionUser } from '@/lib/db';
 
 /**
  * Proxy server-side para mantener la API Key segura.
+ * Cadena de modelos: si el principal esta saturado (503/429 "high demand")
+ * o no responde, se prueba el siguiente antes de devolver un error.
  */
+const MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-latest',
+  'gemini-3.6-flash',
+  'gemini-2.5-flash',
+];
+const MODEL_TIMEOUT_MS = 45_000;
+
+interface ModelFailure {
+  status: number;
+  type: string;
+  error: string;
+  overloaded: boolean;
+}
+
+function isOverloaded(status: number, message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    status === 429 ||
+    status === 503 ||
+    status === 504 ||
+    m.includes('high demand') ||
+    m.includes('resource_exhausted') ||
+    m.includes('overloaded') ||
+    m.includes('quota')
+  );
+}
+
+async function callModel(
+  apiKey: string,
+  model: string,
+  prompt: string
+): Promise<{ content: string } | ModelFailure> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 16384,
+          responseMimeType: 'application/json',
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+
+    if (res.ok) {
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return { content: text };
+      console.error(`[AI Generate] ${model}: respuesta sin texto`);
+      return {
+        status: 502,
+        type: 'empty_response',
+        error: 'Gemini devolvio una respuesta sin contenido.',
+        overloaded: false,
+      };
+    }
+
+    const errMsg = String(data?.error?.message ?? `Error HTTP ${res.status}`);
+    const errCode = Number(data?.error?.code ?? res.status);
+    console.error(`[AI Generate] ${model}:`, errCode, errMsg);
+
+    // La API key no sirve: no tiene sentido probar otros modelos.
+    if (errCode === 401 || errCode === 403) {
+      return {
+        status: errCode,
+        type: 'auth_error',
+        error: 'La clave de API de Gemini no es valida o no tiene permisos. Verifica la configuracion.',
+        overloaded: false,
+      };
+    }
+
+    if (isOverloaded(res.status, errMsg)) {
+      return {
+        status: 503,
+        type: 'overloaded',
+        error: 'Gemini esta saturado en este momento.',
+        overloaded: true,
+      };
+    }
+
+    if (errMsg.toLowerCase().includes('no longer available') || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not available')) {
+      return {
+        status: 404,
+        type: 'model_error',
+        error: 'Modelo no disponible.',
+        overloaded: false,
+      };
+    }
+
+    if (errCode === 400) {
+      return {
+        status: 400,
+        type: 'bad_request',
+        error: 'Solicitud invalida. Por favor, intenta de nuevo.',
+        overloaded: false,
+      };
+    }
+
+    return {
+      status: 502,
+      type: 'api_error',
+      error: 'Ocurrio un error al comunicarse con Gemini. Intenta de nuevo mas tarde.',
+      overloaded: false,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error(`[AI Generate] ${model}: timeout ${MODEL_TIMEOUT_MS / 1000}s`);
+      return {
+        status: 504,
+        type: 'timeout',
+        error: 'Gemini tardo demasiado en responder.',
+        overloaded: true,
+      };
+    }
+    console.error(`[AI Generate] ${model}: error de conexion`, err);
+    return {
+      status: 502,
+      type: 'connection_error',
+      error: 'No se pudo conectar con Gemini. Verifica tu conexion a internet e intentalo de nuevo.',
+      overloaded: true,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSessionUser(req);
   // Cualquier cuenta registrada (estudiante/docente/admin) genera preguntas
@@ -26,91 +169,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta el prompt.', type: 'bad_request' }, { status: 400 });
   }
 
-  const model = 'gemini-3.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  let lastFailure: ModelFailure | null = null;
+  let sawOverload = false;
+  let sawAuth = false;
 
-  // Sin timeout el cliente se quedaba cargando indefinidamente cuando Gemini tardaba.
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60_000);
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt as string }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 16384,
-          responseMimeType: 'application/json',
-        },
-      }),
-      signal: controller.signal,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      const errMsg = data?.error?.message ?? `Error HTTP ${res.status}`;
-      const errCode = data?.error?.code ?? res.status;
-
-      console.error('[AI Generate] Error de Gemini:', errCode, errMsg);
-
-      if (errCode === 400) {
-        return NextResponse.json(
-          { error: 'Solicitud invalida. Por favor, intenta de nuevo.', type: 'bad_request' },
-          { status: 400 }
-        );
-      }
-      if (errCode === 401 || errCode === 403) {
-        return NextResponse.json(
-          { error: 'La clave de API de Gemini no es valida o no tiene permisos. Verifica la configuracion.', type: 'auth_error' },
-          { status: errCode }
-        );
-      }
-      if (errCode === 429 || errMsg.toLowerCase().includes('resource_exhausted') || errMsg.toLowerCase().includes('high demand')) {
-        return NextResponse.json(
-          { error: 'Se alcanzo el limite de solicitudes de Gemini. Espera un momento e intentalo de nuevo.', type: 'rate_limit' },
-          { status: 429 }
-        );
-      }
-      if (errMsg.toLowerCase().includes('no longer available') || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not available')) {
-        return NextResponse.json(
-          { error: 'El modelo de IA seleccionado ya no esta disponible. Contacta al administrador para actualizar la configuracion.', type: 'model_error' },
-          { status: errCode }
-        );
-      }
-
-      return NextResponse.json(
-        { error: 'Ocurrio un error al comunicarse con Gemini. Intenta de nuevo mas tarde.', type: 'api_error' },
-        { status: errCode }
-      );
+  for (const model of MODELS) {
+    const result = await callModel(apiKey, model, String(prompt));
+    if ('content' in result) {
+      return NextResponse.json({ content: result.content, model });
     }
-
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error('[AI Generate] Respuesta sin texto:', JSON.stringify(data).substring(0, 500));
-      return NextResponse.json(
-        { error: 'Gemini devolvio una respuesta sin contenido.', type: 'empty_response' },
-        { status: 502 }
-      );
+    if (result.type === 'auth_error') {
+      sawAuth = true;
+      lastFailure = result;
+      break;
     }
-
-    return NextResponse.json({ content: text });
-  } catch (err: unknown) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      console.error('[AI Generate] Timeout: Gemini no respondio en 60s');
-      return NextResponse.json(
-        { error: 'Gemini tardo demasiado en responder. Intenta nuevamente.', type: 'timeout' },
-        { status: 504 }
-      );
-    }
-    console.error('[AI Generate] Error de conexion:', err);
-    return NextResponse.json(
-      { error: 'No se pudo conectar con Gemini. Verifica tu conexion a internet e intentalo de nuevo.', type: 'connection_error' },
-      { status: 502 }
-    );
-  } finally {
-    clearTimeout(timeoutId);
+    if (result.overloaded) sawOverload = true;
+    lastFailure = result;
   }
+
+  if (sawAuth && lastFailure) {
+    return NextResponse.json({ error: lastFailure.error, type: lastFailure.type }, { status: lastFailure.status });
+  }
+  if (sawOverload) {
+    // Reintentable desde el cliente: el servidor ya agoto la cadena de modelos.
+    return NextResponse.json(
+      { error: 'Gemini esta saturado en este momento. Se reintentara automaticamente.', type: 'overloaded' },
+      { status: 503 }
+    );
+  }
+  if (lastFailure) {
+    return NextResponse.json({ error: lastFailure.error, type: lastFailure.type }, { status: lastFailure.status });
+  }
+  return NextResponse.json(
+    { error: 'Ocurrio un error al comunicarse con Gemini. Intenta de nuevo mas tarde.', type: 'api_error' },
+    { status: 502 }
+  );
 }

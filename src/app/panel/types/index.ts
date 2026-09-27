@@ -26,6 +26,29 @@ export interface CuentaJugador {
   estrellas: number;
 }
 
+/** Envelope de paginación devuelto por el backend (solo la página pedida). */
+export interface PaginaMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ResumenEstudiantes {
+  total: number;
+  activos: number;
+  suspendidos: number;
+  estrellas: number;
+}
+
+export interface ResumenDocentes {
+  total: number;
+  docentes: number;
+  admins: number;
+  activos: number;
+  enLinea: number;
+}
+
 export interface Curso {
   id: string;
   teacherId: string;

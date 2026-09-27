@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, query, queryOne, hashPassword, revokeAllUserSessions } from '@/lib/db';
+import { getSessionUser, query, queryOne, getPool, hashPassword, revokeAllUserSessions } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+const PAGE_LIMIT_DEFAULT = 15;
+const PAGE_LIMIT_MAX = 100;
+const BULK_MAX_IDS = 200;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function requireAdmin(req: NextRequest) {
   const session = await getSessionUser(req);
@@ -19,12 +24,33 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') ?? '').trim();
 
+    const pageRaw = searchParams.get('page');
+    const limitRaw = searchParams.get('limit');
+    const page = pageRaw === null ? 1 : Number(pageRaw);
+    const limit = limitRaw === null ? PAGE_LIMIT_DEFAULT : Number(limitRaw);
+    if (!Number.isInteger(page) || page < 1) {
+      return NextResponse.json({ error: 'page inválida' }, { status: 400 });
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_LIMIT_MAX) {
+      return NextResponse.json({ error: 'limit inválido' }, { status: 400 });
+    }
+
     const params: unknown[] = [];
     let where = `u.is_guest = false AND u.deleted_at IS NULL AND r.code = 'student'`;
     if (q) {
       params.push(`%${q}%`);
       where += ` AND (u.nombre ILIKE $1 OR coalesce(u.email, '') ILIKE $1)`;
     }
+
+    const countRow = await queryOne<{ total: number }>(
+      `SELECT count(*)::int AS total
+       FROM users u JOIN roles r ON r.id = u.role_id
+       WHERE ${where}`,
+      params
+    );
+    const total = countRow?.total ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
 
     const rows = await query<{
       id: string;
@@ -43,8 +69,20 @@ export async function GET(req: NextRequest) {
        JOIN roles r ON r.id = u.role_id
        LEFT JOIN player_league_progress plp ON plp.user_id = u.id
        WHERE ${where}
-       ORDER BY u.created_at DESC`,
+       ORDER BY u.created_at DESC, u.id DESC
+       LIMIT ${limit} OFFSET ${(safePage - 1) * limit}`,
       params
+    );
+
+    const resumenRow = await queryOne<{ total: number; activos: number; suspendidos: number; estrellas: number }>(
+      `SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE u.status = 'active')::int AS activos,
+              count(*) FILTER (WHERE u.status = 'suspended')::int AS suspendidos,
+              coalesce(sum(coalesce(plp.stars, 0)), 0)::int AS estrellas
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN player_league_progress plp ON plp.user_id = u.id
+       WHERE u.is_guest = false AND u.deleted_at IS NULL AND r.code = 'student'`
     );
 
     return NextResponse.json({
@@ -57,6 +95,16 @@ export async function GET(req: NextRequest) {
         ultimaActividad: r.last_seen ?? r.created_at,
         estrellas: r.stars,
       })),
+      page: safePage,
+      limit,
+      total,
+      totalPages,
+      resumen: {
+        total: resumenRow?.total ?? 0,
+        activos: resumenRow?.activos ?? 0,
+        suspendidos: resumenRow?.suspendidos ?? 0,
+        estrellas: resumenRow?.estrellas ?? 0,
+      },
     });
   } catch (err) {
     console.error('[panel estudiantes GET]', err);
@@ -166,6 +214,55 @@ export async function POST(req: NextRequest) {
       );
 
       return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'bulk_delete') {
+      const rawIds = body.ids;
+      if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > BULK_MAX_IDS) {
+        return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+      }
+      const ids = rawIds.map((v: unknown) => String(v));
+      if (ids.some((id: string) => !UUID_RE.test(id))) {
+        return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+      }
+      if (ids.includes(session.id)) {
+        return NextResponse.json({ error: 'No puedes eliminarte a ti mismo' }, { status: 400 });
+      }
+
+      // Soft delete transaccional: conserva match_participants / participant_answers
+      // / logros / ligas y evita violar FKs RESTRICT/NO ACTION.
+      const client = await getPool().connect();
+      try {
+        await client.query('BEGIN');
+        const upd = await client.query<{ id: string }>(
+          `UPDATE users SET deleted_at = now(), status = 'inactive'
+           WHERE id = ANY($1::uuid[]) AND is_guest = false AND deleted_at IS NULL
+             AND role_id IN (SELECT id FROM roles WHERE code = 'student')
+           RETURNING id`,
+          [ids]
+        );
+        const deletedIds = upd.rows.map((r) => r.id);
+        if (deletedIds.length > 0) {
+          await client.query(
+            `INSERT INTO audit_events (actor_id, entity_type, entity_id, action, metadata)
+             SELECT $1, 'user', u_id, 'deleted', jsonb_build_object('bulk', true)
+             FROM unnest($2::uuid[]) AS u_id`,
+            [session.id, deletedIds]
+          );
+          await client.query(
+            `UPDATE user_sessions SET revoked_at = now()
+             WHERE user_id = ANY($1::uuid[]) AND revoked_at IS NULL`,
+            [deletedIds]
+          );
+        }
+        await client.query('COMMIT');
+        return NextResponse.json({ ok: true, deleted: deletedIds.length });
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
     }
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });

@@ -154,6 +154,8 @@ CREATE UNIQUE INDEX uq_users_email
 CREATE INDEX idx_users_role       ON users (role_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_institution ON users (institution_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_created     ON users (created_at DESC);
+-- Listados paginados del panel (docentes/estudiantes): filtra por rol y ordena por fecha.
+CREATE INDEX idx_users_role_created ON users (role_id, created_at DESC) WHERE deleted_at IS NULL;
 
 -- Sesiones de autenticación: solo hash del token (cookie httpOnly / JWT).
 -- "online/offline" NO es una columna permanente: se deriva de last_seen_at.

@@ -88,7 +88,9 @@ export interface GenerateOptions {
  * Reintenta automaticamente en caso de rate limit o errores temporales.
  */
 const MAX_RETRIES = 5;
-const RETRY_DELAYS = [5000, 15000, 30000, 60000, 60000];
+// Backoff corto: el servidor ya hace fallback entre modelos en cada intento,
+// asi que reintentar rapido es mejor que esperas largas sin respuesta.
+const RETRY_DELAYS = [3000, 8000, 15000, 30000, 45000];
 const ATTEMPT_TIMEOUT_MS = 75_000;
 
 let generationLock = false;
