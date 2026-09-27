@@ -1930,6 +1930,11 @@ if ($cursoP) {
   }
 
 # ═══ 8. RANKING REAL (orden por estrellas + liga + sin datos privados) ═══
+# Limpieza: fixtures e2e_rank de corridas anteriores acumulan estrellas y empujan
+# a RankB fuera del top-100 (limit=100 max de la API). Soft-delete como la app.
+if (Test-Path $psqlS) {
+  & $psqlS -U postgres -d eduplay_db -c "UPDATE users SET deleted_at = now(), status = 'inactive' WHERE email LIKE 'e2e_rank_%' AND deleted_at IS NULL" 2>$null | Out-Null
+}
 $r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
   nombre = 'RankA'; email = "e2e_rank_a_$stamp@gmail.com"; password = 'secret123'
 } | ConvertTo-Json) -UseBasicParsing -SessionVariable sra

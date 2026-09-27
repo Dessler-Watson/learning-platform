@@ -15,6 +15,7 @@ import { LavaLoadingScreen } from './LavaLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
@@ -163,6 +164,7 @@ export function LavaCanvas() {
       <HeartbeatMonitor />
       <DangerOverlay />
       <GameAchievementNotification />
+      <LandscapeGate enabled={lavaPhase !== 'completed'} />
 
       {/* CSS vignette overlay */}
       <div style={{

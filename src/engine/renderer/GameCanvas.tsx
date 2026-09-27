@@ -16,6 +16,7 @@ import { useAchievementStore } from '@/stores/achievement.store';
 import { GameAchievementNotification } from '@/ui/components/GameAchievementNotification';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
@@ -83,6 +84,7 @@ export function GameCanvas() {
       <MobileControls />
       <Leaderboard />
       <GameAchievementNotification />
+      <LandscapeGate enabled={gamePhase !== 'completed' && gamePhase !== 'results'} />
       <div style={{
         position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%)',
