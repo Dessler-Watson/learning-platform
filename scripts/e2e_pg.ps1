@@ -2551,7 +2551,144 @@ try {
     email = "e2ebulk1_$stamp@gmail.com"; password = 'secret123'
   } | ConvertTo-Json) -UseBasicParsing
   Ok 'cbulk: deleted login 401' $false 'unexpected 200'
-} catch { Ok 'cbulk: deleted login 401' ([int]$_.Exception.Response.StatusCode.value__ -eq 401) $_.Exception.Response.StatusCode.value__ }
+} catch {   Ok 'cbulk: deleted login 401' ([int]$_.Exception.Response.StatusCode.value__ -eq 401) $_.Exception.Response.StatusCode.value__ }
+
+# ═══ 10c. ADMIN PARTIDAS PUBLICAS (listar, buscar, filtrar, paginar, borrar) ═══
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = "E2E PartAdm $stamp"; email = "e2e_partadm_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable spa
+Ok 'partadm: register' ($r.StatusCode -eq 201) $r.StatusCode
+
+$paTitle = "PracAdmA $stamp"
+$pbTitle = "PracAdmB $stamp"
+$paQs = @(
+  @{ question_text = 'PA1?'; options = @('Si', 'No'); correct_index = 0 },
+  @{ question_text = 'PA2?'; options = @('Si', 'No'); correct_index = 1 }
+)
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{
+  action = 'create'; title = $paTitle; mode = 'lava'; topic = "TemaPartAdm $stamp"; questions = $paQs
+} | ConvertTo-Json -Depth 5) -UseBasicParsing
+Ok 'partadm: create A' ($r.StatusCode -eq 201) $r.StatusCode
+$paId = (J $r).id
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{
+  action = 'create'; title = $pbTitle; mode = 'tierras'; topic = "TemaPartAdm $stamp"; questions = $paQs
+} | ConvertTo-Json -Depth 5) -UseBasicParsing
+Ok 'partadm: create B' ($r.StatusCode -eq 201) $r.StatusCode
+$pbId = (J $r).id
+foreach ($pp in @($paId, $pbId)) {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{
+    action = 'publish'; practice_id = $pp
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'partadm: publish' ($r.StatusCode -eq 200) "code=$($r.StatusCode)"
+}
+
+# ensure admin session (same pattern as section 10)
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/me" -WebSession $sadm -UseBasicParsing
+  if ((J $r).user.role -ne 'admin') { throw 'not admin' }
+} catch {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+    email = 'roberto.admin@gmail.com'; password = 'admin123'
+  } | ConvertTo-Json) -UseBasicParsing -SessionVariable sadm
+}
+
+# authz: anon y estudiante -> 403 (GET y POST)
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: anon 403' ($code -eq 403) "code=$code"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -WebSession $spa -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: student GET 403' ($code -eq 403) "code=$code"
+$code = 0
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{ action = 'bulk_delete'; ids = @($paId) } | ConvertTo-Json) -UseBasicParsing
+  $code = $r.StatusCode
+} catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: student POST 403' ($code -eq 403) "code=$code"
+
+# listado: contiene A con campos completos
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/practicas?limit=100" -WebSession $sadm -UseBasicParsing
+  $pl = J $r
+  $hitA = @($pl.practicas | Where-Object { $_.id -eq $paId }) | Select-Object -First 1
+  Ok 'partadm: admin list' ($r.StatusCode -eq 200 -and $null -ne $hitA) "code=$($r.StatusCode)"
+  Ok 'partadm: A fields' ($hitA.titulo -eq $paTitle -and $hitA.modo -eq 'lava' -and [int]$hitA.preguntas -eq 2 -and $hitA.creador -like '*PartAdm*' -and $hitA.code -and $hitA.fecha) "modo=$($hitA.modo) preg=$($hitA.preguntas)"
+} catch { Ok 'partadm: admin list' $false $_.Exception.Message }
+
+# busqueda por titulo y por creador
+$r = Invoke-WebRequest -Uri "$base/api/panel/practicas?q=$([uri]::EscapeDataString($paTitle))&limit=100" -WebSession $sadm -UseBasicParsing
+$sq = J $r
+Ok 'partadm: search title' (@($sq.practicas | Where-Object { $_.id -eq $paId }).Count -eq 1 -and @($sq.practicas | Where-Object { $_.id -eq $pbId }).Count -eq 0) "total=$($sq.total)"
+$r = Invoke-WebRequest -Uri "$base/api/panel/practicas?q=$([uri]::EscapeDataString("E2E PartAdm $stamp"))&limit=100" -WebSession $sadm -UseBasicParsing
+$cq = J $r
+Ok 'partadm: search creator' (@($cq.practicas).Count -eq 2) "count=$(@($cq.practicas).Count)"
+
+# filtro por modo
+$r = Invoke-WebRequest -Uri "$base/api/panel/practicas?mode=tierras&limit=100" -WebSession $sadm -UseBasicParsing
+$mq = J $r
+Ok 'partadm: filter mode' (@($mq.practicas | Where-Object { $_.id -eq $pbId }).Count -eq 1 -and @($mq.practicas | Where-Object { $_.id -eq $paId }).Count -eq 0) "total=$($mq.total)"
+
+# paginacion: limit=1, paginas distintas
+$e1 = J (Invoke-WebRequest -Uri "$base/api/panel/practicas?limit=1&page=1" -WebSession $sadm -UseBasicParsing)
+$e2 = J (Invoke-WebRequest -Uri "$base/api/panel/practicas?limit=1&page=2" -WebSession $sadm -UseBasicParsing)
+Ok 'partadm: pagination' ([int]$e1.totalPages -ge 2 -and $e1.practicas[0].id -ne $e2.practicas[0].id) "totalPages=$($e1.totalPages)"
+
+# validaciones
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/practicas?page=0" -WebSession $sadm -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: page=0 400' ($code -eq 400) "code=$code"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/practicas?limit=101" -WebSession $sadm -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: limit=101 400' ($code -eq 400) "code=$code"
+$code = 0
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{ action = 'delete'; id = 'not-a-uuid' } | ConvertTo-Json) -UseBasicParsing
+  $code = $r.StatusCode
+} catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: bad uuid 400' ($code -eq 400) "code=$code"
+$code = 0
+$tooMany = @(1..201 | ForEach-Object { '11111111-1111-1111-1111-111111111111' })
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{ action = 'bulk_delete'; ids = $tooMany } | ConvertTo-Json -Depth 3) -UseBasicParsing
+  $code = $r.StatusCode
+} catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: 201 ids 400' ($code -eq 400) "code=$code"
+
+# borrado fisico en transaccion: cascade de preguntas/opciones
+if (Test-Path $psqlS) {
+  $qBefore = "$(& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM questions WHERE practice_id = '$paId'" 2>$null)".Trim()
+  Ok 'partadm: questions before' ($qBefore -eq '2') "n=$qBefore"
+}
+$r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{ action = 'delete'; id = $paId } | ConvertTo-Json) -UseBasicParsing
+$delA = J $r
+Ok 'partadm: single delete' ($r.StatusCode -eq 200 -and [int]$delA.deleted -eq 1) "code=$($r.StatusCode) deleted=$($delA.deleted)"
+if (Test-Path $psqlS) {
+  $pAfter = "$(& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE id = '$paId'" 2>$null)".Trim()
+  $qAfter = "$(& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM questions WHERE practice_id = '$paId'" 2>$null)".Trim()
+  Ok 'partadm: cascade clean' ($pAfter -eq '0' -and $qAfter -eq '0') "practices=$pAfter questions=$qAfter"
+}
+$gq = J (Invoke-WebRequest -Uri "$base/api/panel/practicas?q=$([uri]::EscapeDataString($paTitle))&limit=100" -WebSession $sadm -UseBasicParsing)
+Ok 'partadm: deleted not listed' (@($gq.practicas).Count -eq 0) "count=$(@($gq.practicas).Count)"
+$code = 0
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{ action = 'delete'; id = $paId } | ConvertTo-Json) -UseBasicParsing
+  $code = $r.StatusCode
+} catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'partadm: double delete 404' ($code -eq 404) "code=$code"
+
+# borrado masivo + auditoria
+$r = Invoke-WebRequest -Uri "$base/api/panel/practicas" -Method Post -ContentType 'application/json' -WebSession $sadm -Body (@{ action = 'bulk_delete'; ids = @($pbId) } | ConvertTo-Json) -UseBasicParsing
+$delB = J $r
+Ok 'partadm: bulk delete' ($r.StatusCode -eq 200 -and [int]$delB.deleted -eq 1) "deleted=$($delB.deleted)"
+if (Test-Path $psqlS) {
+  $pBAfter = "$(& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM practices WHERE id = '$pbId'" 2>$null)".Trim()
+  $auditN = "$(& $psqlS -U postgres -d eduplay_db -t -A -c "SELECT count(*) FROM audit_events WHERE entity_type = 'practice' AND entity_id IN ('$paId','$pbId') AND action = 'deleted'" 2>$null)".Trim()
+  Ok 'partadm: bulk gone + audit' ($pBAfter -eq '0' -and $auditN -eq '2') "practices=$pBAfter audit=$auditN"
+}
 
 # ═══ 11. CURSOS Y PREGUNTAS (Paso 2) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{

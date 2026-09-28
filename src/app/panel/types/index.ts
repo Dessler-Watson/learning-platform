@@ -49,6 +49,21 @@ export interface ResumenDocentes {
   enLinea: number;
 }
 
+/** Práctica publicada por un jugador, gestionada desde el panel admin. */
+export interface PartidaPublica {
+  id: string;
+  code: string;
+  titulo: string;
+  tema: string | null;
+  creador: string;
+  modo: string;
+  modoNombre: string;
+  modoColor: string | null;
+  fecha: string;
+  preguntas: number;
+  reproducciones: number;
+}
+
 export interface Curso {
   id: string;
   teacherId: string;

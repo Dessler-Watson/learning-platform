@@ -11,6 +11,7 @@ import {
   PaginaMeta,
   ResumenDocentes,
   ResumenEstudiantes,
+  PartidaPublica,
 } from '../types';
 import { Sala, ParticipanteSala, DetalleEstudianteSala, PreguntaDificil, ModoJuego, RespuestaDetalleSala, ResultadosSala } from '../types';
 import { MODE_THEME, GameModeId } from '@/shared/lib/game-modes';
@@ -476,6 +477,46 @@ export const estudiantesService = {
   async eliminarMuchos(ids: string[]): Promise<{ success: boolean; deleted: number; error?: string }> {
     try {
       const res = await api<{ ok: boolean; deleted: number }>('/api/panel/estudiantes', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'bulk_delete', ids }),
+      });
+      return { success: res.ok, deleted: res.deleted ?? 0 };
+    } catch (e) {
+      return { success: false, deleted: 0, error: e instanceof Error ? e.message : 'Error al eliminar' };
+    }
+  },
+};
+
+// ─── Partidas públicas (admin) ───
+
+export interface PartidasPage extends PaginaMeta {
+  practicas: PartidaPublica[];
+}
+
+export const partidasService = {
+  async listar(
+    opts?: { q?: string; mode?: string; page?: number; limit?: number }
+  ): Promise<PartidasPage> {
+    const p = new URLSearchParams();
+    const q = (opts?.q ?? '').trim();
+    const mode = (opts?.mode ?? '').trim();
+    if (q) p.set('q', q);
+    if (mode) p.set('mode', mode);
+    p.set('page', String(opts?.page ?? 1));
+    p.set('limit', String(opts?.limit ?? 15));
+    return api<PartidasPage>(`/api/panel/practicas?${p.toString()}`);
+  },
+  async eliminar(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api('/api/panel/practicas', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al eliminar' };
+    }
+  },
+  async eliminarMuchos(ids: string[]): Promise<{ success: boolean; deleted: number; error?: string }> {
+    try {
+      const res = await api<{ ok: boolean; deleted: number }>('/api/panel/practicas', {
         method: 'POST',
         body: JSON.stringify({ action: 'bulk_delete', ids }),
       });
