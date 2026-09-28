@@ -50,11 +50,11 @@ EduPlay/
 |    |--- app/                         # Next.js App Router (Paginas y API)
 |    |    |--- api/                    # Endpoints REST del servidor
 |    |    |    |--- ai/                # Generacion de contenido con IA
-|    |    |    |--- estudiantes/       # Perfil y datos del alumno
+|    |    |    |--- auth/               # Registro, login, sesion e invitados
+|    |    |    |--- estudiante/         # Perfil y datos del alumno
 |    |    |    |--- salas/             # Creacion y union a salas
-|    |    |    |--- cursos/            # Gestion de cursos
-|    |    |    |--- preguntas/         # Banco de preguntas
-|    |    |    |--- dashboard/         # Metricas del docente
+|    |    |    |--- practicas/         # Practicas publicadas
+|    |    |    |--- panel/             # APIs autenticadas del panel docente
 |    |    |
 |    |    |--- camino-decisiones/      # Ruta del Juego 1 (3D)
 |    |    |--- lava-conocimiento/      # Ruta del Juego 2 (3D)
@@ -74,14 +74,13 @@ EduPlay/
 |    |    |    |--- login/             # Autenticacion docente
 |    |    |    |--- register/          # Registro de docente
 |    |    |    |--- perfil/            # Perfil del docente
-|    |    |    |--- configuracion/     # Configuracion general
 |    |    |    |--- services/          # Servicios de datos (cursos, salas, preguntas)
 |    |    |    |--- store/             # Estado global del panel (Zustand)
 |    |    |    |--- types/             # Definiciones de tipos TypeScript
 |    |    |    |--- utils/             # Utilidades y helpers
 |    |    |    |--- hooks/             # Hooks personalizados
 |    |    |    |--- lib/               # Libreria de audio, IA, etc.
-|    |    |    |--- ui/                # Componentes visuales (Button, Card, Dialog, etc.)
+|    |    |    |--- ui/                # Componentes visuales del panel
 |    |    |
 |    |    |--- estudiante/             # Menu de acceso estudiante
 |    |    |--- ingresar/               # Login estudiante
@@ -98,6 +97,9 @@ EduPlay/
 |    |    |    |--- logic/             # Rondas y temporizador
 |    |    |    |--- ui/                # HUD
 |    |    |    |--- world/             # Arena 3D, lava y torres
+|    |    |
+|    |    |--- tierras-hundidas/       # Juego 3: Tierras Hundidas
+|    |    |--- entre-abismos/          # Juego 4: Entre Abismos
 |    |
 |    |--- engine/                      # Motor Three.js
 |    |    |--- camera/                 # Control de camara
@@ -114,27 +116,15 @@ EduPlay/
 |    |    |--- lava.store.ts           # Estado Juego 2
 |    |
 |    |--- lib/                         # Utilidades
-|    |    |--- data.ts                 # Lectura de JSON (Base de datos)
 |    |    |--- rooms.ts                # Logica de salas
 |    |
 |    |--- ui/                          # Componentes de interfaz
 |    |    |--- components/             # Botones, Tarjetas, Modales
 |    |    |--- screens/                # Pantallas de Login, Registro, Perfil
-|    |    |--- tokens/                 # Colores y estilos base
-|
-|--- data/                             # Base de datos local (JSON)
-|    |--- usuarios.json
-|    |--- cursos.json
-|    |--- salas.json
-|    |--- preguntas.json
-|    |--- resultados.json
-|    |--- avatares.json
-|    |--- ... (otros datos)
 |
 |--- public/                           # Recursos estaticos
      |--- images/
-          |--- avatares/               # 9 Iconos culturales
-          |--- rangos/                 # Bronce, Plata, Oro, Diamante
+          |--- avatares/               # 13 Iconos culturales
           |--- logo.png
           |--- puntos.png
 ```
@@ -168,7 +158,6 @@ Copiar `.env.example` a `.env.local` y completar:
 
 ```
 DATABASE_URL=postgresql://postgres:tu_password@localhost:5432/eduplay_db
-SESSION_SECRET=clave_secreta_larga
 GEMINI_API_KEY=tu_clave_aqui
 ```
 
@@ -185,7 +174,7 @@ npm run seed:demo   # usuarios demo admin/teacher con hash scrypt
 
 La fuente de verdad es PostgreSQL (`db/schema.sql` + `db/seed.sql`). Ver `db/README.md` y `MIGRACION_POSTGRESQL.md`.
 
-Estado de migración (2026-09-24): **COMPLETA** (fase 3) — E2E 82/82, `tsc`/`build` OK; ver `## Legacy restante` en `MIGRACION_POSTGRESQL.md` §9 (WaitingRoom y ranking ligas migrados a API/PG; decision-road mocks decorativos temporales; APIs JSON clase C sin consumidores; `data/*.json` conservados; sin commit).
+Estado de migración (2026-09-28): **COMPLETA** — E2E 563/563, `tsc`/`build` OK; los restos de prototipo (JSON de `data/`, APIs JSON sin consumidores, componentes y assets sin uso) fueron eliminados en el commit `chore: clean up unused prototype code`.
 
 ## 5. Ejecucion del sistema
 
@@ -206,6 +195,12 @@ Acceder desde el navegador en `http://localhost:3000`.
 - `/inicio`: Dashboard del estudiante.
 - `/camino-decisiones`: Juego interactivo 3D.
 - `/lava-conocimiento`: Juego interactivo 3D.
+- `/tierras-hundidas`: Juego interactivo 3D.
+- `/entre-abismos`: Juego interactivo 3D.
+- `/practica`: Practicas publicadas (historial y juego libre).
+- `/ligas`: Ligas y clasificacion.
+- `/logros`: Logros del estudiante.
+- `/configuracion`: Configuracion de la cuenta.
 - `/panel`: Panel de control del docente.
 - `/panel/login`: Inicio de sesion docente.
 - `/panel/register`: Registro de docente.
@@ -214,6 +209,8 @@ Acceder desde el navegador en `http://localhost:3000`.
 - `/panel/salas`: Gestion de salas.
 - `/panel/salas/crear`: Crear nueva sala.
 - `/panel/admin/docentes`: Administrar docentes y administradores.
+- `/panel/admin/estudiantes`: Administrar estudiantes.
+- `/panel/admin/partidas`: Administrar partidas publicas.
 
 ### Produccion
 

@@ -38,6 +38,10 @@ yarn-error.log*
 *.log
 logs/
 
+# test/build output (E2E y builds locales)
+/e2e_*.txt
+/build_*.txt
+
 # local env files
 .env
 .env.*

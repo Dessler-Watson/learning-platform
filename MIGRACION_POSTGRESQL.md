@@ -1,7 +1,7 @@
 # Migración EduPlay a PostgreSQL
 
 Fecha: 2026-09-24  
-Estado: **MIGRACIÓN COMPLETA** (fase 3) — E2E `scripts/e2e_pg.ps1` **82/82**, `tsc` y `build` OK. Legacy documentado en §9 (`## Legacy restante`): APIs clase C sin consumidores; mocks decorativos in-game temporales.
+Estado: **MIGRACIÓN COMPLETA** — E2E `scripts/e2e_pg.ps1` **563/563**, `tsc` y `build` OK. Limpieza de restos de prototipo (2026-09-28): APIs clase C, `src/lib/data.ts`, `data/*.json`, assets y componentes sin uso **eliminados**; solo queda mock decorativo in-game temporal (§9).
 
 ---
 
@@ -31,7 +31,6 @@ Verificación en BD:
 
 ```
 DATABASE_URL=postgresql://postgres:TU_PASSWORD@localhost:5432/eduplay_db
-SESSION_SECRET=...
 GEMINI_API_KEY=...
 ```
 
@@ -133,7 +132,7 @@ Servidor: `npm run dev` → **http://localhost:3000** (log `dev_server.log`). Su
 
 | Clase | Rutas | Consumidores front | Acción |
 |---|---|---|---|
-| **C** (0 consumidores) | `api/preguntas`, `api/cuestionarios`, `api/dashboard`, `api/estadisticas`, `api/juegos` + `src/lib/data.ts` + `data/*.json` (15) | **0** (grep `@/lib/data` solo en esas rutas; sin `fetch` en `src/`) | **No borrados** (JSON = backup; rutas huérfanas) |
+| **C** (0 consumidores) | `api/preguntas`, `api/cuestionarios`, `api/dashboard`, `api/estadisticas`, `api/juegos` + `src/lib/data.ts` + `data/*.json` (15) | **0** (grep `@/lib/data` solo en esas rutas; sin `fetch` en `src/`) | **ELIMINADAS** (2026-09-28) |
 | A/B | — | — | no aplican |
 
 **decision-road (P4):** **ACTIVO** — consumidores en `GameCanvas.tsx` (DecisionWorld, GameFlow, DecisionHUD, QuestionPanel, FeedbackOverlay, ResultsScreen, MobileControls, Leaderboard) y `/camino-decisiones/page.tsx`. No migrado automáticamente (brief). Dependencias documentadas.
@@ -147,7 +146,7 @@ Servidor: `npm run dev` → **http://localhost:3000** (log `dev_server.log`). Su
 | **ACTIVO PERO TEMPORAL** | `games/decision-road/ui/Leaderboard.tsx` `MOCK_PLAYER_NAMES` + `INITIAL_COMPETITORS` | Rivales animados decorativos in-game (scores `Math.random` de UI) |
 | **ACTIVO PERO TEMPORAL** | `eduplay_user` / `panel-auth` localStorage | Solo UX de arranque; auth real = cookie httpOnly `eduplay_session` |
 | **ACTIVO PERO TEMPORAL** | `achievement.store` `eduplay_achievement_stats` | Cache UI efímera; fuente de verdad = `/api/logros` |
-| **LEGACY SIN CONSUMIDORES** | `api/{preguntas,cuestionarios,dashboard,estadisticas,juegos}`, `src/lib/data.ts`, `data/*.json` (15) | Clase C; no borrados |
+| **LEGACY SIN CONSUMIDORES** | `api/{preguntas,cuestionarios,dashboard,estadisticas,juegos}`, `src/lib/data.ts`, `data/*.json` (15) | **ELIMINADOS** (2026-09-28) |
 | No es mock de negocio | `panel/ui/toast` id, `panel/lib/aiGenerator` shuffle, texturas/three `Math.random` | IDs o aleatoriedad visual; no datos de dominio |
 
 **Migración fase 3 (resumen):**
@@ -160,8 +159,7 @@ Servidor: `npm run dev` → **http://localhost:3000** (log `dev_server.log`). Su
 **Pendientes operativos:**
 
 - Migrar `MOCK_CLASSMATES` / `MOCK_PLAYER_NAMES` (decision-road) cuando el juego multiusuario real lo requiera (hoy decorativos).
-- Destino de rutas clase C + `data/*.json` (deprecar o borrar en futuro; no auto-borrado).
-- Commit final: **no se commiteó nada** (`git status` dirty; brief: sin commit).
+- ~~Destino de rutas clase C + `data/*.json`~~ → **resuelto**: eliminados en `chore: clean up unused prototype code` (2026-09-28).
 
 ## 10. Cómo ejecutar
 
@@ -172,7 +170,7 @@ psql -U postgres -d eduplay_db -f db/schema.sql
 psql -U postgres -d eduplay_db -f db/seed.sql
 
 # 2. Env
-cp .env.example .env.local   # ajustar DATABASE_URL / SESSION_SECRET
+cp .env.example .env.local   # ajustar DATABASE_URL
 
 # 3. Deps + usuarios demo
 npm install
