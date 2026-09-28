@@ -1,5 +1,6 @@
+param([string]$BaseUrl = '')
 $ErrorActionPreference = 'Continue'
-$base = 'http://localhost:3000'
+$base = if ($BaseUrl) { $BaseUrl.TrimEnd('/') } else { 'http://localhost:3000' }
 $results = @()
 
 function Ok($name, $cond, $detail = '') {

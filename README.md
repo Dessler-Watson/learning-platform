@@ -230,3 +230,62 @@ EduPlay aplica diferentes medidas y buenas practicas para proteger la informacio
 - Validacion de datos: los datos introducidos por los usuarios deben ser validados antes de ser procesados, reduciendo el riesgo de informacion incorrecta o manipulada.
 - Autorizacion de operaciones: las acciones relacionadas con cursos, salas, actividades y contenido docente deben estar restringidas a los usuarios que tengan los permisos correspondientes.
 - Proteccion de informacion sensible: las claves de API y demas datos privados utilizados por los servicios externos se mantienen mediante variables de entorno y no se incluyen directamente en el codigo publico.
+
+## 7. Acceso publico con Tailscale Funnel
+
+EduPlay se puede compartir en internet con una **URL HTTPS fija** usando [Tailscale Funnel](https://tailscale.com/kb/1257/funnel), sin comprar dominio ni usar ngrok/Cloudflare:
+
+```
+EduPlay local (Next.js)  ->  Tailscale Funnel (background)  ->  https://dessler-watson.tail8e3865.ts.net
+```
+
+El Funnel hace proxy **unicamente** al servidor Next.js local (`127.0.0.1:3000`). PostgreSQL **no** se expone a internet (el Funnel no toca el puerto 5432). No hay tokens ni credenciales de Tailscale en el repositorio.
+
+### Configuracion unica (una sola vez)
+
+1. **Instalar Tailscale:** `winget install --id Tailscale.Tailscale --exact`
+2. **Iniciar sesion:** `tailscale login` (abre el navegador; MagicDNS y HTTPS ya vienen activos en el tailnet).
+3. **Habilitar Funnel (unico paso manual en Tailscale):** al ejecutar `funnel_up.ps1` por primera vez, el script imprime y abre `https://login.tailscale.com/f/funnel?node=...` -> hacer click en **Enable Funnel**. Despues de eso, no hay mas pasos manuales.
+
+### Scripts
+
+| Script | Funcion |
+|---|---|
+| `scripts/eduplay_up.ps1` | Enciende EduPlay en background, sin terminal abierta. Detecta automaticamente el comando (`package.json` -> `scripts.dev`) y el puerto (proceso en ejecucion -> flag `-p` -> `$env:PORT` -> 3000). |
+| `scripts/eduplay_down.ps1` | Apaga el servidor EduPlay. |
+| `scripts/funnel_up.ps1` | Activa el Funnel en background hacia `127.0.0.1:<puerto detectado>` y muestra la URL publica. Idempotente (si ya esta activo, solo muestra la URL). |
+| `scripts/funnel_down.ps1` | Apaga el Funnel: la URL publica deja de responder. |
+| `scripts/funnel_status.ps1` | Estado de Tailscale, Funnel, EduPlay local y acceso publico (frontend + API). |
+
+Todos se ejecutan como:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\<script>.ps1
+```
+
+### Flujo de encendido y apagado
+
+**Encender (para compartir):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\eduplay_up.ps1
+powershell -ExecutionPolicy Bypass -File scripts\funnel_up.ps1
+```
+
+**Apagar:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\funnel_down.ps1   # corta la URL publica
+powershell -ExecutionPolicy Bypass -File scripts\eduplay_down.ps1  # apaga EduPlay
+```
+
+Tambien se pueden combinar: con el Funnel encendido y EduPlay apagado, la URL responde **502**; al re-encender EduPlay vuelve el **200** con la **misma URL**.
+
+**Apagar la PC / reiniciar:** el servicio de Tailscale arranca con Windows y la configuracion del Funnel persiste en disco; al prender de nuevo solo hace falta `eduplay_up.ps1`. La URL **no cambia** nunca (deriva del nombre del nodo + sufijo MagicDNS del tailnet).
+
+### Verificaciones hechas
+
+- E2E completo contra la URL publica: `powershell -ExecutionPolicy Bypass -File scripts\e2e_pg.ps1 -BaseUrl https://dessler-watson.tail8e3865.ts.net` -> **563/563 PASS** (frontend, APIs, login, salas, SSE tiempo real, partidas, resultados).
+- IA (Gemini) probada via URL publica (login docente + `POST /api/ai/generate` -> 200 con contenido).
+- Ciclos Funnel off/on y app off/on -> misma URL (200), 502 con app apagada, sin respuesta con Funnel apagado.
+- Clave de Gemini **exclusivamente server-side**: se lee en `src/app/api/ai/generate/route.ts` desde `process.env.GEMINI_API_KEY` (`.env.local`, nunca commiteado); no existe ninguna variable `NEXT_PUBLIC_GEMINI_*` y el bundle del cliente no contiene la clave. El frontend llama al proxy local `/api/ai/generate`.
