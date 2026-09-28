@@ -2690,6 +2690,116 @@ if (Test-Path $psqlS) {
   Ok 'partadm: bulk gone + audit' ($pBAfter -eq '0' -and $auditN -eq '2') "practices=$pBAfter audit=$auditN"
 }
 
+# ---- 10d. PAGINACION: historial propio, cursos y salas ----
+
+# historial propio (scope=mine): envelope + paginas distintas + legacy + validaciones
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{
+  action = 'create'; title = "PagMiaA $stamp"; mode = 'lava'; topic = "PagMia $stamp"; questions = $paQs
+} | ConvertTo-Json -Depth 5) -UseBasicParsing
+Ok 'pagmia: create A' ($r.StatusCode -eq 201) $r.StatusCode
+$miaId = (J $r).id
+$r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{
+  action = 'create'; title = "PagMiaB $stamp"; mode = 'tierras'; topic = "PagMia $stamp"; questions = $paQs
+} | ConvertTo-Json -Depth 5) -UseBasicParsing
+Ok 'pagmia: create B' ($r.StatusCode -eq 201) $r.StatusCode
+$mibId = (J $r).id
+
+$m1 = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine&page=1&limit=1" -WebSession $spa -UseBasicParsing)
+Ok 'pagmia: envelope p1' ([int]$m1.page -eq 1 -and [int]$m1.limit -eq 1 -and [int]$m1.total -ge 2 -and [int]$m1.totalPages -ge 2 -and @($m1.practicas).Count -eq 1) "page=$($m1.page) total=$($m1.total) n=$(@($m1.practicas).Count)"
+$m2 = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine&page=2&limit=1" -WebSession $spa -UseBasicParsing)
+Ok 'pagmia: page2 distinta' (@($m2.practicas).Count -eq 1 -and $m1.practicas[0].id -ne $m2.practicas[0].id) "n=$(@($m2.practicas).Count)"
+$mTitles = @(@($m1.practicas[0].title) + @($m2.practicas[0].title))
+Ok 'pagmia: titulos propios' ($mTitles -contains "PagMiaA $stamp" -and $mTitles -contains "PagMiaB $stamp") "titles=$($mTitles -join '|')"
+$ml = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine" -WebSession $spa -UseBasicParsing)
+Ok 'pagmia: legacy intacto' ($null -eq $ml.total -and $null -ne $ml.practicas) "total=$($ml.total)"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/practicas?scope=mine&page=0" -WebSession $spa -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'pagmia: page=0 400' ($code -eq 400) "code=$code"
+foreach ($mid in @($miaId, $mibId)) {
+  $r = Invoke-WebRequest -Uri "$base/api/practicas" -Method Post -ContentType 'application/json' -WebSession $spa -Body (@{ action = 'delete'; practice_id = $mid } | ConvertTo-Json) -UseBasicParsing
+  Ok 'pagmia: delete' ($r.StatusCode -eq 200) "code=$($r.StatusCode)"
+}
+$mz = J (Invoke-WebRequest -Uri "$base/api/practicas?scope=mine&page=1&limit=15" -WebSession $spa -UseBasicParsing)
+Ok 'pagmia: cleanup total=0' ([int]$mz.total -eq 0) "total=$($mz.total)"
+
+# cursos: envelope + busqueda + paginas + legacy +403 + validaciones
+$r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
+  email = 'carlos.lopez@gmail.com'; password = 'demo123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable stcu
+Ok 'pagcur: teacher login' ($r.StatusCode -eq 200) $r.StatusCode
+
+$r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{
+  action = 'create'; nombre = "PagCur$stamp A"; gameModeId = 'decisiones'; estado = 'activo'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'pagcur: create A' ($r.StatusCode -eq 201) "code=$($r.StatusCode)"
+$curAId = (J $r).curso.id
+$r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{
+  action = 'create'; nombre = "PagCur$stamp B"; gameModeId = 'decisiones'; estado = 'activo'
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'pagcur: create B' ($r.StatusCode -eq 201) "code=$($r.StatusCode)"
+$curBId = (J $r).curso.id
+Ok 'pagcur: create ids' ($curAId -and $curBId -and $curAId -ne $curBId) "$curAId/$curBId"
+
+$curQ = [uri]::EscapeDataString("PagCur$stamp")
+$c1 = J (Invoke-WebRequest -Uri "$base/api/panel/cursos?q=$curQ&page=1&limit=1" -WebSession $stcu -UseBasicParsing)
+Ok 'pagcur: envelope p1' ([int]$c1.page -eq 1 -and [int]$c1.limit -eq 1 -and [int]$c1.total -eq 2 -and [int]$c1.totalPages -eq 2 -and @($c1.cursos).Count -eq 1) "total=$($c1.total) pages=$($c1.totalPages) n=$(@($c1.cursos).Count)"
+$c2 = J (Invoke-WebRequest -Uri "$base/api/panel/cursos?q=$curQ&page=2&limit=1" -WebSession $stcu -UseBasicParsing)
+Ok 'pagcur: page2 distinta' (@($c2.cursos).Count -eq 1 -and $c1.cursos[0].id -ne $c2.cursos[0].id) "n=$(@($c2.cursos).Count)"
+$cl = J (Invoke-WebRequest -Uri "$base/api/panel/cursos" -WebSession $stcu -UseBasicParsing)
+Ok 'pagcur: legacy intacto' ($null -eq $cl.total -and $null -ne $cl.cursos -and @($cl.cursos).Count -ge 2) "total=$($cl.total) n=$(@($cl.cursos).Count)"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/cursos?q=$curQ&page=0" -WebSession $stcu -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'pagcur: page=0 400' ($code -eq 400) "code=$code"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/cursos?page=1" -WebSession $spa -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'pagcur: student 403' ($code -eq 403) "code=$code"
+
+# salas: envelope + busqueda + paginas + legacy +403 + validaciones (sobre el curso A)
+$r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{
+  action = 'create'; cursoId = $curAId; juegoId = 'decisiones'; nombre = "PagSala$stamp A"
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'pagsala: create A' ($r.StatusCode -eq 201) "code=$($r.StatusCode)"
+$salaAId = (J $r).sala.id
+$r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{
+  action = 'create'; cursoId = $curAId; juegoId = 'decisiones'; nombre = "PagSala$stamp B"
+} | ConvertTo-Json) -UseBasicParsing
+Ok 'pagsala: create B' ($r.StatusCode -eq 201) "code=$($r.StatusCode)"
+$salaBId = (J $r).sala.id
+
+$salQ = [uri]::EscapeDataString("PagSala$stamp")
+$pags1 = J (Invoke-WebRequest -Uri "$base/api/panel/salas?q=$salQ&page=1&limit=1" -WebSession $stcu -UseBasicParsing)
+Ok 'pagsala: envelope p1' ([int]$pags1.page -eq 1 -and [int]$pags1.limit -eq 1 -and [int]$pags1.total -eq 2 -and [int]$pags1.totalPages -eq 2 -and @($pags1.salas).Count -eq 1) "total=$($pags1.total) pages=$($pags1.totalPages) n=$(@($pags1.salas).Count)"
+$pags2 = J (Invoke-WebRequest -Uri "$base/api/panel/salas?q=$salQ&page=2&limit=1" -WebSession $stcu -UseBasicParsing)
+Ok 'pagsala: page2 distinta' (@($pags2.salas).Count -eq 1 -and $pags1.salas[0].id -ne $pags2.salas[0].id) "n=$(@($pags2.salas).Count)"
+$sl = J (Invoke-WebRequest -Uri "$base/api/panel/salas" -WebSession $stcu -UseBasicParsing)
+Ok 'pagsala: legacy intacto' ($null -eq $sl.total -and $null -ne $sl.salas) "total=$($sl.total)"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/salas?q=$salQ&page=0" -WebSession $stcu -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'pagsala: page=0 400' ($code -eq 400) "code=$code"
+$code = 0
+try { $r = Invoke-WebRequest -Uri "$base/api/panel/salas?page=1" -WebSession $spa -UseBasicParsing; $code = $r.StatusCode }
+catch { $code = [int]$_.Exception.Response.StatusCode }
+Ok 'pagsala: student 403' ($code -eq 403) "code=$code"
+
+# limpieza: salas primero, luego cursos de prueba
+foreach ($sid in @($salaAId, $salaBId)) {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/salas" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{ action = 'delete'; id = $sid } | ConvertTo-Json) -UseBasicParsing
+  Ok 'pagsala: delete' ($r.StatusCode -eq 200) "code=$($r.StatusCode)"
+}
+$sz = J (Invoke-WebRequest -Uri "$base/api/panel/salas?q=$salQ&page=1&limit=10" -WebSession $stcu -UseBasicParsing)
+Ok 'pagsala: cleanup total=0' ([int]$sz.total -eq 0) "total=$($sz.total)"
+
+foreach ($cid in @($curAId, $curBId)) {
+  $r = Invoke-WebRequest -Uri "$base/api/panel/cursos" -Method Post -ContentType 'application/json' -WebSession $stcu -Body (@{ action = 'delete'; id = $cid } | ConvertTo-Json) -UseBasicParsing
+  Ok 'pagcur: delete' ($r.StatusCode -eq 200) "code=$($r.StatusCode)"
+}
+$cz = J (Invoke-WebRequest -Uri "$base/api/panel/cursos?q=$curQ&page=1&limit=10" -WebSession $stcu -UseBasicParsing)
+Ok 'pagcur: cleanup total=0' ([int]$cz.total -eq 0) "total=$($cz.total)"
+
 # ═══ 11. CURSOS Y PREGUNTAS (Paso 2) ═══
 $r = Invoke-WebRequest -Uri "$base/api/panel/auth/login" -Method Post -ContentType 'application/json' -Body (@{
   email = 'carlos.lopez@gmail.com'; password = 'demo123'

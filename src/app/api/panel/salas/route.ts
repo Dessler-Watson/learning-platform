@@ -195,6 +195,61 @@ export async function GET(req: NextRequest) {
     }
 
     type RoomRow = Parameters<typeof mapRoom>[0];
+
+    // Opt-in: con q/page/limit se responde el envelope paginado (sin parametros, el legacy)
+    const q = (searchParams.get('q') ?? '').trim().slice(0, 100);
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    if (pageParam !== null || limitParam !== null || q) {
+      const rawPage = pageParam === null || pageParam === '' ? 1 : Number(pageParam);
+      const rawLimit = limitParam === null || limitParam === '' ? 15 : Number(limitParam);
+      if (!Number.isInteger(rawPage) || rawPage < 1) {
+        return NextResponse.json(
+          { error: 'page debe ser un entero mayor o igual a 1' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100) {
+        return NextResponse.json({ error: 'limit debe ser un entero entre 1 y 100' }, { status: 400 });
+      }
+
+      const params: unknown[] = [session.role === 'admin', session.id];
+      let where = `r.deleted_at IS NULL AND ($1 OR r.teacher_id = $2)`;
+      if (q) {
+        params.push(`%${q}%`);
+        where += ` AND r.name ILIKE $${params.length}`;
+      }
+
+      const countRow = await queryOne<{ total: number }>(
+        `SELECT count(*)::int AS total FROM rooms r WHERE ${where}`,
+        params
+      );
+      const total = countRow?.total ?? 0;
+      const totalPages = Math.max(1, Math.ceil(total / rawLimit));
+      const effPage = Math.min(rawPage, totalPages);
+
+      params.push(rawLimit, (effPage - 1) * rawLimit);
+      const rows = await query<RoomRow>(
+        `SELECT r.id, r.code, r.name, gm.code AS mode_code, r.teacher_id, r.course_id,
+                r.max_players, r.status::text AS status, r.created_at::text AS created_at,
+                r.started_at::text AS started_at, r.finished_at::text AS finished_at
+         FROM rooms r
+         JOIN game_modes gm ON gm.id = r.game_mode_id
+         WHERE ${where}
+         ORDER BY r.created_at DESC, r.id DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params
+      );
+      const salas = await Promise.all(rows.map(mapRoom));
+      return NextResponse.json({
+        salas,
+        page: effPage,
+        limit: rawLimit,
+        total,
+        totalPages,
+      });
+    }
+
     const rows = await query<RoomRow>(
       `SELECT r.id, r.code, r.name, gm.code AS mode_code, r.teacher_id, r.course_id,
               r.max_players, r.status::text AS status, r.created_at::text AS created_at,

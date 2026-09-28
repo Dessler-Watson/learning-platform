@@ -52,10 +52,24 @@ function withDetalles(c: ApiCurso): CursoConDetalles {
   };
 }
 
+export interface CursosPage extends PaginaMeta {
+  cursos: Curso[];
+}
+
 export const cursosService = {
   async obtenerTodos(_teacherId: string): Promise<Curso[]> {
     const data = await api<{ cursos: ApiCurso[] }>('/api/panel/cursos');
     return data.cursos.map((c) => ({ ...c }));
+  },
+  async listar(
+    opts?: { q?: string; page?: number; limit?: number }
+  ): Promise<CursosPage> {
+    const p = new URLSearchParams();
+    const q = (opts?.q ?? '').trim();
+    if (q) p.set('q', q);
+    p.set('page', String(opts?.page ?? 1));
+    p.set('limit', String(opts?.limit ?? 15));
+    return api<CursosPage>(`/api/panel/cursos?${p.toString()}`);
   },
   async obtenerPorGameMode(_teacherId: string, gameModeId: string): Promise<CursoConDetalles[]> {
     const data = await api<{ cursos: ApiCurso[] }>('/api/panel/cursos');
@@ -268,10 +282,24 @@ export const inicioService = {
 
 // ─── Salas ───
 
+export interface SalasPage extends PaginaMeta {
+  salas: Sala[];
+}
+
 export const salasService = {
   async obtenerTodas(_teacherId: string): Promise<Sala[]> {
     const data = await api<{ salas: Sala[] }>('/api/panel/salas');
     return data.salas;
+  },
+  async listar(
+    opts?: { q?: string; page?: number; limit?: number }
+  ): Promise<SalasPage> {
+    const p = new URLSearchParams();
+    const q = (opts?.q ?? '').trim();
+    if (q) p.set('q', q);
+    p.set('page', String(opts?.page ?? 1));
+    p.set('limit', String(opts?.limit ?? 15));
+    return api<SalasPage>(`/api/panel/salas?${p.toString()}`);
   },
   async obtenerPorId(salaId: string): Promise<Sala | undefined> {
     try {

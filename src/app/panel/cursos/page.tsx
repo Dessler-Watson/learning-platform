@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles } from 'lucide-react';
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { PageHeader } from '../components/shared/PageHeader';
 import { SearchBar } from '../components/shared/SearchBar';
+import { Pagination } from '../components/shared/Pagination';
 import { EmptyState } from '../components/shared/EmptyState';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { BackButton } from '../components/shared/BackButton';
@@ -53,6 +54,10 @@ export default function CursosPage() {
   const [juegos, setJuegos] = useState<Juego[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const reqRef = useRef(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
@@ -70,23 +75,47 @@ export default function CursosPage() {
 
   const [nombreError, setNombreError] = useState('');
 
+  const cargar = useCallback(async (page: number, q: string) => {
+    const id = ++reqRef.current;
+    setBusy(true);
+    try {
+      const data = await cursosService.listar({ q: q.trim(), page, limit: 15 });
+      if (id !== reqRef.current) return;
+      setCursos(data.cursos);
+      setPagina(data.page);
+      setTotalPaginas(data.totalPages);
+      setLoading(false);
+    } catch {
+      if (id === reqRef.current) setLoading(false);
+    } finally {
+      if (id === reqRef.current) setBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!teacherId) return;
-    Promise.all([
-      cursosService.obtenerTodos(teacherId),
-      juegosService.obtenerTodos(teacherId),
-    ]).then(([c, j]) => {
-      setCursos(c);
-      setJuegos(j);
-      setLoading(false);
-    });
-  }, [teacherId]);
+    void cargar(1, '');
+    juegosService.obtenerTodos(teacherId).then(setJuegos);
+  }, [teacherId, cargar]);
 
-  const filtered = cursos.filter(
-    (c) =>
-      c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      c.descripcion.toLowerCase().includes(search.toLowerCase())
-  );
+  // Busqueda en servidor con debounce (siempre pagina 1)
+  const searchDebounceRef = useRef(false);
+  useEffect(() => {
+    if (!searchDebounceRef.current) {
+      searchDebounceRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void cargar(1, search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, cargar]);
+
+  const handlePage = (page: number) => {
+    if (page < 1 || page > totalPaginas || page === pagina || busy) return;
+    audioManager.play('click');
+    void cargar(page, search);
+  };
 
   const getJuegoNombre = (gameModeId: string) => juegos.find((j) => j.id === gameModeId)?.nombre ?? '';
 
@@ -133,8 +162,7 @@ export default function CursosPage() {
     }
     audioManager.play('success');
     setFormOpen(false);
-    const updated = await cursosService.obtenerTodos(teacherId);
-    setCursos(updated);
+    await cargar(pagina, search);
   };
 
   const handleDelete = async () => {
@@ -144,8 +172,7 @@ export default function CursosPage() {
     toast('Curso eliminado.');
     setDeleteOpen(false);
     setDeleteTarget(null);
-    const updated = await cursosService.obtenerTodos(teacherId!);
-    setCursos(updated);
+    await cargar(pagina, search);
   };
 
   const handleCopiar = async (cursoId: string) => {
@@ -178,8 +205,7 @@ export default function CursosPage() {
     setPasteOpen(false);
     toast('Curso pegado correctamente.');
     audioManager.play('success');
-    const updated = await cursosService.obtenerTodos(teacherId);
-    setCursos(updated);
+    await cargar(pagina, search);
   };
 
   const handleAiQuestionsGenerated = async (generated: GeneratedQuestion[], courseName: string) => {
@@ -207,8 +233,7 @@ export default function CursosPage() {
 
     toast(`Curso generado correctamente. Se agregaron ${Math.min(generated.length, MAX_PREGUNTAS_POR_CURSO)} preguntas.`);
     audioManager.play('success');
-    const refreshed = await cursosService.obtenerTodos(teacherId);
-    setCursos(refreshed);
+    await cargar(pagina, search);
   };
 
   if (loading) {
@@ -261,7 +286,7 @@ export default function CursosPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar cursos..." />
         </motion.div>
 
-        {filtered.length === 0 ? (
+        {cursos.length === 0 ? (
           <motion.div variants={it}>
             <EmptyState
               iconComponent={BookOpen}
@@ -273,7 +298,7 @@ export default function CursosPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
-              {filtered.map((curso) => {
+              {cursos.map((curso) => {
                 const modeId = toGameModeId(curso.gameModeId);
                 const juegoNombre = getJuegoNombre(curso.gameModeId);
                 return (
@@ -355,6 +380,11 @@ export default function CursosPage() {
             </AnimatePresence>
           </div>
         )}
+
+        {/* Pagination */}
+        <motion.div variants={it} className="flex justify-center">
+          <Pagination page={pagina} totalPages={totalPaginas} disabled={busy} onPage={handlePage} />
+        </motion.div>
       </motion.div>
 
       {/* Create/Edit Dialog */}

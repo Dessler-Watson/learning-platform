@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/db';
 import {
   createPractice,
   listPractices,
+  listMyPractices,
   listPublicPractices,
   getPractice,
   listResults,
@@ -63,6 +64,27 @@ export async function GET(req: NextRequest) {
 
     if (scope === 'results') {
       return NextResponse.json({ resultados: await listResults(session.id) });
+    }
+
+    // Opt-in: con page/limit se responde el envelope paginado del historial propio
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    if (pageParam !== null || limitParam !== null) {
+      const page = pageParam === null || pageParam === '' ? 1 : Number(pageParam);
+      const limit = limitParam === null || limitParam === '' ? PUBLIC_PAGE_LIMIT_DEFAULT : Number(limitParam);
+      if (!Number.isInteger(page) || page < 1) {
+        return NextResponse.json(
+          { error: 'page debe ser un entero mayor o igual a 1' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isInteger(limit) || limit < 1 || limit > PUBLIC_PAGE_LIMIT_MAX) {
+        return NextResponse.json(
+          { error: `limit debe ser un entero entre 1 y ${PUBLIC_PAGE_LIMIT_MAX}` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(await listMyPractices(session.id, { page, limit }));
     }
 
     return NextResponse.json({ practicas: await listPractices(session.id) });

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, DoorOpen, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { PageHeader } from '../components/shared/PageHeader';
 import { SearchBar } from '../components/shared/SearchBar';
+import { Pagination } from '../components/shared/Pagination';
 import { EmptyState } from '../components/shared/EmptyState';
 import { StatusBadge } from '../components/shared/StatusBadge';
 import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
@@ -26,23 +27,58 @@ export default function SalasPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const reqRef = useRef(0);
   const clickLock = useClickLock();
+
+  const cargar = useCallback(async (page: number, q: string) => {
+    const id = ++reqRef.current;
+    setBusy(true);
+    try {
+      const data = await salasService.listar({ q: q.trim(), page, limit: 15 });
+      if (id !== reqRef.current) return;
+      setSalas(data.salas);
+      setPagina(data.page);
+      setTotalPaginas(data.totalPages);
+      setLoading(false);
+    } catch {
+      if (id === reqRef.current) setLoading(false);
+    } finally {
+      if (id === reqRef.current) setBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!teacherId) return;
-    salasService.obtenerTodas(teacherId).then((data) => {
-      setSalas(data);
-      setLoading(false);
-    });
-  }, [teacherId]);
+    void cargar(1, '');
+  }, [teacherId, cargar]);
 
-  const filtered = salas.filter((s) => s.nombre.toLowerCase().includes(search.toLowerCase()));
+  // Busqueda en servidor con debounce (siempre pagina 1)
+  const searchDebounceRef = useRef(false);
+  useEffect(() => {
+    if (!searchDebounceRef.current) {
+      searchDebounceRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      void cargar(1, search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, cargar]);
+
+  const handlePage = (page: number) => {
+    if (page < 1 || page > totalPaginas || page === pagina || busy) return;
+    audioManager.play('click');
+    void cargar(page, search);
+  };
 
   const handleDelete = async (id: string) => {
     if (!clickLock()) return;
     audioManager.play('delete');
     await salasService.eliminar(id);
-    setSalas((prev) => prev.filter((s) => s.id !== id));
+    await cargar(pagina, search);
   };
 
   if (loading) {
@@ -70,7 +106,7 @@ export default function SalasPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar salas..." />
         </motion.div>
 
-        {filtered.length === 0 ? (
+        {salas.length === 0 ? (
           <motion.div variants={it}>
             <EmptyState
               iconComponent={DoorOpen}
@@ -86,7 +122,7 @@ export default function SalasPage() {
         ) : (
           <div className="space-y-3">
             <AnimatePresence>
-              {filtered.map((sala) => {
+              {salas.map((sala) => {
                 const modeId = toGameModeId(sala.juegoId);
                 const esLava = modeId === 'lava';
                 const theme = modeId ? MODE_THEME[modeId] : null;
@@ -182,6 +218,11 @@ export default function SalasPage() {
             </AnimatePresence>
           </div>
         )}
+
+        {/* Pagination */}
+        <motion.div variants={it} className="flex justify-center">
+          <Pagination page={pagina} totalPages={totalPaginas} disabled={busy} onPage={handlePage} />
+        </motion.div>
       </motion.div>
     </div>
   );

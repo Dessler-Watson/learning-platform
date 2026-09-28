@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { Practice, PracticeMode, PracticeResult } from '@/shared/types/practice';
 import type { GeneratedQuestion } from '@/app/panel/lib/aiGenerator';
-import type { PublicPracticesPage } from '@/lib/db/practices';
+import type { MyPracticesPage, PublicPracticesPage } from '@/lib/db/practices';
 import { isRegisteredUser } from '@/shared/lib/userStorage';
 
 interface PracticeStore {
@@ -19,8 +19,13 @@ interface PracticeStore {
   results: PracticeResult[];
   initialized: boolean;
   loading: boolean;
+  myPage: number;
+  myTotal: number;
+  myTotalPages: number;
+  myLoading: boolean;
 
   init: () => Promise<void>;
+  loadMyPage: (opts?: { page?: number }) => Promise<void>;
   loadPublicPage: (opts?: { q?: string; mode?: PracticeMode | 'all'; page?: number }) => Promise<void>;
   refreshPublic: () => Promise<void>;
   addPractice: (
@@ -47,7 +52,9 @@ interface PracticeStore {
 }
 
 const PUBLIC_PAGE_LIMIT = 15;
+const MY_PAGE_LIMIT = 15;
 let publicRequestId = 0;
+let myRequestId = 0;
 
 function toIsoMs(value: string | number | null | undefined): number {
   if (value == null) return Date.now();
@@ -163,6 +170,10 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
   results: [],
   initialized: false,
   loading: false,
+  myPage: 1,
+  myTotal: 0,
+  myTotalPages: 1,
+  myLoading: false,
 
   init: async () => {
     if (get().initialized || get().loading) return;
@@ -170,17 +181,15 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
 
     await get().loadPublicPage({ q: '', mode: 'all', page: 1 });
 
-    let practices: Practice[] = [];
     let results: PracticeResult[] = [];
 
     if (isRegisteredUser()) {
-      const [mine, hist] = await Promise.all([
-        apiGet<{ practicas: ApiPractice[] }>('/api/practicas?scope=mine'),
+      const [, hist] = await Promise.all([
+        get().loadMyPage({ page: 1 }),
         apiGet<{ resultados: Array<{ id: string; practice_id: string; score: number; correct: number; total: number; completed_at: string }> }>(
           '/api/practicas?scope=results'
         ),
       ]);
-      practices = (mine?.practicas ?? []).map(mapPractice);
       results = (hist?.resultados ?? []).map((r) => ({
         practiceId: r.practice_id,
         userId: 0,
@@ -192,7 +201,36 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
       }));
     }
 
-    set({ practices, results, initialized: true, loading: false });
+    set({ results, initialized: true, loading: false });
+  },
+
+  loadMyPage: async (opts) => {
+    if (!isRegisteredUser()) return;
+    const requestedPage = Math.max(1, opts?.page ?? get().myPage);
+    const requestId = ++myRequestId;
+    const buildUrl = (page: number) =>
+      `/api/practicas?scope=mine&page=${page}&limit=${MY_PAGE_LIMIT}`;
+
+    set({ myLoading: true });
+
+    let data = await apiGet<MyPracticesPage>(buildUrl(requestedPage));
+    if (requestId !== myRequestId) return;
+
+    let page = data?.page ?? requestedPage;
+    if (data && page > data.totalPages) {
+      // La pagina dejo de existir: corregir a la ultima valida
+      page = data.totalPages;
+      data = await apiGet<MyPracticesPage>(buildUrl(page));
+      if (requestId !== myRequestId) return;
+    }
+
+    set({
+      practices: (data?.practicas ?? []).map(mapPractice),
+      myPage: data?.page ?? page,
+      myTotal: data?.total ?? 0,
+      myTotalPages: data?.totalPages ?? 1,
+      myLoading: false,
+    });
   },
 
   loadPublicPage: async (opts) => {
@@ -271,6 +309,8 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
       incorrectAnswers: 0,
     };
     set({ practices: [practice, ...get().practices] });
+    // Recargar la pagina 1 del historial: la nueva practica ahi aparece (created_at DESC)
+    await get().loadMyPage({ page: 1 });
     return practice;
   },
 
@@ -282,6 +322,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
     });
     if (!data?.ok) return false;
     set({ practices: get().practices.filter((p) => p.id !== id) });
+    void get().loadMyPage({ page: get().myPage });
     return true;
   },
 
@@ -296,6 +337,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
       practices: get().practices.map((p) => (p.id === id ? { ...p, isPublic: true } : p)),
     });
     void get().refreshPublic();
+    void get().loadMyPage({ page: get().myPage });
     return true;
   },
 
@@ -310,6 +352,7 @@ export const usePracticeStore = create<PracticeStore>((set, get) => ({
       practices: get().practices.map((p) => (p.id === id ? { ...p, isPublic: false } : p)),
     });
     void get().refreshPublic();
+    void get().loadMyPage({ page: get().myPage });
     return true;
   },
 

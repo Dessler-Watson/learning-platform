@@ -43,6 +43,62 @@ export async function getCourse(id: string): Promise<CourseRow | null> {
   return queryOne<CourseRow>(`${COURSE_SELECT} WHERE c.id = $1 AND c.deleted_at IS NULL`, [id]);
 }
 
+export interface CoursesPage {
+  cursos: CourseRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const COURSE_PAGE_LIMIT_DEFAULT = 15;
+export const COURSE_PAGE_LIMIT_MAX = 100;
+
+/**
+ * Listado paginado con busqueda ILIKE (nombre/descripcion) y orden estable
+ * (name, id). page se recorta a la ultima pagina valida.
+ */
+export async function listCoursesPage(
+  filters?: { teacherId?: string; search?: string },
+  opts?: { page?: number; limit?: number }
+): Promise<CoursesPage> {
+  const where: string[] = ['c.deleted_at IS NULL'];
+  const params: unknown[] = [];
+  if (filters?.teacherId) {
+    params.push(filters.teacherId);
+    where.push(`c.teacher_id = $${params.length}`);
+  }
+  if (filters?.search) {
+    params.push(`%${filters.search}%`);
+    where.push(`(c.name ILIKE $${params.length} OR c.description ILIKE $${params.length})`);
+  }
+  const whereSql = where.join(' AND ');
+
+  const countRow = await queryOne<{ total: number }>(
+    `SELECT count(*)::int AS total FROM courses c WHERE ${whereSql}`,
+    params
+  );
+  const total = countRow?.total ?? 0;
+
+  const rawPage = opts?.page ?? 1;
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+  const rawLimit = opts?.limit ?? COURSE_PAGE_LIMIT_DEFAULT;
+  const limit =
+    Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= COURSE_PAGE_LIMIT_MAX
+      ? rawLimit
+      : COURSE_PAGE_LIMIT_DEFAULT;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const effPage = Math.min(page, totalPages);
+
+  params.push(limit, (effPage - 1) * limit);
+  const cursos = await query<CourseRow>(
+    `${COURSE_SELECT} WHERE ${whereSql} ORDER BY c.name, c.id LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+
+  return { cursos, total, page: effPage, limit, totalPages };
+}
+
 export async function listCourseQuestions(courseId: string) {
   return query(
     `SELECT q.id, q.prompt AS question_text,

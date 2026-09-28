@@ -195,6 +195,48 @@ export async function listPublicPractices(
   };
 }
 
+export interface MyPracticesPage {
+  practicas: PracticeSummary[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * Historial propio paginado (pestaña "Mi historial"). Orden estable
+ * (created_at DESC, id DESC) y page recortado a la ultima pagina valida.
+ */
+export async function listMyPractices(
+  userId: string,
+  opts?: { page?: number; limit?: number }
+): Promise<MyPracticesPage> {
+  const rawPage = opts?.page ?? 1;
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+  const rawLimit = opts?.limit ?? PUBLIC_PAGE_LIMIT_DEFAULT;
+  const limit =
+    Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= PUBLIC_PAGE_LIMIT_MAX
+      ? rawLimit
+      : PUBLIC_PAGE_LIMIT_DEFAULT;
+
+  const countRow = await queryOne<{ total: number }>(
+    `SELECT count(*)::int AS total FROM practices p
+     WHERE p.creator_id = $1 AND p.deleted_at IS NULL`,
+    [userId]
+  );
+  const total = countRow?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const effPage = Math.min(page, totalPages);
+
+  const practicas = await query<PracticeSummary>(
+    `${PRACTICE_SELECT} WHERE p.creator_id = $1 AND p.deleted_at IS NULL
+     ORDER BY p.created_at DESC, p.id DESC LIMIT $2 OFFSET $3`,
+    [userId, limit, (effPage - 1) * limit]
+  );
+
+  return { practicas, total, page: effPage, limit, totalPages };
+}
+
 export async function getPractice(practiceId: string): Promise<PracticeSummary | null> {
   return queryOne<PracticeSummary>(
     `${PRACTICE_SELECT} WHERE p.id = $1 AND p.deleted_at IS NULL`,

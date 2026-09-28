@@ -113,6 +113,12 @@ export function PracticeScreen() {
     void usePracticeStore.getState().loadPublicPage({ q: searchQuery, mode: filterMode, page });
   };
 
+  const handleMyPageChange = (page: number) => {
+    if (page < 1 || page > store.myTotalPages || page === store.myPage || store.myLoading) return;
+    audioManager.play('click');
+    void usePracticeStore.getState().loadMyPage({ page });
+  };
+
   const startLoadingAnimation = () => {
     setMessageIndex(0);
     intervalRef.current = setInterval(() => {
@@ -614,7 +620,7 @@ export function PracticeScreen() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-black text-surface-700">Mis practicas</h3>
                 <span className="text-xs font-bold text-surface-400">
-                  {userPractices.length} practica{userPractices.length !== 1 ? 's' : ''}
+                  {store.myTotal} practica{store.myTotal !== 1 ? 's' : ''}
                 </span>
               </div>
 
@@ -638,6 +644,14 @@ export function PracticeScreen() {
                   ))}
                 </div>
               )}
+
+              {/* Pagination */}
+              <Pagination
+                page={store.myPage}
+                totalPages={store.myTotalPages}
+                disabled={store.myLoading}
+                onPage={handleMyPageChange}
+              />
             </motion.div>
           )}
         </AnimatePresence>

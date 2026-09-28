@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, getPool, query, queryOne, getCourse, listCourseQuestions, listCourses } from '@/lib/db';
+import { getSessionUser, getPool, query, queryOne, getCourse, listCourseQuestions, listCourses, listCoursesPage } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,6 +178,39 @@ export async function GET(req: NextRequest) {
       }
       const questions = await listCourseQuestions(id);
       return NextResponse.json({ curso: await mapCourse(course), preguntas: questions });
+    }
+
+    // Opt-in: con q/page/limit se responde el envelope paginado (sin parametros, el legacy)
+    const q = (searchParams.get('q') ?? '').trim().slice(0, 100);
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    if (pageParam !== null || limitParam !== null || q) {
+      const page = pageParam === null || pageParam === '' ? 1 : Number(pageParam);
+      const limit = limitParam === null || limitParam === '' ? 15 : Number(limitParam);
+      if (!Number.isInteger(page) || page < 1) {
+        return NextResponse.json(
+          { error: 'page debe ser un entero mayor o igual a 1' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        return NextResponse.json({ error: 'limit debe ser un entero entre 1 y 100' }, { status: 400 });
+      }
+      const result = await listCoursesPage(
+        {
+          teacherId: session.role === 'admin' ? undefined : session.id,
+          search: q || undefined,
+        },
+        { page, limit }
+      );
+      const cursos = await Promise.all(result.cursos.map(mapCourse));
+      return NextResponse.json({
+        cursos,
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      });
     }
 
     const rows = await listCourses({ teacherId: session.role === 'admin' ? undefined : session.id });
