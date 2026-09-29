@@ -14,6 +14,7 @@ import {
   resolveOverlaps,
   type SphereItem,
 } from './layout';
+import { scaleCount } from '@/engine/quality';
 
 /** Cached after first generation so rocks/crystals stay consistent. */
 export function getPlacedRocks(): FloatingRockData[] {
@@ -110,7 +111,7 @@ function generateRocks(): FloatingRockData[] {
   const rocks: FloatingRockData[] = [];
   const zRange = START_Z - FINISH_Z + 30;
 
-  for (let i = 0; i < 36; i++) {
+  for (let i = 0; i < scaleCount(36); i++) {
     const side = sr(i * 3 + 7000) > 0.5 ? 1 : -1;
     const x = side * (7 + sr(i * 3 + 7001) * 28);
     const z = sr(i * 3 + 7002) * zRange + FINISH_Z - 12;
@@ -157,7 +158,7 @@ function generateRocks(): FloatingRockData[] {
     });
   }
 
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < scaleCount(8); i++) {
     const side = sr(i * 3 + 8000) > 0.5 ? 1 : -1;
     const x = side * (4 + sr(i * 3 + 8001) * 6);
     const z = sr(i * 3 + 8002) * zRange + FINISH_Z - 8;

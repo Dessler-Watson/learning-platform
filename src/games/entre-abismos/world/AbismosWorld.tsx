@@ -13,6 +13,7 @@ import { FinishRuinArch } from './FinishRuinArch';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { getRockSetScaled, getRockVariantForColor, getGlassTexture } from './RockTextures';
 import { generateValleyWalls, START_Z, FINISH_Z, sr } from './layout';
+import { scaleCount, clampShadowMap } from '@/engine/quality';
 
 const FIRST_FLOAT_Z = START_Z - CFG.startPlatformDepth / 2 - CFG.platformGap - CFG.platformDepth / 2;
 const LAST_FLOAT_Z = FIRST_FLOAT_Z - (CFG.maxPlatforms - 1) * (CFG.platformDepth + CFG.platformGap);
@@ -290,7 +291,7 @@ function SkyDome() {
 
 function AmbientParticles() {
   const particles = useMemo(() => {
-    const count = 50;
+    const count = scaleCount(50);
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const side = sr(i * 3 + 3000) > 0.5 ? 1 : -1;
@@ -348,8 +349,8 @@ export function AbismosWorld({ onReachFinish }: { onReachFinish: () => void }) {
         intensity={2.4}
         color="#fff5e0"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={clampShadowMap(2048)}
+        shadow-mapSize-height={clampShadowMap(2048)}
         shadow-camera-far={140}
         shadow-camera-left={-70}
         shadow-camera-right={70}

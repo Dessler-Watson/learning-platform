@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { texAnisotropy } from '@/engine/quality';
 
 function sr(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -156,7 +157,7 @@ export function getStoneRuinTextures(): {
     _stoneTex = new THREE.CanvasTexture(canvas);
     _stoneTex.wrapS = _stoneTex.wrapT = THREE.RepeatWrapping;
     _stoneTex.colorSpace = THREE.SRGBColorSpace;
-    _stoneTex.anisotropy = 8;
+    _stoneTex.anisotropy = texAnisotropy();
 
     _stoneNormal = new THREE.CanvasTexture(nCanvas);
     _stoneNormal.wrapS = _stoneNormal.wrapT = THREE.RepeatWrapping;

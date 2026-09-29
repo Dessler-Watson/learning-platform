@@ -3,6 +3,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/game.store';
 import * as THREE from 'three';
+import { scaleCount, texAnisotropy, makeAmbientGate } from '@/engine/quality';
 
 function sr(seed: number) {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -80,7 +81,7 @@ function createGrassTexture(): THREE.CanvasTexture {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(2, 2);
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 
@@ -141,7 +142,7 @@ function createDirtTexture(): THREE.CanvasTexture {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(2, 2);
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 
@@ -203,7 +204,7 @@ function createBarkTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 
@@ -241,8 +242,8 @@ function useBarkMat() {
 /* ═══════════ ISLAND GEOMETRY ═══════════ */
 const CHUNK_SIZE = 80;
 const EXTEND_CHUNKS = 3;
-const ISLANDS_PER_CHUNK = 12;
-const MOUNTAINS_PER_CHUNK = 12;
+const ISLANDS_PER_CHUNK = scaleCount(12);
+const MOUNTAINS_PER_CHUNK = scaleCount(12);
 
 interface IslandData {
   x: number; y: number; z: number;
@@ -501,9 +502,11 @@ const ISLAND_COMPONENTS = [IslandClassic, IslandElongated, IslandTall, IslandWid
 function FloatingIsland({ island }: { island: IslandData }) {
   const ref = useRef<THREE.Group>(null);
   const baseY = useRef(island.y);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
+    if (!ambientGate()) return;
     const t = clock.elapsedTime;
     ref.current.position.y = baseY.current + Math.sin(t * island.bobSpeed + island.bobPhase) * island.bobAmp;
     ref.current.rotation.z = Math.sin(t * island.tiltSpeed + island.tiltPhase) * 0.04;

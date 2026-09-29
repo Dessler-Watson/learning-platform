@@ -3,6 +3,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/game.store';
 import * as THREE from 'three';
+import { scaleCount, texAnisotropy, makeAmbientGate } from '@/engine/quality';
 
 function sr(seed: number) {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -82,7 +83,7 @@ function createRockTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 
@@ -92,7 +93,7 @@ function getRockTex() { if (!_rockTex) _rockTex = createRockTexture(); return _r
 /* ═══════════ CHUNK GENERATION ═══════════ */
 const CHUNK_SIZE = 80;
 const EXTEND_CHUNKS = 3;
-const DIAMONDS_PER_CHUNK = 18;
+const DIAMONDS_PER_CHUNK = scaleCount(18);
 
 interface DiamondData {
   x: number; y: number; z: number;
@@ -128,9 +129,11 @@ function generateChunkDiamonds(chunkZ: number, chunkIndex: number): DiamondData[
 /* ═══════════ SINGLE DIAMOND ═══════════ */
 function Diamond({ data, mat }: { data: DiamondData; mat: THREE.MeshStandardMaterial }) {
   const ref = useRef<THREE.Group>(null);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
+    if (!ambientGate()) return;
     const t = clock.elapsedTime;
     ref.current.position.y = data.y + Math.sin(t * data.speed + data.phase) * 0.6;
     ref.current.rotation.y = data.rotY + t * data.speed * 0.3;

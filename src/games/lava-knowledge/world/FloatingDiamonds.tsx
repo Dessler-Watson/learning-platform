@@ -3,6 +3,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getGlassTexture } from '@/games/entre-abismos/world/RockTextures';
+import { scaleCount, makeAmbientGate } from '@/engine/quality';
 
 function sr(seed: number) {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -28,7 +29,7 @@ function generateDiamonds(): DiamondData[] {
   const items: DiamondData[] = [];
 
   /* arena diamonds */
-  for (let i = 0; i < 28; i++) {
+  for (let i = 0; i < scaleCount(28); i++) {
     const seed = i * 47 + 13;
     items.push({
       baseX: (sr(seed * 7) - 0.5) * ARENA_BOUND * 2,
@@ -47,7 +48,7 @@ function generateDiamonds(): DiamondData[] {
   }
 
   /* diamonds scattered among the background mountains */
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < scaleCount(90); i++) {
     const seed = i * 67 + 500;
     const angle = sr(seed * 11) * Math.PI * 2;
     const dist = MOUNTAIN_MIN + sr(seed * 13) * (MOUNTAIN_MAX - MOUNTAIN_MIN);
@@ -70,7 +71,7 @@ function generateDiamonds(): DiamondData[] {
   }
 
   /* denser cluster in the mid band between wall and mountains */
-  for (let i = 0; i < 36; i++) {
+  for (let i = 0; i < scaleCount(36); i++) {
     const seed = i * 91 + 9000;
     const angle = sr(seed * 7) * Math.PI * 2;
     const dist = 24 + sr(seed * 13) * 14;
@@ -136,9 +137,11 @@ function getRedCrystalSoftMat(): THREE.MeshStandardMaterial {
 function LavaDiamond({ data, soft }: { data: DiamondData; soft: boolean }) {
   const ref = useRef<THREE.Group>(null);
   const mat = soft ? getRedCrystalSoftMat() : getRedCrystalMat();
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
+    if (!ambientGate()) return;
     const t = clock.elapsedTime;
     ref.current.position.y = data.baseY + Math.sin(t * data.bobSpeed + data.bobPhase) * data.bobAmp;
     ref.current.rotation.y = data.rotY + t * data.driftSpeed;

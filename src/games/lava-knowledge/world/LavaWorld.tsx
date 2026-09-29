@@ -5,11 +5,13 @@ import * as THREE from 'three';
 import { Arena } from './Arena';
 import { PlayerTowers } from './PlayerTowers';
 import { FloatingDiamonds } from './FloatingDiamonds';
+import { scaleCount, clampShadowMap, makeAmbientGate, ambientDelta } from '@/engine/quality';
 
-const ASH_COUNT = 600;
+const ASH_COUNT = scaleCount(600);
 
 function AshParticles() {
   const ref = useRef<THREE.Points>(null);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
   const colors = useMemo(() => {
     const c = new Float32Array(ASH_COUNT * 3);
     for (let i = 0; i < ASH_COUNT; i++) {
@@ -60,16 +62,18 @@ function AshParticles() {
 
   useFrame((_, dt) => {
     if (!ref.current) return;
+    if (!ambientGate()) return;
+    const step = ambientDelta(dt);
     const p = ref.current.geometry.attributes.position.array as Float32Array;
     for (let i = 0; i < ASH_COUNT; i++) {
       // Apply turbulence — particles swirl chaotically
-      const turbX = (Math.random() - 0.5) * 2.0 * dt;
-      const turbY = (Math.random() - 0.5) * 1.5 * dt;
-      const turbZ = (Math.random() - 0.5) * 2.0 * dt;
+      const turbX = (Math.random() - 0.5) * 2.0 * step;
+      const turbY = (Math.random() - 0.5) * 1.5 * step;
+      const turbZ = (Math.random() - 0.5) * 2.0 * step;
 
-      p[i * 3] += velocities[i * 3] * dt + turbX;
-      p[i * 3 + 1] += velocities[i * 3 + 1] * dt + turbY;
-      p[i * 3 + 2] += velocities[i * 3 + 2] * dt + turbZ;
+      p[i * 3] += velocities[i * 3] * step + turbX;
+      p[i * 3 + 1] += velocities[i * 3 + 1] * step + turbY;
+      p[i * 3 + 2] += velocities[i * 3 + 2] * step + turbZ;
 
       if (p[i * 3 + 1] < -5 || Math.abs(p[i * 3]) > 50 || Math.abs(p[i * 3 + 2]) > 50) {
         const edge = Math.random() < 0.5;
@@ -110,8 +114,8 @@ export function LavaWorld() {
         intensity={1.8}
         color="#fff5e0"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={clampShadowMap(2048)}
+        shadow-mapSize-height={clampShadowMap(2048)}
         shadow-camera-far={80}
         shadow-camera-left={-25}
         shadow-camera-right={25}

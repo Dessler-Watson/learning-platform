@@ -17,7 +17,7 @@ import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
-import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { clampDpr } from '@/engine/quality';
 import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
@@ -125,7 +125,7 @@ export function TierrasCanvas() {
       )}
       <Canvas
         shadows
-        dpr={[0.75, 1]}
+        dpr={[0.75, clampDpr(1)]}
         gl={{
           antialias: false,
           powerPreference: 'high-performance',
@@ -166,7 +166,6 @@ export function TierrasCanvas() {
 
       <DangerOverlay />
       <GameAchievementNotification />
-      <LandscapeGate enabled={tierrasPhase !== 'completed' && tierrasPhase !== 'results'} />
 
       {/* CSS vignette overlay — softer edges */}
       <div style={{

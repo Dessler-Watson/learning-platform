@@ -3,10 +3,11 @@ import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore } from '@/stores/game.store';
+import { scaleCount, makeAmbientGate, ambientDelta } from '@/engine/quality';
 
 const CHUNK_SIZE = 80;
 const EXTEND_CHUNKS = 3;
-const CLOUDS_PER_CHUNK = 4;
+const CLOUDS_PER_CHUNK = scaleCount(4);
 
 const cloudVert = `
 varying vec2 vUv;
@@ -116,10 +117,12 @@ function generateChunkClouds(chunkZ: number, chunkIndex: number): CloudData[] {
 function CloudUnit({ data }: { data: CloudData }) {
   const ref = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.ShaderMaterial>(null);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    ref.current.position.x += data.speed * 0.016;
+    if (!ambientGate()) return;
+    ref.current.position.x += data.speed * 0.016 * ambientDelta(1);
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = clock.elapsedTime + data.seed;
     }

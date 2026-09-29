@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { texAnisotropy } from '@/engine/quality';
 
 function sr(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -217,7 +218,7 @@ function dataToTexture(data: Uint8ClampedArray, size: number, srgb: boolean): TH
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   if (srgb) texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.anisotropy = texAnisotropy();
   return texture;
 }
 

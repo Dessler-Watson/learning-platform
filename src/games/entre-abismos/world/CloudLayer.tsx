@@ -3,6 +3,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
+import { scaleCount, makeAmbientGate } from '@/engine/quality';
 
 function sr(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -25,7 +26,7 @@ export function CloudLayer() {
 
   const clouds = useMemo(() => {
     const data: CloudData[] = [];
-    const count = CFG.cloudDensity + 150;
+    const count = scaleCount(CFG.cloudDensity + 150);
     for (let i = 0; i < count; i++) {
       const x = (sr(i * 2) - 0.5) * 120;
       const z = sr(i * 2 + 1) * 140 - 70;
@@ -38,7 +39,7 @@ export function CloudLayer() {
 
   const upperClouds = useMemo(() => {
     const data: CloudData[] = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < scaleCount(80); i++) {
       const x = (sr(i * 2 + 3000) - 0.5) * 100;
       const z = sr(i * 2 + 3001) * 120 - 60;
       const y = CFG.cloudLevel + 6 + sr(i * 3 + 3002) * 4;
@@ -68,7 +69,10 @@ export function CloudLayer() {
     }
   }, [clouds, upperClouds]);
 
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
+
   useFrame((state) => {
+    if (!ambientGate()) return;
     const time = state.clock.elapsedTime;
     if (meshRef.current) {
       for (let i = 0; i < clouds.length; i++) {

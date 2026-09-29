@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
+import { texAnisotropy } from '@/engine/quality';
 
 const WIDTH = 16;
 const WALL_H = 6;
@@ -163,7 +164,7 @@ function createCobblestoneTexture(): THREE.CanvasTexture {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(4, 80);
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 
@@ -231,7 +232,7 @@ function createConcreteTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = texAnisotropy();
   return tex;
 }
 

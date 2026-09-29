@@ -17,7 +17,7 @@ import { AbismosLoadingScreen } from '@/games/entre-abismos/ui/AbismosLoadingScr
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
-import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { clampDpr } from '@/engine/quality';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -130,7 +130,7 @@ export function AbismosCanvas() {
 
       <Canvas
         shadows
-        dpr={[0.75, 1]}
+        dpr={[0.75, clampDpr(1)]}
         gl={{
           antialias: false,
           powerPreference: 'high-performance',
@@ -150,9 +150,6 @@ export function AbismosCanvas() {
       <AbismosHUD />
       <DangerOverlay />
       <GameAchievementNotification />
-      <LandscapeGate
-        enabled={gamePhase !== 'completed' && gamePhase !== 'defeat' && gamePhase !== 'results'}
-      />
       {phase === 'done' && (gamePhase === 'freeMove' || gamePhase === 'crossing') && <MobileControls />}
 
       <CompletionOverlay

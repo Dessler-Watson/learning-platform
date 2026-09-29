@@ -5,6 +5,7 @@ import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { LavaSurface } from './LavaSurface';
 import { createProceduralStoneMaterial } from './ProceduralStoneMaterial';
+import { scaleCount, makeAmbientGate } from '@/engine/quality';
 
 const LAVA_Y = -1.0;
 const ARENA_HALF = 20;
@@ -183,7 +184,7 @@ interface RockPlacement { x: number; z: number; type: number; scale: number; rot
 function getRockPlacements(): RockPlacement[] {
   const rand = seededRandom(42);
   const placements: RockPlacement[] = [];
-  const count = 50;
+  const count = scaleCount(50);
   const minDist = 3.0;
   for (let i = 0; i < count; i++) {
     let x: number, z: number, valid: boolean;
@@ -222,8 +223,10 @@ function LavaRock({ x, z, type, scale, rotY }: RockPlacement) {
   const speed = useMemo(() => 0.3 + Math.random() * 0.5, []);
   const bobAmount = useMemo(() => 0.08 + Math.random() * 0.15, []);
   const stoneMat = getFloatingRockMat();
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame(({ clock }) => {
+    if (!ambientGate()) return;
     if (groupRef.current) {
       groupRef.current.position.y = LAVA_Y + Math.sin(clock.elapsedTime * speed + phase) * bobAmount;
     }

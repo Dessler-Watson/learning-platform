@@ -3,6 +3,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
+import { scaleCount, makeAmbientGate, ambientDelta } from '@/engine/quality';
 
 function sr(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -13,8 +14,8 @@ const START_Z = 2;
 const FINISH_Z = -54.5;
 const X_MIN = -42;
 const X_MAX = 42;
-const COUNT = 220;
-const STREAK_COUNT = 160;
+const COUNT = scaleCount(220);
+const STREAK_COUNT = scaleCount(160);
 
 interface WindParticle {
   x: number;
@@ -72,9 +73,11 @@ export function WindParticles() {
   }, [particles]);
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame((state, delta) => {
-    const dt = Math.min(delta, 0.05);
+    if (!ambientGate()) return;
+    const dt = Math.min(delta, 0.05) * ambientDelta(1);
     const t = state.clock.elapsedTime;
     const span = X_MAX - X_MIN;
 

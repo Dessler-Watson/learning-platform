@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useMemo, useEffect, memo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { scaleCount, clampShadowMap, getGameQuality, makeAmbientGate, ambientDelta } from '@/engine/quality';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
@@ -161,8 +162,12 @@ function SwampPlatformInner({ position, width, depth, height, choice, isStart, i
         </RigidBody>
         <Lantern position={[-width / 2 + 0.5, position[1] + height / 2 + 0.1, depth / 2 - 0.5]} intensity={3.5} />
         <Lantern position={[width / 2 - 0.5, position[1] + height / 2 + 0.1, depth / 2 - 0.5]} intensity={3.5} />
-        <pointLight position={[-width / 2 + 0.5, position[1] + 2, depth / 2 - 0.5]} color="#FF9800" intensity={3.5} distance={16} castShadow={false} />
-        <pointLight position={[width / 2 - 0.5, position[1] + 2, depth / 2 - 0.5]} color="#FF9800" intensity={3.5} distance={16} castShadow={false} />
+        {getGameQuality().fullLights && (
+          <>
+            <pointLight position={[-width / 2 + 0.5, position[1] + 2, depth / 2 - 0.5]} color="#FF9800" intensity={3.5} distance={16} castShadow={false} />
+            <pointLight position={[width / 2 - 0.5, position[1] + 2, depth / 2 - 0.5]} color="#FF9800" intensity={3.5} distance={16} castShadow={false} />
+          </>
+        )}
         <pointLight position={[0, position[1] + 2, 0]} color="#FFA726" intensity={1} distance={12} />
       </group>
     );
@@ -220,19 +225,32 @@ function SwampPlatformInner({ position, width, depth, height, choice, isStart, i
             <meshStandardMaterial color="#FFD54F" emissive="#FFC107" emissiveIntensity={2} transparent opacity={0.1} side={THREE.BackSide} />
           </mesh>
           <pointLight position={[0, 1.0, 0]} color="#FFD54F" intensity={14} distance={30} />
-          <pointLight position={[0, 0.6, 0]} color="#FFC107" intensity={6} distance={18} />
-          <pointLight position={[0, 1.5, 0]} color="#FFEB3B" intensity={4} distance={22} />
+          {getGameQuality().fullLights && (
+            <>
+              <pointLight position={[0, 0.6, 0]} color="#FFC107" intensity={6} distance={18} />
+              <pointLight position={[0, 1.5, 0]} color="#FFEB3B" intensity={4} distance={22} />
+            </>
+          )}
         </group>
         <pointLight position={[0, position[1] + 2.5, 0]} color="#FF9800" intensity={8} distance={25} />
-        <pointLight position={[0, position[1] + 1.0, 0]} color="#FFA726" intensity={6} distance={22} />
-        <pointLight position={[-width / 3, position[1] + 1.2, -depth / 3]} color="#FFB74D" intensity={4} distance={16} />
-        <pointLight position={[width / 3, position[1] + 1.2, -depth / 3]} color="#FFB74D" intensity={4} distance={16} />
-        <pointLight position={[-width / 3, position[1] + 1.2, depth / 3]} color="#FFB74D" intensity={4} distance={16} />
-        <pointLight position={[width / 3, position[1] + 1.2, depth / 3]} color="#FFB74D" intensity={4} distance={16} />
-        <pointLight position={[0, position[1] + 0.8, -depth / 2 + 0.3]} color="#FFD54F" intensity={5} distance={14} />
-        <pointLight position={[0, position[1] + 0.8, depth / 2 - 0.3]} color="#FFD54F" intensity={5} distance={14} />
-        <pointLight position={[-width / 2 + 0.3, position[1] + 0.8, 0]} color="#FFD54F" intensity={5} distance={14} />
-        <pointLight position={[width / 2 - 0.3, position[1] + 0.8, 0]} color="#FFD54F" intensity={5} distance={14} />
+        {getGameQuality().fullLights ? (
+          <>
+            <pointLight position={[0, position[1] + 1.0, 0]} color="#FFA726" intensity={6} distance={22} />
+            <pointLight position={[-width / 3, position[1] + 1.2, -depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+            <pointLight position={[width / 3, position[1] + 1.2, -depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+            <pointLight position={[-width / 3, position[1] + 1.2, depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+            <pointLight position={[width / 3, position[1] + 1.2, depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+            <pointLight position={[0, position[1] + 0.8, -depth / 2 + 0.3]} color="#FFD54F" intensity={5} distance={14} />
+            <pointLight position={[0, position[1] + 0.8, depth / 2 - 0.3]} color="#FFD54F" intensity={5} distance={14} />
+            <pointLight position={[-width / 2 + 0.3, position[1] + 0.8, 0]} color="#FFD54F" intensity={5} distance={14} />
+            <pointLight position={[width / 2 - 0.3, position[1] + 0.8, 0]} color="#FFD54F" intensity={5} distance={14} />
+          </>
+        ) : (
+          <>
+            <pointLight position={[-width / 3, position[1] + 1.2, -depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+            <pointLight position={[width / 3, position[1] + 1.2, depth / 3]} color="#FFB74D" intensity={4} distance={16} />
+          </>
+        )}
         <Lantern position={[-width / 2 + 0.5, position[1] + height / 2 + 0.1, position[2]]} intensity={7} />
         <Lantern position={[width / 2 - 0.5, position[1] + height / 2 + 0.1, position[2]]} intensity={7} />
       </group>
@@ -308,7 +326,9 @@ function Lantern({ position, intensity = 2.5 }: { position: [number, number, num
         <meshStandardMaterial color="#FFF8E1" emissive="#FF9800" emissiveIntensity={6} />
       </mesh>
       <pointLight position={[0, 0.6, 0]} color="#FF9800" intensity={intensity} distance={10} />
-      <pointLight position={[0, 0.4, 0]} color="#FFA726" intensity={intensity * 0.5} distance={6} />
+      {getGameQuality().fullLights && (
+        <pointLight position={[0, 0.4, 0]} color="#FFA726" intensity={intensity * 0.5} distance={6} />
+      )}
     </group>
   );
 }
@@ -513,7 +533,7 @@ function SwampRocks() {
     const items: { pos: [number, number, number]; scale: number; rotY: number; rotX: number; type: number }[] = [];
     const halfGap = CFG.gapBetweenPlatforms / 2;
     let sd = 2000;
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < scaleCount(80); i++) {
       const side = sr(sd++) > 0.5 ? 1 : -1;
       const x = side * (halfGap * 0.6 + sr(sd++) * 28);
       const z = (sr(sd++) - 0.5) * 280 + 0;
@@ -526,7 +546,7 @@ function SwampRocks() {
         type: Math.floor(sr(sd++) * 3),
       });
     }
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < scaleCount(25); i++) {
       const x = (sr(sd++) - 0.5) * (halfGap * 1.0);
       const z = (sr(sd++) - 0.5) * 250 + 0;
       if (isOverPlatform(x, z)) continue;
@@ -598,7 +618,7 @@ function GoldenRocks() {
     const items: { pos: [number, number, number]; scale: number; rotY: number; type: number }[] = [];
     const halfGap = CFG.gapBetweenPlatforms / 2;
     let sd = 3000;
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < scaleCount(35); i++) {
       const side = sr(sd++) > 0.5 ? 1 : -1;
       const x = side * (halfGap * 0.5 + sr(sd++) * 22);
       const z = (sr(sd++) - 0.5) * 280 + 0;
@@ -658,7 +678,7 @@ function PurpleCrystals() {
     const items: { pos: [number, number, number]; scale: number; rotY: number }[] = [];
     const halfGap = CFG.gapBetweenPlatforms / 2;
     let sd = 4000;
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < scaleCount(50); i++) {
       const side = sr(sd++) > 0.5 ? 1 : -1;
       const x = side * (halfGap + 3 + sr(sd++) * 14);
       const z = (sr(sd++) - 0.5) * 260 + 0;
@@ -723,7 +743,7 @@ function LilyPads() {
     const items: { pos: [number, number, number]; rotY: number; scale: number }[] = [];
     const halfGap = CFG.gapBetweenPlatforms / 2;
     let sd = 5000;
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < scaleCount(35); i++) {
       const x = (sr(sd++) - 0.5) * (halfGap * 1.8);
       const z = (sr(sd++) - 0.5) * 260 + 0;
       if (isOverPlatform(x, z)) continue;
@@ -751,8 +771,9 @@ function LilyPads() {
 }
 
 function Fireflies() {
-  const count = 80;
+  const count = scaleCount(80);
   const ref = useRef<THREE.Points>(null);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
   const data = useMemo(() => {
     const positions = new Float32Array(count * 3);
     const speeds = new Float32Array(count);
@@ -764,16 +785,18 @@ function Fireflies() {
       speeds[i] = 0.4 + sr(sd++) * 1.2;
     }
     return { positions, speeds };
-  }, []);
+  }, [count]);
 
   useFrame((state) => {
     if (!ref.current) return;
+    if (!ambientGate()) return;
+    const step = ambientDelta(1);
     const arr = ref.current.geometry.attributes.position.array as Float32Array;
     const t = state.clock.elapsedTime;
     for (let i = 0; i < count; i++) {
-      arr[i * 3] += Math.sin(t * data.speeds[i] + i) * 0.002;
-      arr[i * 3 + 1] += Math.cos(t * data.speeds[i] * 0.6 + i * 2) * 0.0015;
-      arr[i * 3 + 2] += Math.sin(t * data.speeds[i] * 0.4 + i * 3) * 0.0015;
+      arr[i * 3] += Math.sin(t * data.speeds[i] + i) * 0.002 * step;
+      arr[i * 3 + 1] += Math.cos(t * data.speeds[i] * 0.6 + i * 2) * 0.0015 * step;
+      arr[i * 3 + 2] += Math.sin(t * data.speeds[i] * 0.4 + i * 3) * 0.0015 * step;
     }
     ref.current.geometry.attributes.position.needsUpdate = true;
   });
@@ -791,6 +814,7 @@ function Fireflies() {
 function SwampFog() {
   const fogRef = useRef<THREE.Points>(null);
   const count = 500;
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     let sd = 8000;
@@ -804,7 +828,8 @@ function SwampFog() {
 
   useFrame(() => {
     if (!fogRef.current) return;
-    fogRef.current.rotation.y += 0.0001;
+    if (!ambientGate()) return;
+    fogRef.current.rotation.y += 0.0001 * ambientDelta(1);
   });
 
   return (
@@ -822,7 +847,7 @@ function SwampPlants() {
     const items: { pos: [number, number, number]; scale: number; rotY: number }[] = [];
     const halfGap = CFG.gapBetweenPlatforms / 2;
     let sd = 6000;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < scaleCount(60); i++) {
       const side = sr(sd++) > 0.5 ? 1 : -1;
       const x = side * (halfGap * 0.4 + sr(sd++) * 20);
       const z = (sr(sd++) - 0.5) * 280 + 0;
@@ -992,6 +1017,7 @@ function MovingLights() {
   const { camera } = useThree();
   const refs = [useRef<THREE.PointLight>(null), useRef<THREE.PointLight>(null), useRef<THREE.PointLight>(null), useRef<THREE.PointLight>(null)];
   const offsets = [-12, -30, -48, -66];
+  const lightCount = getGameQuality().fullLights ? 4 : 2;
   useFrame(() => {
     refs.forEach((r, i) => {
       if (r.current) {
@@ -1002,7 +1028,7 @@ function MovingLights() {
   return (
     <>
       {refs.map((r, i) => (
-        <pointLight key={i} ref={r} position={[0, 3, offsets[i]]} intensity={0.5} color="#FFA726" distance={20} />
+        i < lightCount && <pointLight key={i} ref={r} position={[0, 3, offsets[i]]} intensity={0.5} color="#FFA726" distance={20} />
       ))}
     </>
   );
@@ -1048,8 +1074,8 @@ export function TierrasWorld({ children }: { children?: React.ReactNode }) {
         intensity={0.8}
         color="#4a5a6a"
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={clampShadowMap(1024)}
+        shadow-mapSize-height={clampShadowMap(1024)}
         shadow-camera-far={130}
         shadow-camera-left={-45}
         shadow-camera-right={45}

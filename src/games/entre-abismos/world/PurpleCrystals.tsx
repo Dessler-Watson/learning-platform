@@ -14,6 +14,7 @@ import {
   resolveOverlaps,
   type SphereItem,
 } from './layout';
+import { scaleCount, getGameQuality, makeAmbientGate, ambientDelta } from '@/engine/quality';
 
 function crystalBounds(c: CrystalData): number {
   let extent = c.scale * 1.3;
@@ -77,7 +78,7 @@ function generateCrystals(): CrystalData[] {
   const crystals: CrystalData[] = [];
   const kinds: CrystalKind[] = ['single', 'twin', 'spike', 'cluster', 'shard'];
 
-  for (let i = 0; i < 42; i++) {
+  for (let i = 0; i < scaleCount(42); i++) {
     const side = sr(i * 3) > 0.5 ? 1 : -1;
     const x = side * (sr(i * 3 + 1) * 18 + 16);
     const z = sr(i * 3 + 2) * (START_Z - FINISH_Z + 20) + FINISH_Z - 10;
@@ -94,7 +95,7 @@ function generateCrystals(): CrystalData[] {
     });
   }
 
-  for (let i = 0; i < 28; i++) {
+  for (let i = 0; i < scaleCount(28); i++) {
     const side = sr(i * 3 + 500) > 0.5 ? 1 : -1;
     const x = side * (sr(i * 3 + 501) * 14 + 16);
     const z = sr(i * 3 + 502) * (START_Z - FINISH_Z + 10) + FINISH_Z - 5;
@@ -111,7 +112,7 @@ function generateCrystals(): CrystalData[] {
     });
   }
 
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < scaleCount(22); i++) {
     const side = sr(i * 3 + 1000) > 0.5 ? 1 : -1;
     const x = side * (sr(i * 3 + 1001) * 10 + 20);
     const z = sr(i * 3 + 1002) * (START_Z - FINISH_Z + 20) + FINISH_Z - 10;
@@ -128,7 +129,7 @@ function generateCrystals(): CrystalData[] {
     });
   }
 
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < scaleCount(18); i++) {
     const side = sr(i * 3 + 1500) > 0.5 ? 1 : -1;
     const x = side * (sr(i * 3 + 1501) * 22 + 8);
     const z = sr(i * 3 + 1502) * (START_Z - FINISH_Z + 16) + FINISH_Z - 8;
@@ -239,9 +240,11 @@ function CrystalBody({ kind, scale, hue }: { kind: CrystalKind; scale: number; h
 function SingleCrystal({ data, withLight }: { data: CrystalData; withLight: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   const pal = PALETTE[data.hue % PALETTE.length];
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   useFrame((state) => {
     if (!groupRef.current) return;
+    if (!ambientGate()) return;
     const t = state.clock.elapsedTime;
     groupRef.current.position.y = data.pos[1] + Math.sin(t * data.bobSpeed + data.pos[0]) * data.bobAmp;
     groupRef.current.rotation.y = data.rotY + t * data.rotSpeed;
@@ -259,9 +262,10 @@ function SingleCrystal({ data, withLight }: { data: CrystalData; withLight: bool
 
 function CrystalParticles() {
   const pointsRef = useRef<THREE.Points>(null);
+  const ambientGate = useMemo(() => makeAmbientGate(), []);
 
   const particles = useMemo(() => {
-    const count = 50;
+    const count = scaleCount(50);
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const side = sr(i * 3 + 2000) > 0.5 ? 1 : -1;
@@ -274,11 +278,13 @@ function CrystalParticles() {
 
   useFrame((state) => {
     if (!pointsRef.current) return;
+    if (!ambientGate()) return;
     const t = state.clock.elapsedTime;
+    const step = ambientDelta(1);
     const arr = pointsRef.current.geometry.attributes.position.array as Float32Array;
     for (let i = 0; i < arr.length / 3; i++) {
-      arr[i * 3 + 1] += Math.sin(t * 0.3 + i * 0.7) * 0.003;
-      arr[i * 3] += Math.cos(t * 0.15 + i * 0.4) * 0.002;
+      arr[i * 3 + 1] += Math.sin(t * 0.3 + i * 0.7) * 0.003 * step;
+      arr[i * 3] += Math.cos(t * 0.15 + i * 0.4) * 0.002 * step;
     }
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
@@ -295,11 +301,12 @@ function CrystalParticles() {
 
 export function PurpleCrystals() {
   const crystals = useMemo(() => generateCrystals(), []);
+  const litCount = getGameQuality().fullLights ? 8 : 3;
 
   return (
     <group>
       {crystals.map((c, i) => (
-        <SingleCrystal key={i} data={c} withLight={i < 8} />
+        <SingleCrystal key={i} data={c} withLight={i < litCount} />
       ))}
       <CrystalParticles />
     </group>

@@ -16,8 +16,8 @@ import { useAchievementStore } from '@/stores/achievement.store';
 import { GameAchievementNotification } from '@/ui/components/GameAchievementNotification';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
-import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
+import { clampDpr } from '@/engine/quality';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
@@ -67,7 +67,7 @@ export function GameCanvas() {
       {phase !== 'done' && (
         <DecisionRoadLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
-      <Canvas shadows dpr={[0.75, 1.25]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%' }}>
+      <Canvas shadows dpr={[0.75, clampDpr(1.25)]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%' }}>
         <color attach="background" args={['#7EC8E3']} />
         <fog attach="fog" args={['#B3E5FC', 35, 140]} />
         <Suspense fallback={null}><Scene onReady={handleReady} /></Suspense>
@@ -84,7 +84,6 @@ export function GameCanvas() {
       <MobileControls />
       <Leaderboard />
       <GameAchievementNotification />
-      <LandscapeGate enabled={gamePhase !== 'completed' && gamePhase !== 'results'} />
       <div style={{
         position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%)',
