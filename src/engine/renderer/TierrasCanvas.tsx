@@ -17,6 +17,7 @@ import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { clampDpr } from '@/engine/quality';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -119,7 +120,7 @@ export function TierrasCanvas() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100dvh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100dvh', position: 'relative' }}>
       {phase !== 'done' && (
         <TierrasLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -166,6 +167,7 @@ export function TierrasCanvas() {
 
       <DangerOverlay />
       <GameAchievementNotification />
+      <LandscapeGate enabled={tierrasPhase !== 'completed' && tierrasPhase !== 'results'} />
 
       {/* CSS vignette overlay — softer edges */}
       <div style={{

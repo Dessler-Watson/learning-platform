@@ -15,6 +15,7 @@ import { LavaLoadingScreen } from './LavaLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { clampDpr } from '@/engine/quality';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -109,7 +110,7 @@ export function LavaCanvas() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       {phase !== 'done' && (
         <LavaLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -164,6 +165,7 @@ export function LavaCanvas() {
       <HeartbeatMonitor />
       <DangerOverlay />
       <GameAchievementNotification />
+      <LandscapeGate enabled={lavaPhase !== 'completed'} />
 
       {/* CSS vignette overlay */}
       <div style={{

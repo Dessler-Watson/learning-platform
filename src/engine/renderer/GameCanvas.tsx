@@ -16,6 +16,7 @@ import { useAchievementStore } from '@/stores/achievement.store';
 import { GameAchievementNotification } from '@/ui/components/GameAchievementNotification';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
 import { clampDpr } from '@/engine/quality';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
@@ -63,7 +64,7 @@ export function GameCanvas() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
       {phase !== 'done' && (
         <DecisionRoadLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -84,6 +85,7 @@ export function GameCanvas() {
       <MobileControls />
       <Leaderboard />
       <GameAchievementNotification />
+      <LandscapeGate enabled={gamePhase !== 'completed' && gamePhase !== 'results'} />
       <div style={{
         position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%)',

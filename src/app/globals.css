@@ -134,3 +134,28 @@ p, span, label, input, textarea, select,
     display: flex !important;
   }
 }
+
+/* ================================================
+   GAME SCREENS: sin selección de texto al mantener
+   presionado (teléfonos/tablets). Solo dentro de los
+   contenedores de los 4 modos de juego (.game-screen).
+   ================================================ */
+.game-screen {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Los campos de texto (si los hay) siguen siendo seleccionables */
+.game-screen input,
+.game-screen textarea,
+.game-screen select,
+.game-screen [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}

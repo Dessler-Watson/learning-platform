@@ -17,6 +17,7 @@ import { AbismosLoadingScreen } from '@/games/entre-abismos/ui/AbismosLoadingScr
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
+import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { clampDpr } from '@/engine/quality';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
@@ -123,7 +124,7 @@ export function AbismosCanvas() {
   }, [gamePhase, starsEarned, fellInAbyss]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ background: 'linear-gradient(to bottom, #6aafe8 0%, #a0c8e8 40%, #c0d8e8 100%)' }}>
+    <div className="game-screen relative h-full w-full overflow-hidden" style={{ background: 'linear-gradient(to bottom, #6aafe8 0%, #a0c8e8 40%, #c0d8e8 100%)' }}>
       {phase !== 'done' && (
         <AbismosLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -150,6 +151,9 @@ export function AbismosCanvas() {
       <AbismosHUD />
       <DangerOverlay />
       <GameAchievementNotification />
+      <LandscapeGate
+        enabled={gamePhase !== 'completed' && gamePhase !== 'defeat' && gamePhase !== 'results'}
+      />
       {phase === 'done' && (gamePhase === 'freeMove' || gamePhase === 'crossing') && <MobileControls />}
 
       <CompletionOverlay

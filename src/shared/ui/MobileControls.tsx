@@ -63,36 +63,33 @@ function TouchButton({
 
   return (
     <button
+      aria-label={label}
       onPointerDown={onDown}
       onPointerUp={onUp}
       onPointerLeave={onLeave}
       onPointerCancel={onUp}
       style={{
-        width: 62,
-        height: 62,
-        borderRadius: 16,
+        width: 48,
+        height: 48,
+        borderRadius: 14,
         border: '2px solid rgba(255,255,255,0.25)',
         background: 'rgba(16,24,36,0.7)',
         backdropFilter: 'blur(8px)',
         color: '#fff',
-        fontSize: 12,
-        fontWeight: 800,
-        fontFamily: 'var(--font-baloo)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 2,
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
         cursor: 'pointer',
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         ...style,
       }}
     >
       {icon}
-      <span style={{ fontSize: 10, lineHeight: 1, opacity: 0.8 }}>{label}</span>
     </button>
   );
 }
@@ -150,24 +147,24 @@ export function MobileControls() {
         <div
           style={{
             position: 'relative',
-            width: 186,
-            height: 186,
+            width: 144,
+            height: 144,
           }}
         >
           {/* Arriba */}
-          <div style={{ position: 'absolute', top: 0, left: 62 }}>
+          <div style={{ position: 'absolute', top: 0, left: 48 }}>
             <TouchButton label="Adelante" action="forward" icon={<ArrowIcon rotation={0} />} />
           </div>
           {/* Abajo */}
-          <div style={{ position: 'absolute', bottom: 0, left: 62 }}>
+          <div style={{ position: 'absolute', bottom: 0, left: 48 }}>
             <TouchButton label="Atrás" action="backward" icon={<ArrowIcon rotation={180} />} />
           </div>
           {/* Izquierda */}
-          <div style={{ position: 'absolute', top: 62, left: 0 }}>
+          <div style={{ position: 'absolute', top: 48, left: 0 }}>
             <TouchButton label="Izquierda" action="left" icon={<ArrowIcon rotation={270} />} />
           </div>
           {/* Derecha */}
-          <div style={{ position: 'absolute', top: 62, right: 0 }}>
+          <div style={{ position: 'absolute', top: 48, right: 0 }}>
             <TouchButton label="Derecha" action="right" icon={<ArrowIcon rotation={90} />} />
           </div>
         </div>
@@ -190,10 +187,9 @@ export function MobileControls() {
             </svg>
           }
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: 20,
-            fontSize: 13,
+            width: 56,
+            height: 56,
+            borderRadius: 16,
           }}
         />
       </div>
