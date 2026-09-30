@@ -20,6 +20,7 @@ import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
+import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
@@ -139,6 +140,7 @@ export function TierrasCanvas() {
         style={{ width: '100%', height: '100%' }}
       >
         <color attach="background" args={['#0a1510']} />
+        <AdaptiveDpr baseMax={1} />
         <fog attach="fog" args={['#060e0a', 25, 160]} />
         <Suspense fallback={null}>
           <Scene onReady={handleReady} />

@@ -22,7 +22,7 @@ const TIERS: Record<QualityTier, GameQuality> = {
   },
   medium: {
     tier: 'medium',
-    dprMax: 2,
+    dprMax: 1.5,
     shadowMapMax: 1024,
     countRatio: 0.7,
     ambientStride: 1,
@@ -31,8 +31,8 @@ const TIERS: Record<QualityTier, GameQuality> = {
   },
   low: {
     tier: 'low',
-    dprMax: 2,
-    shadowMapMax: 1024,
+    dprMax: 1.5,
+    shadowMapMax: 512,
     countRatio: 0.5,
     ambientStride: 2,
     fullLights: false,

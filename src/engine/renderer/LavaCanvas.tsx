@@ -18,6 +18,7 @@ import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
+import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
 
 function Scene({ onReady }: { onReady: () => void }) {
@@ -140,6 +141,7 @@ export function LavaCanvas() {
         style={{ width: '100%', height: '100%' }}
       >
         <color attach="background" args={['#2A2A2E']} />
+        <AdaptiveDpr baseMax={1} />
         <fog attach="fog" args={['#3A3A3E', 30, 80]} />
         <Suspense fallback={null}>
           <Scene onReady={handleReady} />

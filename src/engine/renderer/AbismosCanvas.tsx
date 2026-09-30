@@ -20,6 +20,7 @@ import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
+import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -145,6 +146,7 @@ export function AbismosCanvas() {
       >
         <color attach="background" args={['#7BB3E0']} />
         <fog attach="fog" args={['#b0c8e0', 50, 220]} />
+        <AdaptiveDpr baseMax={1} />
         <Suspense fallback={null}>
           <Scene onReady={handleReady} onReachFinish={handleReachFinish} />
         </Suspense>

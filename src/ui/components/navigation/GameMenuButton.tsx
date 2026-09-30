@@ -1,9 +1,13 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Home, X, HelpCircle } from 'lucide-react';
+import { Menu, Home, X, HelpCircle, Gamepad2 } from 'lucide-react';
 import { HowToPlayModal } from './HowToPlayModal';
 import { ModeLogo, MODE_THEME } from '@/shared/lib/game-modes';
+import {
+  useTouchControlsPref,
+  cycleTouchControlsPref,
+} from '@/shared/hooks/useTouchControls';
 
 type PlayMode = 'lava' | 'decisiones' | 'tierras' | 'abismos';
 
@@ -29,11 +33,18 @@ function detectMode(): PlayMode {
   return 'lava';
 }
 
+const TOUCH_PREF_LABEL: Record<string, string> = {
+  auto: 'Auto',
+  on: 'Activados',
+  off: 'Desactivados',
+};
+
 export function GameMenuButton() {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [howToPlay, setHowToPlay] = useState(false);
   const [mode, setMode] = useState<PlayMode>('lava');
+  const touchPref = useTouchControlsPref();
 
   const handleOpenMenu = () => {
     setMode(detectMode());
@@ -81,6 +92,18 @@ export function GameMenuButton() {
                 className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
               >
                 <HelpCircle size={18} /> Como se juega
+              </button>
+
+              <button
+                onClick={cycleTouchControlsPref}
+                aria-label="Controles tactiles"
+                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+              >
+                <Gamepad2 size={18} />
+                <span>Controles táctiles</span>
+                <span className="ml-auto text-xs font-black uppercase tracking-wide text-edu-pink">
+                  {TOUCH_PREF_LABEL[touchPref]}
+                </span>
               </button>
 
               <button

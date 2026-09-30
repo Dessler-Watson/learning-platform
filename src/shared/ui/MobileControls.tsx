@@ -1,5 +1,9 @@
 'use client';
 import { useCallback, useEffect, useRef } from 'react';
+import {
+  useTouchControlsPref,
+  useAutoTouchControlsVisible,
+} from '@/shared/hooks/useTouchControls';
 
 const KEY_MAP: Record<string, string> = {
   forward: 'KeyW',
@@ -73,8 +77,7 @@ function TouchButton({
         height: 48,
         borderRadius: 14,
         border: '2px solid rgba(255,255,255,0.25)',
-        background: 'rgba(16,24,36,0.7)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(16,24,36,0.82)',
         color: '#fff',
         display: 'flex',
         flexDirection: 'column',
@@ -115,6 +118,9 @@ function ArrowIcon({ rotation }: { rotation: number }) {
 }
 
 export function MobileControls() {
+  const pref = useTouchControlsPref();
+  const autoVisible = useAutoTouchControlsVisible();
+
   useEffect(() => {
     const releaseAll = () => {
       Object.values(KEY_MAP).forEach((code) => dispatchKey(code, 'keyup'));
@@ -125,6 +131,9 @@ export function MobileControls() {
       releaseAll();
     };
   }, []);
+
+  const show = pref === 'on' || (pref === 'auto' && autoVisible);
+  if (!show) return null;
 
   return (
     <div

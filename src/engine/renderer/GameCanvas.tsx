@@ -20,6 +20,7 @@ import { LandscapeGate } from '@/shared/ui/LandscapeGate';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
 import { clampDpr } from '@/engine/quality';
+import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
@@ -73,6 +74,7 @@ export function GameCanvas() {
       <Canvas shadows dpr={[0.75, clampDpr(1.25)]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%' }}>
         <color attach="background" args={['#7EC8E3']} />
         <fog attach="fog" args={['#B3E5FC', 35, 140]} />
+        <AdaptiveDpr baseMax={1.25} />
         <Suspense fallback={null}><Scene onReady={handleReady} /></Suspense>
       </Canvas>
       <DecisionHUD />

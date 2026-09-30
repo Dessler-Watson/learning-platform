@@ -113,29 +113,6 @@ p, span, label, input, textarea, select,
 }
 
 /* ================================================
-   RESPONSIVE: Rumbo
-   ================================================ */
-
-/* --- Mobile Controls: ocultar en desktop --- */
-.mobile-controls {
-  display: none !important;
-}
-
-/* --- DecisionHUD responsive --- */
-@media (max-width: 1024px) {
-  .mobile-controls {
-    display: flex !important;
-  }
-}
-
-/* --- Question Panel responsive --- */
-@media (max-width: 768px) {
-  .mobile-controls {
-    display: flex !important;
-  }
-}
-
-/* ================================================
    GAME SCREENS: sin selección de texto al mantener
    presionado (teléfonos/tablets). Solo dentro de los
    contenedores de los 4 modos de juego (.game-screen).
