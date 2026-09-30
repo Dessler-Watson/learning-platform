@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { useShortScreen } from '@/shared/hooks/useShortScreen';
 import { Check, X } from 'lucide-react';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
@@ -63,6 +64,7 @@ export function TierrasHUD() {
   const score = useTierrasStore((s) => s.score);
   const countTick = useTierrasStore((s) => s.countTick);
   const isMobile = useIsMobile();
+  const isShort = useShortScreen();
 
   const isPractice = useRef(typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false).current;
   const animatedScore = useAnimatedNumber(score, countTick);
@@ -139,7 +141,7 @@ export function TierrasHUD() {
 
       {/* === QUESTION PANEL (bottom-right, dark glass-morphism) === */}
       <AnimatePresence>
-        {show && question && (
+        {show && question && !(isShort && showFeedback && feedbackStage === 'text') && (
           <motion.div
             key={qIndex}
             initial={{ y: 60, opacity: 0 }}

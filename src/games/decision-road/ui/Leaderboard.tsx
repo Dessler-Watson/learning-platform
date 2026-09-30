@@ -109,8 +109,6 @@ export function Leaderboard() {
     >
       <div style={{
         background: 'linear-gradient(160deg, rgba(25,38,60,0.88) 0%, rgba(36,59,85,0.82) 100%)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
         borderRadius: isMobile ? 16 : 22,
         padding: isMobile ? '10px 12px' : '14px 16px',
         minWidth: isMobile ? 140 : 185,

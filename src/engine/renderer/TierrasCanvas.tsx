@@ -18,6 +18,7 @@ import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { postGameRoute } from '@/lib/partida-client';
 
@@ -58,6 +59,7 @@ function DangerOverlay() {
 
 export function TierrasCanvas() {
   const [phase, setPhase] = useState<'loading' | 'completing' | 'done'>('loading');
+  useGameFullscreen();
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
   const tierrasPhase = useTierrasStore((s) => s.phase);

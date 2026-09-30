@@ -22,7 +22,7 @@ const TIERS: Record<QualityTier, GameQuality> = {
   },
   medium: {
     tier: 'medium',
-    dprMax: 1,
+    dprMax: 2,
     shadowMapMax: 1024,
     countRatio: 0.7,
     ambientStride: 1,
@@ -31,7 +31,7 @@ const TIERS: Record<QualityTier, GameQuality> = {
   },
   low: {
     tier: 'low',
-    dprMax: 0.9,
+    dprMax: 2,
     shadowMapMax: 1024,
     countRatio: 0.5,
     ambientStride: 2,
@@ -58,7 +58,11 @@ export function getGameQuality(): GameQuality {
 }
 
 export function clampDpr(baseMax: number): number {
-  return Math.min(baseMax, getGameQuality().dprMax);
+  const quality = getGameQuality();
+  if (quality.tier === 'high') return Math.min(baseMax, quality.dprMax);
+  const native =
+    typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  return Math.min(native, quality.dprMax);
 }
 
 export function clampShadowMap(base: number): number {

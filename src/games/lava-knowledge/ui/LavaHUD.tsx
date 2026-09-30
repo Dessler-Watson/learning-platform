@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLavaStore } from '@/stores/lava.store';
+import { useShortScreen } from '@/shared/hooks/useShortScreen';
 import { Check, X } from 'lucide-react';
 import { gameAudio } from '@/shared/lib/gameAudio';
 
@@ -92,6 +93,7 @@ export function LavaHUD() {
   const screen = useScreenSize();
   const isPhone = screen === 'phone';
   const isTablet = screen === 'tablet';
+  const isShort = useShortScreen();
 
   const isPractice = typeof window !== 'undefined' ? !!sessionStorage.getItem('eduplay_practice') : false;
   const animatedScore = useAnimatedNumber(score, countTick);
@@ -302,7 +304,7 @@ export function LavaHUD() {
 
       {/* === QUESTION CARD (top center) === */}
       <AnimatePresence>
-        {show && question && (
+        {show && question && !(isShort && showFeedback && feedbackStage === 'text') && (
           <motion.div
             key={qIndex}
             initial={{ x: '-50%', y: -70, opacity: 0 }}

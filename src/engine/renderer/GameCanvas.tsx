@@ -17,6 +17,7 @@ import { GameAchievementNotification } from '@/ui/components/GameAchievementNoti
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { Leaderboard } from '@/games/decision-road/ui/Leaderboard';
 import { clampDpr } from '@/engine/quality';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
@@ -47,6 +48,7 @@ function ReadyNotifier({ onReady }: { onReady: () => void }) {
 
 export function GameCanvas() {
   const [phase, setPhase] = useState<'loading' | 'completing' | 'done'>('loading');
+  useGameFullscreen();
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
   const gamePhase = useGameStore((s) => s.phase);

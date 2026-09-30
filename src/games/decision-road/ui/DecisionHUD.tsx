@@ -74,8 +74,6 @@ export function DecisionHUD() {
         <div style={{
           display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 18,
           background: 'linear-gradient(160deg, rgba(25,38,60,0.88) 0%, rgba(36,59,85,0.82) 100%)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
           borderRadius: 999,
           padding: isMobile ? '10px 16px 10px 14px' : '14px 28px 14px 22px',
           boxShadow: '0 12px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.06)',

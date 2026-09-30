@@ -42,7 +42,7 @@ export function QuestionPanel() {
     <AnimatePresence>
       {visible && question && (
         <motion.div
-          key={`${currentQuestionIndex}-${phase}`}
+          key={currentQuestionIndex}
           initial={{ y: -60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -60, opacity: 0 }}
@@ -87,8 +87,6 @@ export function QuestionPanel() {
             <div style={{
               position: 'relative',
               background: 'linear-gradient(160deg, rgba(15,25,50,0.94) 0%, rgba(10,18,35,0.96) 100%)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
               borderRadius: isMobile ? 18 : 26,
               padding: isMobile ? '18px 20px 16px' : '24px 36px 22px',
               border: '1px solid rgba(80,140,220,0.15)',

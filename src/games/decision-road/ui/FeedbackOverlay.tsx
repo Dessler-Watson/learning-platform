@@ -128,7 +128,6 @@ export function FeedbackOverlay() {
                     background: isCorrectFlow
                       ? 'radial-gradient(circle, rgba(46,158,79,0.35) 0%, rgba(46,158,79,0.1) 40%, transparent 70%)'
                       : 'radial-gradient(circle, rgba(233,73,48,0.4) 0%, rgba(233,73,48,0.12) 40%, transparent 70%)',
-                    filter: 'blur(8px)',
                   }}
                 />
 
@@ -161,10 +160,10 @@ export function FeedbackOverlay() {
 
                 {isCorrectFlow ? (
                   <motion.h1
-                    initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)' }}
+                    initial={{ scale: 0.05, opacity: 0 }}
                     animate={{
                       scale: stage === 'text' ? [0.05, 1.25, 0.95, 1.05, 1] : [1, 1.05, 1],
-                      opacity: 1, filter: 'blur(0px)',
+                      opacity: 1,
                     }}
                     transition={stage === 'text' ? { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' } : { duration: 0.3 }}
                     style={{
@@ -178,10 +177,10 @@ export function FeedbackOverlay() {
                   </motion.h1>
                 ) : (
                   <motion.h1
-                    initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)', x: 0 }}
+                    initial={{ scale: 0.05, opacity: 0, x: 0 }}
                     animate={{
                       scale: stage === 'text' ? [0.05, 1.25, 0.95, 1.05, 1] : [1, 1.05, 1],
-                      opacity: 1, filter: 'blur(0px)',
+                      opacity: 1,
                       x: stage === 'text' ? [0, -10, 10, -7, 7, -4, 4, 0] : 0,
                     }}
                     transition={stage === 'text' ? { scale: { duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }, x: { duration: 0.5 } } : { duration: 0.3 }}
@@ -210,8 +209,6 @@ export function FeedbackOverlay() {
                     position: 'absolute', zIndex: 23, left: '50%', top: '62%',
                     transform: 'translateX(-50%)',
                     background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 100%)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
                     border: '1.5px solid rgba(76,175,80,0.35)',
                     borderRadius: 20,
                     padding: isMobile ? '12px 18px' : '16px 26px',
