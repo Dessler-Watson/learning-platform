@@ -22,6 +22,48 @@ export function CameraController() {
     return () => { canvas.removeEventListener('mousemove', onMouseMove); canvas.removeEventListener('wheel', onWheel); };
   }, [gl]);
 
+  // Moviles/tablets: arrastre de un dedo sobre el canvas para orbitar la camara.
+  useEffect(() => {
+    if (!isTouchDevice.current) return;
+    const canvas = gl.domElement;
+    const prevTouchAction = canvas.style.touchAction;
+    canvas.style.touchAction = 'none';
+    let activeId: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || activeId !== null || e.target !== canvas) return;
+      activeId = e.pointerId;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (activeId !== e.pointerId) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      const s = state.current;
+      const speed = CAMERA.lookSpeed * 1.5;
+      s.theta -= dx * speed;
+      s.phi = clamp(s.phi - dy * speed, CAMERA.minPhi, CAMERA.maxPhi);
+    };
+    const onPointerEnd = (e: PointerEvent) => {
+      if (activeId === e.pointerId) activeId = null;
+    };
+    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerEnd);
+    window.addEventListener('pointercancel', onPointerEnd);
+    return () => {
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerEnd);
+      window.removeEventListener('pointercancel', onPointerEnd);
+      canvas.style.touchAction = prevTouchAction;
+    };
+  }, [gl]);
+
   useFrame((_, delta) => {
     const rb = characterRigidBody.current; if (!rb) return;
     const pos = rb.translation(); const s = state.current; const dt = Math.min(delta, 0.05);

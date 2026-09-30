@@ -251,7 +251,7 @@ El Funnel hace proxy **unicamente** al servidor Next.js local (`127.0.0.1:3000`)
 
 | Script | Funcion |
 |---|---|
-| `scripts/eduplay_up.ps1` | Enciende EduPlay en background, sin terminal abierta. Detecta automaticamente el comando (`package.json` -> `scripts.dev`) y el puerto (proceso en ejecucion -> flag `-p` -> `$env:PORT` -> 3000). |
+| `scripts/eduplay_up.ps1` | Enciende EduPlay en background, sin terminal abierta. Detecta automaticamente el comando (`package.json` -> `scripts.dev`) y el puerto (proceso en ejecucion -> flag `-p` -> `$env:PORT` -> 3000). Con `-Prod` construye y sirve `npm run start` (produccion: carga mucho mas rapida en el movil); `-Rebuild` fuerza el build. |
 | `scripts/eduplay_down.ps1` | Apaga el servidor EduPlay. |
 | `scripts/funnel_up.ps1` | Activa el Funnel en background hacia `127.0.0.1:<puerto detectado>` y muestra la URL publica. Idempotente (si ya esta activo, solo muestra la URL). |
 | `scripts/funnel_down.ps1` | Apaga el Funnel: la URL publica deja de responder. |
@@ -268,9 +268,11 @@ powershell -ExecutionPolicy Bypass -File scripts\<script>.ps1
 **Encender (para compartir):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\eduplay_up.ps1
+powershell -ExecutionPolicy Bypass -File scripts\eduplay_up.ps1 -Prod
 powershell -ExecutionPolicy Bypass -File scripts\funnel_up.ps1
 ```
+
+> **`-Prod` es lo recomendado al compartir.** En desarrollo (`next dev`) Next.js compila cada pagina bajo demanda sin cache, lo que se siente lento en el telefono. Con `-Prod` se sirve el build de produccion (se construye solo si el codigo cambio desde el ultimo build; usa `-Rebuild` para forzarlo). Sin `-Prod` queda el modo desarrollo con HMR, util solo al estar programando.
 
 **Apagar:**
 
@@ -281,7 +283,7 @@ powershell -ExecutionPolicy Bypass -File scripts\eduplay_down.ps1  # apaga EduPl
 
 Tambien se pueden combinar: con el Funnel encendido y EduPlay apagado, la URL responde **502**; al re-encender EduPlay vuelve el **200** con la **misma URL**.
 
-**Apagar la PC / reiniciar:** el servicio de Tailscale arranca con Windows y la configuracion del Funnel persiste en disco; al prender de nuevo solo hace falta `eduplay_up.ps1`. La URL **no cambia** nunca (deriva del nombre del nodo + sufijo MagicDNS del tailnet).
+**Apagar la PC / reiniciar:** el servicio de Tailscale arranca con Windows y la configuracion del Funnel persiste en disco; al prender de nuevo solo hace falta `eduplay_up.ps1 -Prod`. La URL **no cambia** nunca (deriva del nombre del nodo + sufijo MagicDNS del tailnet).
 
 ### Verificaciones hechas
 

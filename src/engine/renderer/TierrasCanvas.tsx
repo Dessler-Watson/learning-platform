@@ -123,7 +123,7 @@ export function TierrasCanvas() {
   }, []);
 
   return (
-    <div className="game-screen" style={{ width: '100vw', height: '100dvh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100dvh', position: 'relative', backgroundColor: '#0a1510' }}>
       {phase !== 'done' && (
         <TierrasLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -137,7 +137,7 @@ export function TierrasCanvas() {
           toneMappingExposure: 1.2,
         }}
         camera={{ fov: 55, near: 0.2, far: 300 }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', backgroundColor: '#0a1510' }}
       >
         <color attach="background" args={['#0a1510']} />
         <AdaptiveDpr baseMax={1} />

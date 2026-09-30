@@ -139,27 +139,29 @@ function MesaPeak({ position, isFinish }: { position: [number, number, number]; 
     return spots;
   }, [seed]);
 
-  const topSafeR = CFG.startPlatformWidth / 2 - 0.35;
-
+  // Nota: los colliders de las capas altas usan el mismo radio que el mesh
+  // (x0.96). Antes se capaban en `startPlatformWidth/2 - 0.35`, lo que dejaba
+  // un hombro visible sin colisión: el jugador se caía por él, aterrizaba en
+  // la cara interna invisible de la capa inferior y podía caminar DENTRO de la
+  // montaña. Con colliders = mesh el hueco entre plataforma (±3.25) y roca
+  // (±3.07) queda por debajo del diámetro de la cápsula (0.4): no hay paso.
   const mesaLayers = useMemo(() => {
     const layers: {
-      y: number; h: number; rTop: number; rBot: number; maxR?: number;
+      y: number; h: number; rTop: number; rBot: number;
     }[] = [
       { y: -26, h: 12, rTop: 14.5, rBot: 19.5 },
       { y: -17, h: 8, rTop: 11, rBot: 14.5 },
       { y: -10, h: 7, rTop: 8, rBot: 11 },
       { y: -4.5, h: 5, rTop: 5.5, rBot: 8 },
-      { y: -0.8, h: 3.5, rTop: 3.8, rBot: 5.5, maxR: topSafeR },
-      { y: 0.85, h: 1.7, rTop: 3.15, rBot: 3.5, maxR: topSafeR },
+      { y: -0.8, h: 3.5, rTop: 3.8, rBot: 5.5 },
+      { y: 0.85, h: 1.7, rTop: 3.15, rBot: 3.5 },
     ];
     const slices: { y: number; halfH: number; r: number }[] = [];
     const steps = 4;
     for (const layer of layers) {
       for (let i = 0; i < steps; i++) {
         const t = (i + 0.5) / steps;
-        let r = layer.rBot + (layer.rTop - layer.rBot) * t;
-        if (layer.maxR !== undefined) r = Math.min(r, layer.maxR);
-        r *= 0.96;
+        const r = (layer.rBot + (layer.rTop - layer.rBot) * t) * 0.96;
         slices.push({
           y: layer.y - layer.h / 2 + t * layer.h,
           halfH: layer.h / (2 * steps) + 0.02,
@@ -168,7 +170,7 @@ function MesaPeak({ position, isFinish }: { position: [number, number, number]; 
       }
     }
     return slices;
-  }, [topSafeR]);
+  }, []);
 
   return (
     <group position={position}>

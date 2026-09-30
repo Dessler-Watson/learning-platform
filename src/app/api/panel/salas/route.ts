@@ -375,6 +375,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === 'bulk_delete') {
+      const rawIds = body.ids;
+      if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 200) {
+        return NextResponse.json({ error: 'ids debe ser un arreglo de 1 a 200 elementos' }, { status: 400 });
+      }
+      const ids = rawIds.map((v: unknown) => String(v));
+      if (ids.some((id: string) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) {
+        return NextResponse.json({ error: 'ids inválidos' }, { status: 400 });
+      }
+      const rows = await query<{ id: string; teacher_id: string; status: string }>(
+        `SELECT id, teacher_id, status::text AS status FROM rooms
+         WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+        [ids]
+      );
+      const elegibles = rows
+        .filter((r) => (session.role === 'admin' || r.teacher_id === session.id) && r.status !== 'in_progress')
+        .map((r) => r.id);
+      let deleted = 0;
+      if (elegibles.length > 0) {
+        const res = await query<{ id: string }>(
+          `UPDATE rooms SET deleted_at = now() WHERE id = ANY($1::uuid[]) RETURNING id`,
+          [elegibles]
+        );
+        deleted = res.length;
+      }
+      return NextResponse.json({ ok: true, deleted, skipped: ids.length - deleted });
+    }
+
     if (action === 'poll') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
@@ -545,9 +573,11 @@ export async function POST(req: NextRequest) {
         position: number;
         avatar_id: number | null;
       }>(
-        `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position, u.avatar_id
+        `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position,
+                a.sort_order AS avatar_id
          FROM v_match_ranking r
          LEFT JOIN users u ON u.id = r.user_id
+         LEFT JOIN avatars a ON a.id = u.avatar_id
          WHERE r.match_id = $1
          ORDER BY r.position ASC, r.score DESC, r.display_name ASC`,
         [match.id]

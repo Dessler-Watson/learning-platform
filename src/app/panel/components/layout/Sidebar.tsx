@@ -89,13 +89,14 @@ export function Sidebar() {
         <img src="/images/logo.png" alt="Logo" className="h-9 w-auto object-contain" draggable={false} />
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-4">
+      <nav className="sidebar-nav min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-4">
         {allNavItems.map((item) => {
           const active = isActive(item.href);
           return (
             <button
               key={item.href}
               onClick={() => { if (!clickLock()) return; handleNavClick(item.href); }}
+              aria-current={active ? 'page' : undefined}
               className={cn(
                 'group relative flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all duration-200',
                 active
@@ -137,8 +138,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="flex-1" />
 
       <div className="border-t border-gray-100/60 p-3 space-y-1">
         <button

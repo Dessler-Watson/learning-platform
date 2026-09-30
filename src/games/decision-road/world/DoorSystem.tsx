@@ -16,6 +16,20 @@ const START_Z = 12;
 const RADIUS = 0.4;
 const BACK_WALL_OFFSET = 3;
 
+// Fuente clara y gruesa (la misma que usa la UI) empaquetada localmente:
+// evita que el CDN de fallback de troika quede bloqueado y deje la tipografía
+// por defecto en fina/difícil de leer.
+const DOOR_FONT = '/fonts/Baloo2-Bold.ttf';
+
+// Auto-escala del texto de la respuesta: cuanto más larga, más pequeño, para
+// que respuestas largas quepan en el panel sin perder legibilidad.
+function answerFontSize(text: string): number {
+  if (text.length <= 16) return 0.55;
+  if (text.length <= 34) return 0.45;
+  if (text.length <= 64) return 0.36;
+  return 0.3;
+}
+
 export function DoorSystem() {
   const phase = useGameStore((s) => s.phase);
   const currentIndex = useGameStore((s) => s.currentQuestionIndex);
@@ -121,6 +135,7 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
   const isActive = state === 'active';
   const isDone = state === 'done';
   const showContent = isActive || isDone;
+  const answerText = isDone ? '\u2714 COMPLETADO' : option.toUpperCase();
 
   return (
     <group position={[xOff, 0, 0]}>
@@ -167,7 +182,7 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
       )}
 
       {showContent && (
-        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" fontWeight="900" outlineColor="#000000" outlineWidth={0.06} letterSpacing={0.05}>
+        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" font={DOOR_FONT} outlineColor="#000000" outlineWidth={0.06} letterSpacing={0.05}>
           {side}
         </Text>
       )}
@@ -175,19 +190,19 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
       {showContent && (
         <Text
           position={[0, -0.3, 0.1]}
-          fontSize={isDone ? 0.24 : 0.3}
-          maxWidth={PW - 1.2}
+          font={DOOR_FONT}
+          fontSize={isDone ? 0.42 : answerFontSize(answerText)}
+          maxWidth={PW - 0.9}
           color="#ffffff"
           anchorX="center"
           anchorY="middle"
           textAlign="center"
-          fontWeight="800"
           outlineColor="#000000"
-          outlineWidth={0.035}
+          outlineWidth={0.05}
           letterSpacing={0.03}
-          lineHeight={1.2}
+          lineHeight={1.15}
         >
-          {isDone ? '\u2714 COMPLETADO' : option.toUpperCase()}
+          {answerText}
         </Text>
       )}
 

@@ -14,12 +14,16 @@ export const AVATARES = [
   { id_avatar: 13, nombre: 'pantano', imagen: 'pantano.png' },
 ] as const;
 
-export function avatarImagen(id: number): string {
+export function avatarImagen(id: number | string | null | undefined): string {
   const n = AVATARES.length;
-  const idx = ((id - 1) % n + n) % n;
+  const num = typeof id === 'string' ? Number(id) : id;
+  if (num === null || num === undefined || !Number.isFinite(num) || num < 1) {
+    return AVATARES[0].imagen;
+  }
+  const idx = (((num - 1) % n) + n) % n;
   return AVATARES[idx].imagen;
 }
 
-export function avatarUrl(id: number): string {
+export function avatarUrl(id: number | string | null | undefined): string {
   return `/images/avatares/${avatarImagen(id)}`;
 }

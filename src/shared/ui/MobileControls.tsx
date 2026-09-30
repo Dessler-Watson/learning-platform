@@ -140,7 +140,7 @@ export function MobileControls() {
       className="mobile-controls"
       style={{
         position: 'absolute',
-        bottom: 80,
+        bottom: 40,
         left: 0,
         right: 0,
         zIndex: 55,

@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 const MAX_NAME = 120;
 const MAX_DESC = 500;
 const MAX_PREGUNTAS_PASTE = 30;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MODE_ALIASES: Record<string, string> = {
   'juego-1': 'decisiones',
@@ -180,11 +181,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ curso: await mapCourse(course), preguntas: questions });
     }
 
-    // Opt-in: con q/page/limit se responde el envelope paginado (sin parametros, el legacy)
+    // Opt-in: con q/page/limit/mode se responde el envelope paginado (sin parametros, el legacy)
     const q = (searchParams.get('q') ?? '').trim().slice(0, 100);
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
-    if (pageParam !== null || limitParam !== null || q) {
+    const modeParam = searchParams.get('mode');
+    if (pageParam !== null || limitParam !== null || q || modeParam !== null) {
       const page = pageParam === null || pageParam === '' ? 1 : Number(pageParam);
       const limit = limitParam === null || limitParam === '' ? 15 : Number(limitParam);
       if (!Number.isInteger(page) || page < 1) {
@@ -196,10 +198,21 @@ export async function GET(req: NextRequest) {
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
         return NextResponse.json({ error: 'limit debe ser un entero entre 1 y 100' }, { status: 400 });
       }
+      let mode: string | null = null;
+      if (modeParam !== null && modeParam !== '') {
+        mode = normalizeModeCode(modeParam);
+        if (!mode) {
+          return NextResponse.json(
+            { error: 'mode no válido. Usa decisiones, lava, tierras o abismos' },
+            { status: 400 }
+          );
+        }
+      }
       const result = await listCoursesPage(
         {
           teacherId: session.role === 'admin' ? undefined : session.id,
           search: q || undefined,
+          mode: mode ?? undefined,
         },
         { page, limit }
       );
@@ -210,6 +223,7 @@ export async function GET(req: NextRequest) {
         limit: result.limit,
         total: result.total,
         totalPages: result.totalPages,
+        totalPreguntas: result.totalPreguntas,
       });
     }
 
@@ -348,6 +362,55 @@ export async function POST(req: NextRequest) {
         client.release();
       }
       return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'bulk_delete') {
+      const rawIds = body.ids;
+      if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 200) {
+        return NextResponse.json({ error: 'ids debe ser un arreglo de 1 a 200 elementos' }, { status: 400 });
+      }
+      const ids = rawIds.map((v: unknown) => String(v));
+      if (ids.some((id) => !UUID_RE.test(id))) {
+        return NextResponse.json({ error: 'ids inválidos' }, { status: 400 });
+      }
+      const rows = await query<{ id: string; teacher_id: string }>(
+        `SELECT id, teacher_id FROM courses WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+        [ids]
+      );
+      const elegibles = rows
+        .filter((r) => session.role === 'admin' || r.teacher_id === session.id)
+        .map((r) => r.id);
+      let deleted = 0;
+      if (elegibles.length > 0) {
+        const client = await getPool().connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(
+            `UPDATE questions SET deleted_at = now() WHERE course_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+            [elegibles]
+          );
+          const upd = await client.query<{ id: string }>(
+            `UPDATE courses SET deleted_at = now() WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL RETURNING id`,
+            [elegibles]
+          );
+          deleted = upd.rowCount ?? upd.rows.length;
+          if (deleted > 0) {
+            await client.query(
+              `INSERT INTO audit_events (actor_id, entity_type, entity_id, action, metadata)
+               SELECT $1, 'course', id, 'deleted', jsonb_build_object('bulk', true)
+               FROM unnest($2::uuid[]) AS id`,
+              [session.id, elegibles]
+            );
+          }
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK').catch(() => undefined);
+          throw err;
+        } finally {
+          client.release();
+        }
+      }
+      return NextResponse.json({ ok: true, deleted, skipped: ids.length - deleted });
     }
 
     if (action === 'copy') {

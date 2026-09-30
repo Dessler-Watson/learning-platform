@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles, ArrowLeft, Book, HelpCircle } from 'lucide-react';
@@ -15,6 +15,7 @@ import { ConfirmDialog } from '../../../ui/confirm-dialog';
 import { PageHeader } from '../../../components/shared/PageHeader';
 import { SearchBar } from '../../../components/shared/SearchBar';
 import { EmptyState } from '../../../components/shared/EmptyState';
+import { Pagination } from '../../../components/shared/Pagination';
 
 import { BackButton } from '../../../components/shared/BackButton';
 import { ModeLogo } from '@/shared/lib/game-modes';
@@ -55,6 +56,14 @@ export default function CursosPorJuegoPage() {
   const [juego, setJuego] = useState<Juego | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPreguntasStat, setTotalPreguntasStat] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [showEliminarMuchosDialog, setShowEliminarMuchosDialog] = useState(false);
+  const reqRef = useRef(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
@@ -72,23 +81,87 @@ export default function CursosPorJuegoPage() {
 
   const [nombreError, setNombreError] = useState('');
 
+  const cargar = useCallback(
+    async (page: number, q: string) => {
+      const id = ++reqRef.current;
+      setBusy(true);
+      try {
+        const data = await cursosService.listar({ q: q.trim(), mode: gameModeId, page, limit: 15 });
+        if (id !== reqRef.current) return;
+        setCursos(data.cursos);
+        setPagina(data.page);
+        setTotalPaginas(data.totalPages);
+        setTotal(data.total);
+        setTotalPreguntasStat(data.totalPreguntas);
+        setLoading(false);
+      } catch {
+        if (id === reqRef.current) setLoading(false);
+      } finally {
+        if (id === reqRef.current) setBusy(false);
+      }
+    },
+    [gameModeId]
+  );
+
   useEffect(() => {
     if (!teacherId) return;
-    Promise.all([
-      cursosService.obtenerPorGameMode(teacherId, gameModeId),
-      juegosService.obtenerPorId(gameModeId),
-    ]).then(([c, j]) => {
-      setCursos(c);
-      setJuego(j ?? null);
-      setLoading(false);
-    });
-  }, [teacherId, gameModeId]);
+    void cargar(1, '');
+    void juegosService.obtenerPorId(gameModeId).then((j) => setJuego(j ?? null));
+  }, [teacherId, gameModeId, cargar]);
 
-  const filtered = cursos.filter(
-    (c) =>
-      c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      c.descripcion.toLowerCase().includes(search.toLowerCase())
-  );
+  // Busqueda en servidor con debounce (siempre pagina 1)
+  const searchDebounceRef = useRef(false);
+  useEffect(() => {
+    if (!searchDebounceRef.current) {
+      searchDebounceRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSeleccion([]);
+      void cargar(1, search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, cargar]);
+
+  const handlePage = (page: number) => {
+    if (page < 1 || page > totalPaginas || page === pagina || busy) return;
+    audioManager.play('click');
+    void cargar(page, search);
+  };
+
+  const todosEnPagina = cursos.length > 0 && cursos.every((c) => seleccion.includes(c.id));
+
+  const toggleTodos = () => {
+    const idsPagina = cursos.map((c) => c.id);
+    setSeleccion((prev) => {
+      if (idsPagina.length > 0 && idsPagina.every((id) => prev.includes(id))) {
+        return prev.filter((id) => !idsPagina.includes(id));
+      }
+      return Array.from(new Set([...prev, ...idsPagina]));
+    });
+  };
+
+  const toggleUno = (id: string) => {
+    setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const confirmarEliminarMuchos = async () => {
+    if (seleccion.length === 0) return;
+    setBusy(true);
+    const result = await cursosService.eliminarMuchos([...seleccion]);
+    setBusy(false);
+    setShowEliminarMuchosDialog(false);
+    if (result.success) {
+      toast(
+        `${result.deleted} curso${result.deleted === 1 ? '' : 's'} eliminado${result.deleted === 1 ? '' : 's'}`,
+        'success'
+      );
+      setSeleccion([]);
+      await cargar(pagina, search);
+    } else {
+      toast(result.error || 'Error al eliminar', 'error');
+    }
+  };
 
   const openCreate = () => {
     setEditingCurso(null);
@@ -132,8 +205,7 @@ export default function CursosPorJuegoPage() {
     }
     audioManager.play('success');
     setFormOpen(false);
-    const updated = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
-    setCursos(updated);
+    await cargar(pagina, search);
   };
 
   const handleDelete = async () => {
@@ -143,8 +215,8 @@ export default function CursosPorJuegoPage() {
     toast('Curso eliminado.');
     setDeleteOpen(false);
     setDeleteTarget(null);
-    const updated = await cursosService.obtenerPorGameMode(teacherId!, gameModeId);
-    setCursos(updated);
+    setSeleccion((prev) => prev.filter((x) => x !== deleteTarget.id));
+    await cargar(pagina, search);
   };
 
   const handleCopiar = async (cursoId: string) => {
@@ -177,8 +249,7 @@ export default function CursosPorJuegoPage() {
     setPasteOpen(false);
     toast('Curso pegado correctamente.');
     audioManager.play('success');
-    const updated = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
-    setCursos(updated);
+    await cargar(pagina, search);
   };
 
   const handleAiQuestionsGenerated = async (generated: GeneratedQuestion[], courseName: string) => {
@@ -206,8 +277,7 @@ export default function CursosPorJuegoPage() {
 
     toast(`Curso generado correctamente. Se agregaron ${Math.min(generated.length, MAX_PREGUNTAS_POR_CURSO)} preguntas.`);
     audioManager.play('success');
-    const refreshed = await cursosService.obtenerPorGameMode(teacherId, gameModeId);
-    setCursos(refreshed);
+    await cargar(pagina, search);
   };
 
   if (loading) {
@@ -218,8 +288,8 @@ export default function CursosPorJuegoPage() {
     );
   }
 
-  const totalCursos = cursos.length;
-  const totalPreguntas = cursos.reduce((sum, c) => sum + c.totalPreguntas, 0);
+  const totalCursos = total;
+  const totalPreguntas = totalPreguntasStat;
 
   return (
     <div className="relative z-10">
@@ -297,7 +367,33 @@ export default function CursosPorJuegoPage() {
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar cursos..." />
         </motion.div>
 
-        {filtered.length === 0 ? (
+        {seleccion.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 shadow-sm"
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-600">
+              <Trash2 className="h-4 w-4" />
+              {seleccion.length} curso{seleccion.length === 1 ? '' : 's'} seleccionado{seleccion.length === 1 ? '' : 's'}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+                Limpiar
+              </Button>
+              <Button
+                size="sm"
+                className="bg-rose-500 text-white hover:bg-rose-600"
+                onClick={() => { audioManager.play('delete'); setShowEliminarMuchosDialog(true); }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Eliminar seleccionados
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {cursos.length === 0 ? (
           <motion.div variants={it}>
             <EmptyState
               iconComponent={BookOpen}
@@ -309,7 +405,7 @@ export default function CursosPorJuegoPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
-              {filtered.map((curso) => {
+              {cursos.map((curso) => {
                 return (
                   <motion.div
                     key={curso.id}
@@ -318,11 +414,22 @@ export default function CursosPorJuegoPage() {
                     exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                     whileHover={{ y: -3, scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="group relative rounded-3xl border border-[#EB5D70]/20 bg-gradient-to-br from-white via-[#EB5D70]/5 to-white p-5 shadow-sm transition-all hover:shadow-glow-pink hover:border-[#EB5D70]/40"
+                    className={`group relative rounded-3xl border border-[#EB5D70]/20 bg-gradient-to-br from-white via-[#EB5D70]/5 to-white p-5 shadow-sm transition-all hover:shadow-glow-pink hover:border-[#EB5D70]/40 ${
+                      seleccion.includes(curso.id) ? 'ring-2 ring-[#EB5D70]/50' : ''
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
-                        <BookOpen className="h-5 w-5 text-gray-400" />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={seleccion.includes(curso.id)}
+                          onChange={() => toggleUno(curso.id)}
+                          aria-label={`Seleccionar ${curso.nombre}`}
+                          className="h-4 w-4 rounded border-gray-300 accent-[#EB5D70] cursor-pointer"
+                        />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50">
+                          <BookOpen className="h-5 w-5 text-gray-400" />
+                        </div>
                       </div>
                       <div className="relative">
                         <button
@@ -375,6 +482,14 @@ export default function CursosPorJuegoPage() {
             </AnimatePresence>
           </div>
         )}
+
+        <div className="flex items-center justify-between text-xs font-semibold text-gray-400">
+          <span>{total} curso{total === 1 ? '' : 's'} en total</span>
+          <span>Mostrando {cursos.length} en esta pagina</span>
+        </div>
+        <div className="flex justify-center">
+          <Pagination page={pagina} totalPages={totalPaginas} disabled={busy} onPage={handlePage} />
+        </div>
       </motion.div>
 
       {/* Create/Edit Dialog */}
@@ -435,6 +550,18 @@ export default function CursosPorJuegoPage() {
         description={`¿Estas seguro de que deseas eliminar "${deleteTarget?.nombre}" y todas sus preguntas? Esta accion no se puede deshacer.`}
         confirmLabel="Eliminar"
         onConfirm={handleDelete}
+      />
+
+      {/* Bulk Delete Confirm */}
+      <ConfirmDialog
+        open={showEliminarMuchosDialog}
+        onOpenChange={setShowEliminarMuchosDialog}
+        title="Eliminar cursos seleccionados"
+        description={`¿Estas seguro de que deseas eliminar ${seleccion.length} curso${seleccion.length === 1 ? '' : 's'} y todas sus preguntas? Esta accion no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        onConfirm={confirmarEliminarMuchos}
       />
 
       {/* Paste Dialog */}

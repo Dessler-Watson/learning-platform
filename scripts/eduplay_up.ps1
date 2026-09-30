@@ -1,6 +1,9 @@
 # eduplay_up.ps1 - Enciende EduPlay (Next.js) en background, sin terminal abierta.
 # Detecta automaticamente el comando (package.json -> scripts.dev) y el puerto.
-param([int]$Port = 0)
+# Por defecto arranca en desarrollo (HMR). Con -Prod construye y sirve
+# `npm run start` (produccion): carga mucho mas rapida en el movil y es lo
+# recomendado para compartir via Tailscale Funnel.
+param([int]$Port = 0, [switch]$Prod, [switch]$Rebuild)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'eduplay_detect.ps1')
 $root = Get-EduplayRoot
@@ -17,6 +20,38 @@ if (-not $portExplicit) { $Port = Get-EduplayPort }
 
 $npmArgs = 'run dev'
 if ($portExplicit) { $npmArgs += " -- -p $Port" }
+
+if ($Prod) {
+    # Produccion: asegurar build fresco (BUILD_ID ausente o codigo mas reciente).
+    $buildId = Join-Path $root '.next\BUILD_ID'
+    $needsBuild = $true
+    if (-not $Rebuild -and (Test-Path $buildId)) {
+        $needsBuild = $false
+        $buildTime = (Get-Item $buildId).LastWriteTimeUtc
+        foreach ($name in @('package.json', 'next.config.js', 'next.config.mjs', 'next.config.ts', 'tsconfig.json')) {
+            $f = Join-Path $root $name
+            if ((Test-Path $f) -and ((Get-Item $f).LastWriteTimeUtc -gt $buildTime)) { $needsBuild = $true; break }
+        }
+        if (-not $needsBuild) {
+            $srcFiles = Get-ChildItem -Path (Join-Path $root 'src') -Recurse -File -ErrorAction SilentlyContinue
+            foreach ($f in $srcFiles) {
+                if ($f.LastWriteTimeUtc -gt $buildTime) { $needsBuild = $true; break }
+            }
+        }
+    }
+    if ($needsBuild) {
+        Write-Host 'Build de produccion: BUILD_ID ausente, -Rebuild o codigo mas reciente...'
+        npm run build
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host 'ERROR: npm run build fallo. Revisa los errores arriba.'
+            exit 1
+        }
+    } else {
+        Write-Host 'Build de produccion al dia (.next/BUILD_ID).'
+    }
+    $npmArgs = "run start -- -p $Port"
+}
+
 Write-Host "Comando: npm $npmArgs  (script dev: $devCmd)"
 Write-Host "Puerto:  $Port"
 
@@ -36,6 +71,8 @@ foreach ($i in 1..60) {
 
 if ($ok) {
     Write-Host "EduPlay listo: http://localhost:$Port"
+    if ($Prod) { Write-Host 'Modo: PRODUCCION (recomendado para compartir desde el movil)' }
+    else { Write-Host 'Modo: desarrollo (HMR)' }
     Write-Host "Logs: dev_server.log / dev_server.err.log"
     Write-Host "Para apagar: powershell -ExecutionPolicy Bypass -File scripts\eduplay_down.ps1"
     exit 0

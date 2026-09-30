@@ -113,7 +113,7 @@ export function LavaCanvas() {
   }, []);
 
   return (
-    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative', backgroundColor: '#2A2A2E' }}>
       {phase !== 'done' && (
         <LavaLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
@@ -138,7 +138,7 @@ export function LavaCanvas() {
           toneMappingExposure: 1.5,
         }}
         camera={{ fov: 55, near: 0.2, far: 200 }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', backgroundColor: '#2A2A2E' }}
       >
         <color attach="background" args={['#2A2A2E']} />
         <AdaptiveDpr baseMax={1} />

@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Home, X, HelpCircle, Gamepad2 } from 'lucide-react';
+import { Menu, Home, X, HelpCircle, Gamepad2, Maximize, Minimize } from 'lucide-react';
 import { HowToPlayModal } from './HowToPlayModal';
 import { ModeLogo, MODE_THEME } from '@/shared/lib/game-modes';
+import { useFullscreen } from '@/shared/hooks/useFullscreen';
 import {
   useTouchControlsPref,
   cycleTouchControlsPref,
@@ -45,6 +46,75 @@ export function GameMenuButton() {
   const [howToPlay, setHowToPlay] = useState(false);
   const [mode, setMode] = useState<PlayMode>('lava');
   const touchPref = useTouchControlsPref();
+  const {
+    active: fsActive,
+    enter: fsEnter,
+    exit: fsExit,
+    supported: fsSupported,
+  } = useFullscreen();
+
+  // Tirador ("crowbar") para desplazar el menu cuando no cabe en pantallas
+  // horizontales cortas: barra arrastrable con el dedo/raton.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ y: number; scroll: number } | null>(null);
+  const [handle, setHandle] = useState({ visible: false, top: 0, height: 48 });
+
+  useEffect(() => {
+    if (!open) {
+      dragRef.current = null;
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      if (maxScroll <= 4) {
+        setHandle({ visible: false, top: 0, height: 48 });
+        return;
+      }
+      const trackH = el.clientHeight;
+      const height = Math.max(32, Math.round((el.clientHeight / el.scrollHeight) * trackH));
+      const top = Math.round((el.scrollTop / maxScroll) * (trackH - height));
+      setHandle({ visible: true, top, height });
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [open]);
+
+  const onHandleDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    e.preventDefault();
+    // setPointerCapture puede fallar (p.ej. tras emulacion de toque); el
+    // arrastre sigue funcionando mientras el cursor se mantenga sobre la barra.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    dragRef.current = { y: e.clientY, scroll: el.scrollTop };
+  };
+  const onHandleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    const el = scrollRef.current;
+    if (!d || !el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    const maxTop = Math.max(1, el.clientHeight - handle.height);
+    const next = d.scroll + ((e.clientY - d.y) / maxTop) * maxScroll;
+    el.scrollTop = Math.min(maxScroll, Math.max(0, next));
+  };
+  const onHandleUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+  };
 
   const handleOpenMenu = () => {
     setMode(detectMode());
@@ -78,40 +148,82 @@ export function GameMenuButton() {
               animate={{ x: 0 }}
               exit={{ x: 280 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="fixed bottom-0 right-0 top-0 z-[100] flex w-64 flex-col gap-3 border-l border-white/5 bg-surface-900/95 p-5 pt-16 backdrop-blur-xl"
+              className="fixed bottom-0 right-0 top-0 z-[100] flex w-64 flex-col overflow-hidden border-l border-white/5 bg-surface-900/95 p-5 pt-16 backdrop-blur-xl"
             >
-              <div className="mb-2 flex flex-col items-center gap-2 pb-3 border-b border-white/10">
-                <ModeLogo mode={mode} size={72} shape="square" imgScale={1} />
-                <span className="text-sm font-black text-white">
-                  {MODE_THEME[mode].label}
-                </span>
+              <div
+                ref={scrollRef}
+                className="flex h-full flex-col gap-3 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:hidden"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                <div className="mb-2 flex shrink-0 flex-col items-center gap-2 border-b border-white/10 pb-3">
+                  <ModeLogo mode={mode} size={72} shape="square" imgScale={1} />
+                  <span className="text-sm font-black text-white">
+                    {MODE_THEME[mode].label}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => { setOpen(false); setHowToPlay(true); }}
+                  className="flex w-full shrink-0 items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  <HelpCircle size={18} /> Como se juega
+                </button>
+
+                <button
+                  onClick={cycleTouchControlsPref}
+                  aria-label="Controles tactiles"
+                  className="flex w-full shrink-0 items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  <Gamepad2 size={18} />
+                  <span>Controles táctiles</span>
+                  <span className="ml-auto text-xs font-black uppercase tracking-wide text-edu-pink">
+                    {TOUCH_PREF_LABEL[touchPref]}
+                  </span>
+                </button>
+
+                {fsSupported && (
+                  <button
+                    onClick={() => {
+                      const wasActive = fsActive;
+                      setOpen(false);
+                      if (wasActive) void fsExit();
+                      else void fsEnter();
+                    }}
+                    aria-label="Pantalla completa"
+                    className="flex w-full shrink-0 items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+                  >
+                    {fsActive ? <Minimize size={18} /> : <Maximize size={18} />}
+                    <span>{fsActive ? 'Salir de pantalla completa' : 'Pantalla completa'}</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setConfirm(true)}
+                  className="flex w-full shrink-0 items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  <Home size={18} /> Volver al menu
+                </button>
               </div>
 
-              <button
-                onClick={() => { setOpen(false); setHowToPlay(true); }}
-                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
-              >
-                <HelpCircle size={18} /> Como se juega
-              </button>
-
-              <button
-                onClick={cycleTouchControlsPref}
-                aria-label="Controles tactiles"
-                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
-              >
-                <Gamepad2 size={18} />
-                <span>Controles táctiles</span>
-                <span className="ml-auto text-xs font-black uppercase tracking-wide text-edu-pink">
-                  {TOUCH_PREF_LABEL[touchPref]}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setConfirm(true)}
-                className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-bold text-white transition-colors hover:bg-white/10"
-              >
-                <Home size={18} /> Volver al menu
-              </button>
+              {handle.visible && (
+                <div className="pointer-events-none absolute bottom-5 right-1.5 top-16 w-2 rounded-full bg-white/10">
+                  <div
+                    className="pointer-events-auto absolute right-0 w-2 cursor-grab rounded-full active:cursor-grabbing"
+                    style={{
+                      top: handle.top,
+                      height: handle.height,
+                      touchAction: 'none',
+                      background: 'linear-gradient(90deg, #8b959d 0%, #e2e8ee 45%, #9aa4ad 100%)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.6)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                    }}
+                    onPointerDown={onHandleDown}
+                    onPointerMove={onHandleMove}
+                    onPointerUp={onHandleUp}
+                    onPointerCancel={onHandleUp}
+                  />
+                </div>
+              )}
             </motion.div>
           </>
         )}

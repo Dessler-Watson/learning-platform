@@ -88,8 +88,13 @@ export function readCookie(req: Request | undefined, name: string): string | nul
   return null;
 }
 
+/**
+ * Secure solo cuando la peticion llega realmente por HTTPS (directo o via
+ * x-forwarded-proto del proxy). En produccion local sobre http://localhost
+ * la marca incondicional rompia el login: el cliente no reenvia cookies
+ * Secure por HTTP plano.
+ */
 function secureAttr(req?: Request): string {
-  if (process.env.NODE_ENV === 'production') return '; Secure';
   return isHttpsRequest(req) ? '; Secure' : '';
 }
 

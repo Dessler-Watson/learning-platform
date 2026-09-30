@@ -67,11 +67,11 @@ export function GameCanvas() {
   }, []);
 
   return (
-    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div className="game-screen" style={{ width: '100vw', height: '100vh', position: 'relative', backgroundColor: '#7EC8E3' }}>
       {phase !== 'done' && (
         <DecisionRoadLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
-      <Canvas shadows dpr={[0.75, clampDpr(1.25)]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%' }}>
+      <Canvas shadows dpr={[0.75, clampDpr(1.25)]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%', backgroundColor: '#7EC8E3' }}>
         <color attach="background" args={['#7EC8E3']} />
         <fog attach="fog" args={['#B3E5FC', 35, 140]} />
         <AdaptiveDpr baseMax={1.25} />

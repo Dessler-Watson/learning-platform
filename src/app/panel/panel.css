@@ -135,6 +135,16 @@ body {
   background-color: hsl(var(--muted-foreground));
 }
 
+/* ── Sidebar nav: siempre caben todas las opciones, sin barra de scroll ── */
+.sidebar-nav {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Decorative patterns ── */
 .sidebar-pattern {
   background-image:

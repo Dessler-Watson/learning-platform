@@ -64,9 +64,11 @@ export async function GET(req: NextRequest) {
       position: number;
       avatar_id: number | null;
     }>(
-      `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position, u.avatar_id
+      `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position,
+              a.sort_order AS avatar_id
        FROM v_match_ranking r
        LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN avatars a ON a.id = u.avatar_id
        WHERE r.match_id = $1
        ORDER BY r.position ASC, r.score DESC, r.display_name ASC`,
       [match.id]

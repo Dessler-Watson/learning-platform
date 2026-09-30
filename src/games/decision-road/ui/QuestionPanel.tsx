@@ -48,7 +48,7 @@ export function QuestionPanel() {
           exit={{ y: -60, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 200, damping: 22 }}
           style={{
-            position: 'absolute', top: isMobile ? 48 : 8, left: 0, right: 0, zIndex: 10,
+            position: 'absolute', top: isMobile ? 6 : 8, left: 0, right: 0, zIndex: 10,
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             pointerEvents: 'none', padding: isMobile ? '0 8px' : '0 12px',
           }}

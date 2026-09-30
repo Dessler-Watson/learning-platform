@@ -115,14 +115,25 @@ if (typeof document !== 'undefined') {
  */
 export function AdaptiveDpr({ baseMax }: { baseMax: number }) {
   const setDpr = useThree((s) => s.setDpr);
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
 
   useEffect(() => {
-    const apply = (s: number) => setDpr([0.75, clampDpr(baseMax) * s]);
+    const apply = (s: number) => {
+      setDpr([0.75, clampDpr(baseMax) * s]);
+      // setDpr redimensiona el buffer dejandolo transparente; repintar ya
+      // mismo evita que por un fotograma asome el fondo de la pagina
+      // (destello blanco). Si aun no hay render valido, lo ignora.
+      try {
+        gl.render(scene, camera);
+      } catch {}
+    };
     apply(getDprScale());
     const unsub = subscribeDprScale(apply);
     start();
     return unsub;
-  }, [baseMax, setDpr]);
+  }, [baseMax, setDpr, gl, scene, camera]);
 
   return null;
 }

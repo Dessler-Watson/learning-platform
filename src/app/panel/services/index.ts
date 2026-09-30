@@ -53,7 +53,8 @@ function withDetalles(c: ApiCurso): CursoConDetalles {
 }
 
 export interface CursosPage extends PaginaMeta {
-  cursos: Curso[];
+  cursos: CursoConDetalles[];
+  totalPreguntas: number;
 }
 
 export const cursosService = {
@@ -62,18 +63,17 @@ export const cursosService = {
     return data.cursos.map((c) => ({ ...c }));
   },
   async listar(
-    opts?: { q?: string; page?: number; limit?: number }
+    opts?: { q?: string; mode?: string; page?: number; limit?: number }
   ): Promise<CursosPage> {
     const p = new URLSearchParams();
     const q = (opts?.q ?? '').trim();
+    const mode = (opts?.mode ?? '').trim();
     if (q) p.set('q', q);
+    if (mode) p.set('mode', mode);
     p.set('page', String(opts?.page ?? 1));
     p.set('limit', String(opts?.limit ?? 15));
-    return api<CursosPage>(`/api/panel/cursos?${p.toString()}`);
-  },
-  async obtenerPorGameMode(_teacherId: string, gameModeId: string): Promise<CursoConDetalles[]> {
-    const data = await api<{ cursos: ApiCurso[] }>('/api/panel/cursos');
-    return data.cursos.filter((c) => c.gameModeId === gameModeId).map(withDetalles);
+    const data = await api<CursosPage & { cursos: ApiCurso[] }>(`/api/panel/cursos?${p.toString()}`);
+    return { ...data, cursos: data.cursos.map(withDetalles) };
   },
   async obtenerPorId(id: string): Promise<Curso | undefined> {
     try {
@@ -111,6 +111,17 @@ export const cursosService = {
       return true;
     } catch {
       return false;
+    }
+  },
+  async eliminarMuchos(ids: string[]): Promise<{ success: boolean; deleted: number; error?: string }> {
+    try {
+      const res = await api<{ ok: boolean; deleted: number }>('/api/panel/cursos', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'bulk_delete', ids }),
+      });
+      return { success: res.ok, deleted: res.deleted ?? 0 };
+    } catch (e) {
+      return { success: false, deleted: 0, error: e instanceof Error ? e.message : 'Error al eliminar' };
     }
   },
   async copiarCurso(cursoId: string): Promise<{ curso: Curso; preguntas: Pregunta[] } | undefined> {
@@ -355,6 +366,19 @@ export const salasService = {
       return true;
     } catch {
       return false;
+    }
+  },
+  async eliminarMuchos(
+    ids: string[]
+  ): Promise<{ success: boolean; deleted: number; skipped: number; error?: string }> {
+    try {
+      const res = await api<{ ok: boolean; deleted: number; skipped: number }>('/api/panel/salas', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'bulk_delete', ids }),
+      });
+      return { success: res.ok, deleted: res.deleted ?? 0, skipped: res.skipped ?? 0 };
+    } catch (e) {
+      return { success: false, deleted: 0, skipped: 0, error: e instanceof Error ? e.message : 'Error al eliminar' };
     }
   },
   async refrescar(salaId: string): Promise<Sala | undefined> {

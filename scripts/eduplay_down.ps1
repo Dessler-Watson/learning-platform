@@ -11,7 +11,7 @@ $targets = @()
 # 1) Procesos next/npm/cmd de ESTE proyecto.
 $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
     $_.Name -in @('node.exe', 'cmd.exe') -and $_.CommandLine -and
-    $_.CommandLine -match 'npm run dev|next dev' -and
+    $_.CommandLine -match 'npm run dev|npm run start|next dev|next start' -and
     $_.CommandLine -match $rootEscaped
 }
 foreach ($p in $procs) { $targets += [int]$p.ProcessId }
