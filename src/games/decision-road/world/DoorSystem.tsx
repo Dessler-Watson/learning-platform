@@ -71,6 +71,9 @@ function Station({ index, question, activeIndex, z, phase }: { index: number; qu
     void (async () => {
       // Paso 4: el resultado correcto/incorrecto viene del servidor en modo sala.
       const res = await useGameStore.getState().submitAnswer(side);
+      // Carrera con finalización de sala: si la fase dejó de ser 'question'
+      // (fin detectado → 'results'), no se muestra feedback ni se avanza.
+      if (useGameStore.getState().phase !== 'question') return;
       const correct = res?.correct ?? false;
       useGameStore.getState().setPhase(correct ? 'correctFeedback' : 'incorrectFeedback');
       if (correct) { gameAudio.decisionCorrect(); } else { gameAudio.decisionIncorrect(); }

@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { TierrasPhase, TierrasQuestion, PlatformChoice, TierrasResult } from '@/games/tierras-hundidas/types';
 import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
 
 interface TierrasStore {
   phase: TierrasPhase;
@@ -78,6 +78,8 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
   }),
 
   submitAnswer: async (choice) => {
+    // Sala finalizada: no se responde ni se avanza localmente.
+    if (isRoomFinished()) return null;
     const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned } = get();
     const question = questions[currentQuestionIndex];
     if (!question) return null;

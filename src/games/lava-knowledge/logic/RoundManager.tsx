@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { useLavaStore } from '@/stores/lava.store';
 import { LAVA_CONFIG as C } from '@/games/lava-knowledge/config';
 import { gameAudio } from '@/shared/lib/gameAudio';
-import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, isRoomFinished } from '@/lib/partida-client';
 
 export function RoundManager() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,6 +24,8 @@ export function RoundManager() {
 
     const q = store.questions[store.currentQuestionIndex];
     if (!q) return;
+    // Sala finalizada: no se procesa la respuesta (el juego sale a Resultados).
+    if (isRoomFinished()) return;
     processingRef.current = true;
 
     const prevTicks = prevTicksRef.current;

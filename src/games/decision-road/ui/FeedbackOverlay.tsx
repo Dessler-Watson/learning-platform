@@ -67,6 +67,9 @@ export function FeedbackOverlay() {
     if (stage !== 'done') return;
     const t = setTimeout(() => {
       const store = useGameStore.getState();
+      // Carrera con finalización de sala: si la fase cambió (→ 'results'),
+      // no se avanza ni se cruza la meta; los Resultados ya están en pantalla.
+      if (store.phase !== 'correctFeedback' && store.phase !== 'incorrectFeedback') return;
       const next = store.currentQuestionIndex + 1;
       if (next >= store.questions.length) { gameAudio.decisionVictory(); store.setPhase('finishing'); }
       else { gameAudio.decisionAdvance(); store.advanceQuestion(); store.setPhase('playing'); }

@@ -3,9 +3,17 @@ import { useEffect } from 'react';
 import { useLavaStore } from '@/stores/lava.store';
 import { LAVA_CONFIG as C } from '@/games/lava-knowledge/config';
 import { dignidadMujerQuestions } from '@/education/question-bank/dignidad-mujer';
-import { getMatchRoomId, fetchMatchState, toStoreQuestion } from '@/lib/partida-client';
+import { getMatchRoomId, fetchMatchState, toStoreQuestion, postGameRoute } from '@/lib/partida-client';
+import { useRoomFinished } from '@/shared/hooks/useRoomFinished';
 
 export function LavaGameFlow() {
+  // El docente finalizó la sala: salir a Resultados de inmediato.
+  const roomFinished = useRoomFinished(getMatchRoomId());
+  useEffect(() => {
+    if (!roomFinished) return;
+    window.location.href = postGameRoute();
+  }, [roomFinished]);
+
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {

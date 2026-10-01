@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { AbismosPhase, AbismosQuestion, AbismosResult, PlatformChoice } from '@/games/entre-abismos/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
 
 interface AbismosStore {
   phase: AbismosPhase;
@@ -72,6 +72,8 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
   }),
 
   submitAnswer: async (choice) => {
+    // Sala finalizada: no se responde ni se avanza localmente.
+    if (isRoomFinished()) return null;
     const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned, platforms } = get();
     const question = questions[currentQuestionIndex];
     if (!question) return null;

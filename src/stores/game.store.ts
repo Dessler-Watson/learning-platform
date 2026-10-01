@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { GamePhase, GameQuestion, DoorChoice, GameResult } from '@/games/decision-road/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
 
 interface GameStore {
   phase: GamePhase; currentQuestionIndex: number; questions: GameQuestion[];
@@ -14,6 +14,7 @@ interface GameStore {
   submitAnswer: (choice: DoorChoice) => Promise<{ correct: boolean } | null>;
   setExplanation: (text: string | null) => void; advanceQuestion: () => void; completeLevel: () => void; reset: () => void;
   triggerScoreCount: () => void;
+  finishByRoom: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -22,6 +23,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setPhase: (phase) => set({ phase }),
   setQuestions: (questions) => set({ questions, currentQuestionIndex: 0, answers: [], correctCount: 0, incorrectCount: 0, score: 0, xp: 0, streak: 0, result: null, explanation: null, selectedDoor: null, starsEarned: 0 }),
   submitAnswer: async (choice) => {
+    // Sala finalizada: no se responde ni se avanza localmente.
+    if (isRoomFinished()) return null;
     const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned } = get();
     const question = questions[currentQuestionIndex];
     if (!question) return null;
@@ -93,6 +96,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setExplanation: (text) => set({ explanation: text }),
   advanceQuestion: () => set((s) => ({ currentQuestionIndex: s.currentQuestionIndex + 1, selectedDoor: null, explanation: null })),
   completeLevel: () => { const { questions, correctCount, score, xp, answers } = get(); const total = questions.length; const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0; const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0; set({ result: { totalQuestions: total, correctAnswers: correctCount, incorrectAnswers: total - correctCount, score, xp, stars, accuracy, completedAt: Date.now() } }); recordAchievementEvent({ type: 'game_completed', mode: 'decisiones', metadata: { accuracy, score, xp, defeated: false, correct: correctCount, total, bestStreak: bestStreakOf(answers), hadError: correctCount < total } }); },
+  // Finalización de sala detectada en el cliente (autoridad: backend). Sintetiza
+  // el resultado con el estado local al momento de finalizar y muestra los
+  // Resultados. Idempotente: si ya hay resultado (completado normalmente) se
+  // conserva; si ya está en 'results' no hace nada. No dispara logros (el
+  // servidor los evalúa de forma autoritativa).
+  finishByRoom: () => {
+    const s = get();
+    if (s.result === null) {
+      const total = s.questions.length;
+      const accuracy = total > 0 ? Math.round((s.correctCount / total) * 100) : 0;
+      const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0;
+      set({ result: { totalQuestions: total, correctAnswers: s.correctCount, incorrectAnswers: total - s.correctCount, score: s.score, xp: s.xp, stars, accuracy, completedAt: Date.now() } });
+    }
+    if (get().phase !== 'results') set({ phase: 'results', explanation: null, selectedDoor: null });
+  },
   reset: () => set({ phase: 'loading', currentQuestionIndex: 0, questions: [], answers: [], correctCount: 0, incorrectCount: 0, score: 0, xp: 0, streak: 0, result: null, explanation: null, selectedDoor: null, countTick: 0, starsEarned: 0 }),
   triggerScoreCount: () => set((s) => ({ countTick: s.countTick + 1 })),
 }));

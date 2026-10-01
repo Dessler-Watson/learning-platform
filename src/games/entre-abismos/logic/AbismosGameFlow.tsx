@@ -3,13 +3,21 @@ import { useEffect, useRef } from 'react';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import type { AbismosQuestion } from '@/games/entre-abismos/types';
-import { getMatchRoomId, fetchMatchState, toStoreQuestion } from '@/lib/partida-client';
+import { getMatchRoomId, fetchMatchState, toStoreQuestion, postGameRoute } from '@/lib/partida-client';
+import { useRoomFinished } from '@/shared/hooks/useRoomFinished';
 
 export function AbismosGameFlow() {
   const questions = useAbismosStore((s) => s.questions);
   const setQuestions = useAbismosStore((s) => s.setQuestions);
   const setPhase = useAbismosStore((s) => s.setPhase);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // El docente finalizó la sala: salir a Resultados de inmediato.
+  const roomFinished = useRoomFinished(getMatchRoomId());
+  useEffect(() => {
+    if (!roomFinished) return;
+    window.location.href = postGameRoute();
+  }, [roomFinished]);
 
   useEffect(() => {
     const load = async () => {

@@ -3,9 +3,17 @@ import { useEffect } from 'react';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
 import { dignidadMujerQuestions } from '@/education/question-bank/dignidad-mujer';
-import { getMatchRoomId, fetchMatchState, toStoreQuestion } from '@/lib/partida-client';
+import { getMatchRoomId, fetchMatchState, toStoreQuestion, postGameRoute } from '@/lib/partida-client';
+import { useRoomFinished } from '@/shared/hooks/useRoomFinished';
 
 export function TierrasGameFlow() {
+  // El docente finalizó la sala: salir a Resultados de inmediato.
+  const roomFinished = useRoomFinished(getMatchRoomId());
+  useEffect(() => {
+    if (!roomFinished) return;
+    window.location.href = postGameRoute();
+  }, [roomFinished]);
+
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {

@@ -10,6 +10,19 @@ export function getMatchRoomId(): string | null {
   }
 }
 
+/* Fin de sala confirmado por el servidor (useRoomFinished). Una vez seteado,
+ * no se envían más respuestas a /api/partida. Vive en el módulo: cada partida
+ * arranca con una carga completa de página, así que no cruza partidas. */
+let roomFinishedDetected = false;
+
+export function markRoomFinished(): void {
+  roomFinishedDetected = true;
+}
+
+export function isRoomFinished(): boolean {
+  return roomFinishedDetected;
+}
+
 export interface MatchOptionDTO {
   id: string;
   text: string;
@@ -181,6 +194,9 @@ export async function submitMatchAnswer(opts: {
     timed_out: opts.timedOut === true,
     response_time_ms: opts.responseTimeMs ?? 0,
   };
+
+  // Sala finalizada: el backend rechazaría con 409; no se envía nada.
+  if (roomFinishedDetected) return null;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
