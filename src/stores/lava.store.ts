@@ -15,6 +15,14 @@ interface LavaStore {
   setPhase: (p: LavaPhase) => void; setQuestions: (q: GameQuestion[]) => void;
   setLocalAnswer: (a: 'A' | 'B') => void;
   applyResults: (results: { playerId: number; correct: boolean }[], override?: { score?: number; ticks?: number }) => void;
+  reconcileAnswer: (args: {
+    questionIndex: number;
+    localCorrect: boolean;
+    serverCorrect: boolean;
+    score?: number;
+    ticks?: number;
+    serverCorrectAnswer?: 'A' | 'B' | null;
+  }) => void;
   advanceQuestion: () => void; startRound: () => void; completeGame: (defeated?: boolean) => void;
   reset: () => void;
 }
@@ -50,6 +58,61 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
   }),
 
   setLocalAnswer: (a) => set({ localAnswer: a }),
+
+  /**
+   * Reconciliación optimista (modo sala): el resultado se muestra ya con el
+   * cálculo local y el POST /api/partida corre en segundo plano; si el
+   * servidor difiere, aquí se corrige el estado (el servidor sigue siendo la
+   * autoridad en puntuación).
+   */
+  reconcileAnswer: ({ questionIndex, localCorrect, serverCorrect, score, ticks, serverCorrectAnswer }) => {
+    const s = get();
+    const flipped = serverCorrect !== localCorrect;
+    const p: Partial<LavaStore> = {};
+
+    if (flipped) {
+      p.answerHistory = s.answerHistory.map((h) =>
+        h.questionIndex === questionIndex ? { ...h, correct: serverCorrect } : h
+      );
+      p.correctCount = s.correctCount + (serverCorrect ? 1 : -1);
+      p.incorrectCount = s.incorrectCount + (serverCorrect ? -1 : 1);
+      p.countTick = s.countTick + (serverCorrect ? 1 : -1);
+      if (s.currentQuestionIndex === questionIndex && s.roundResults.length > 0) {
+        p.roundResults = s.roundResults.map((r) => (r.playerId === 0 ? { ...r, correct: serverCorrect } : r));
+      }
+    }
+
+    let finalTicks = s.ticks;
+    if (ticks !== undefined) {
+      finalTicks = Math.max(0, Math.min(MAX_TICKS, ticks));
+    } else if (flipped) {
+      finalTicks = Math.max(0, Math.min(MAX_TICKS, s.ticks + (serverCorrect ? 2 : -2)));
+    }
+    if (finalTicks !== s.ticks || flipped) {
+      p.ticks = finalTicks;
+      const eliminated = finalTicks <= 0;
+      const ty = eliminated ? -0.5 : getPlayerY(finalTicks);
+      const pl = s.players[0];
+      if (s.currentQuestionIndex === questionIndex) {
+        p.players = [{ ...pl, correct: serverCorrect, targetY: ty, blocks: finalTicks, eliminated }];
+      } else {
+        p.players = [{ ...pl, correct: serverCorrect, towerY: ty, targetY: ty, blocks: finalTicks, eliminated }];
+      }
+    }
+
+    if (score !== undefined && score !== s.score) p.score = score;
+
+    if (serverCorrectAnswer) {
+      const q = s.questions[questionIndex];
+      if (q && q.correctAnswer !== serverCorrectAnswer) {
+        p.questions = s.questions.map((qq, i) =>
+          i === questionIndex ? { ...qq, correctAnswer: serverCorrectAnswer } : qq
+        );
+      }
+    }
+
+    if (Object.keys(p).length > 0) set(p);
+  },
 
   applyResults: (results, override) => set((s) => {
     const r = results.find((rr) => rr.playerId === 0);

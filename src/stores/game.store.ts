@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { GamePhase, GameQuestion, DoorChoice, GameResult } from '@/games/decision-road/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak } from '@/lib/partida-client';
 
 interface GameStore {
   phase: GamePhase; currentQuestionIndex: number; questions: GameQuestion[];
@@ -26,54 +26,68 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const question = questions[currentQuestionIndex];
     if (!question) return null;
 
-    // Modo sala (Paso 4): el servidor es la fuente de verdad de puntos/xp/respuestas.
+    // Feedback inmediato: la respuesta correcta ya viene en el boot, así que el
+    // resultado se calcula y muestra ya. En modo sala, el POST /api/partida se
+    // lanza en segundo plano y su respuesta reconcilia el estado si difiere
+    // (el servidor sigue validando y puntuando).
     const roomId = getMatchRoomId();
     const ids = question.optionIds;
-    if (roomId && ids && ids[0] && ids[1]) {
-      try {
-        const res = await submitMatchAnswer({ roomId, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
-        if (res) {
-          const isCorrect = res.correct;
-          let correctAnswer: DoorChoice = choice;
-          if (res.correct_option_id) correctAnswer = ids[0] === res.correct_option_id ? 'A' : 'B';
-          const newStreak = isCorrect ? streak + 1 : 0;
-          set({
-            selectedDoor: choice,
-            questions: questions.map((q, i) => (i === currentQuestionIndex ? { ...q, correctAnswer } : q)),
-            answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
-            correctCount: correctCount + (isCorrect ? 1 : 0),
-            incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
-            score: res.score,
-            xp: res.xp,
-            streak: newStreak,
-          });
-          if (isCorrect) {
-            recordAchievementEvent({ type: 'correct_answer', mode: 'decisiones', metadata: { streak: newStreak } });
-            recordAchievementEvent({ type: 'xp', mode: 'decisiones', metadata: { xp: 15 } });
-          } else {
-            recordAchievementEvent({ type: 'incorrect_answer', mode: 'decisiones' });
-          }
-          if (newStreak > 0) {
-            recordAchievementEvent({ type: 'streak', mode: 'decisiones', metadata: { streak: newStreak } });
-          }
-          recordAchievementEvent({ type: 'score', mode: 'decisiones', metadata: { score: res.score } });
-          return { correct: isCorrect };
-        }
-      } catch {
-        // fallback local
-      }
-    }
+    const isSala = !!(roomId && ids && ids[0] && ids[1]);
+    const idx = currentQuestionIndex;
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
     const pointsEarned = isCorrect ? 10 : -5;
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
-    const starsEarnedNow = isCorrect && !isPractice ? 10 : 0;
-    set({ selectedDoor: choice, answers: [...answers, { questionId: question.id, choice, correct: isCorrect }], correctCount: correctCount + (isCorrect ? 1 : 0), incorrectCount: incorrectCount + (isCorrect ? 0 : 1), score: score + pointsEarned, xp: xp + (isCorrect ? 15 : 0), streak: newStreak, starsEarned: starsEarned + starsEarnedNow });
+    // Paridad con el flujo anterior: en sala las estrellas no se acumulan aquí.
+    const starsEarnedNow = !isSala && isCorrect && !isPractice ? 10 : 0;
+    const provisionalScore = score + pointsEarned;
+
+    set({
+      selectedDoor: choice,
+      answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
+      correctCount: correctCount + (isCorrect ? 1 : 0),
+      incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
+      score: provisionalScore,
+      xp: xp + (isCorrect ? 15 : 0),
+      streak: newStreak,
+      starsEarned: starsEarned + starsEarnedNow,
+    });
     if (isCorrect) { recordAchievementEvent({ type: 'correct_answer', mode: 'decisiones', metadata: { streak: newStreak } }); } else { recordAchievementEvent({ type: 'incorrect_answer', mode: 'decisiones' }); }
     if (newStreak > 0) { recordAchievementEvent({ type: 'streak', mode: 'decisiones', metadata: { streak: newStreak } }); }
     if (isCorrect) { recordAchievementEvent({ type: 'xp', mode: 'decisiones', metadata: { xp: 15 } }); }
-    recordAchievementEvent({ type: 'score', mode: 'decisiones', metadata: { score: score + pointsEarned } });
+    recordAchievementEvent({ type: 'score', mode: 'decisiones', metadata: { score: provisionalScore } });
+
+    if (isSala) {
+      // Sincronización en segundo plano: no bloquea el feedback ni el avance.
+      void (async () => {
+        try {
+          const res = await submitMatchAnswer({ roomId: roomId!, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
+          if (!res) return;
+          const st = get();
+          const patch: Partial<ReturnType<typeof get>> = {};
+          const fixedAnswers = replaceLastAnswer(st.answers, question.id, res.correct);
+          if (fixedAnswers !== st.answers) {
+            patch.answers = fixedAnswers;
+            patch.correctCount = st.correctCount + (res.correct ? 1 : -1);
+            patch.incorrectCount = st.incorrectCount + (res.correct ? -1 : 1);
+            patch.streak = trailingStreak(fixedAnswers);
+          }
+          if (st.score !== res.score) patch.score = res.score;
+          if (st.xp !== res.xp) patch.xp = res.xp;
+          if (res.correct_option_id) {
+            const correctAnswer: DoorChoice = ids[0] === res.correct_option_id ? 'A' : 'B';
+            if (correctAnswer !== question.correctAnswer) {
+              patch.questions = st.questions.map((q, i) => (i === idx ? { ...q, correctAnswer } : q));
+            }
+          }
+          if (Object.keys(patch).length > 0) set(patch);
+        } catch {
+          // Sin red: se mantiene el cálculo local (mismo fallback que antes).
+        }
+      })();
+    }
+
     return { correct: isCorrect };
   },
   setExplanation: (text) => set({ explanation: text }),

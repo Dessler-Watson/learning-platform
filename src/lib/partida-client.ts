@@ -21,6 +21,7 @@ export interface MatchQuestionDTO {
   prompt: string;
   explanation: string;
   difficulty: string;
+  correct_option_id?: string | null;
   options: MatchOptionDTO[];
 }
 
@@ -42,12 +43,17 @@ function mapDifficulty(d: string): 'basic' | 'intermediate' | 'advanced' {
 }
 
 export function toStoreQuestion(q: MatchQuestionDTO): GameQuestion {
+  // La opción correcta viene en el boot para que el cliente pueda calcular el
+  // resultado de forma inmediata; el servidor sigue siendo la autoridad en el
+  // POST /api/partida (se reconcilia en segundo plano).
+  let correctAnswer: 'A' | 'B' = 'A';
+  if (q.correct_option_id && q.options[1]?.id === q.correct_option_id) correctAnswer = 'B';
   return {
     id: q.id,
     statement: q.prompt,
     optionA: q.options[0]?.text ?? '',
     optionB: q.options[1]?.text ?? '',
-    correctAnswer: 'A',
+    correctAnswer,
     explanation: q.explanation ?? '',
     difficulty: mapDifficulty(q.difficulty),
     optionIds: [q.options[0]?.id ?? '', q.options[1]?.id ?? ''],
@@ -199,4 +205,31 @@ export async function submitMatchAnswer(opts: {
     }
   }
   return null;
+}
+
+/**
+ * Reconciliación optimista: corrige la corrección de la respuesta ya registrada
+ * si el servidor no coincide. Devuelve la MISMA referencia si no hay cambio.
+ */
+export function replaceLastAnswer<T extends { questionId: string; correct: boolean }>(
+  answers: T[],
+  questionId: string,
+  correct: boolean
+): T[] {
+  for (let i = answers.length - 1; i >= 0; i--) {
+    if (answers[i].questionId === questionId) {
+      if (answers[i].correct === correct) return answers;
+      const next = answers.slice();
+      next[i] = { ...next[i], correct };
+      return next;
+    }
+  }
+  return answers;
+}
+
+/** Racha actual = respuestas correctas consecutivas al final del historial. */
+export function trailingStreak(answers: ReadonlyArray<{ correct: boolean }>): number {
+  let n = 0;
+  for (let i = answers.length - 1; i >= 0 && answers[i].correct; i--) n++;
+  return n;
 }

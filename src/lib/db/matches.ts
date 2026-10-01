@@ -58,6 +58,7 @@ export interface MatchOptionRow {
   question_id: string;
   text: string;
   sort_order: number;
+  is_correct: boolean;
 }
 
 const MATCH_SELECT = `
@@ -203,7 +204,7 @@ export async function listMatchQuestions(match: MatchInfo): Promise<MatchQuestio
 export async function listQuestionOptions(questionIds: string[]): Promise<MatchOptionRow[]> {
   if (!questionIds.length) return [];
   return query<MatchOptionRow>(
-    `SELECT id, question_id, text, sort_order
+    `SELECT id, question_id, text, sort_order, is_correct
      FROM question_options
      WHERE question_id = ANY($1::uuid[])
      ORDER BY question_id, sort_order ASC, id ASC`,

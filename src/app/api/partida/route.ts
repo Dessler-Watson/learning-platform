@@ -60,6 +60,12 @@ export async function GET(req: NextRequest) {
     const questionRows = await listMatchQuestions(match);
     const options = await listQuestionOptions(questionRows.map((q) => q.id));
     const answers = await listMyAnswers(participant.id);
+    // Opción correcta por pregunta: permite al cliente calcular el resultado
+    // de forma optimista y sincronizar con el servidor en segundo plano
+    // (el servidor sigue validando y puntuando en POST /api/partida).
+    const correctByQuestion = new Map(
+      options.filter((o) => o.is_correct).map((o) => [o.question_id, o.id])
+    );
 
     return NextResponse.json({
       partida: {
@@ -87,6 +93,7 @@ export async function GET(req: NextRequest) {
         prompt: q.prompt,
         explanation: q.explanation ?? '',
         difficulty: q.difficulty,
+        correct_option_id: correctByQuestion.get(q.id) ?? null,
         options: options
           .filter((o) => o.question_id === q.id)
           .map((o) => ({ id: o.id, text: o.text })),

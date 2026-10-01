@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { AbismosPhase, AbismosQuestion, AbismosResult, PlatformChoice } from '@/games/entre-abismos/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak } from '@/lib/partida-client';
 
 interface AbismosStore {
   phase: AbismosPhase;
@@ -76,69 +76,33 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     const question = questions[currentQuestionIndex];
     if (!question) return null;
 
-    // Modo sala (Paso 4): servidor fuente de verdad. Bloqueo síncrono antes del await.
+    // Feedback inmediato: el resultado se calcula y muestra ya (la respuesta
+    // correcta viene en el boot). En modo sala, el POST /api/partida se lanza
+    // en segundo plano y su respuesta reconcilia el estado si difiere.
     const roomId = getMatchRoomId();
     const ids = question.optionIds;
-    if (roomId && ids && ids[0] && ids[1]) {
-      set({ selectedPlatform: choice });
-      try {
-        const res = await submitMatchAnswer({ roomId, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
-        if (res) {
-          const isCorrect = res.correct;
-          const newStreak = isCorrect ? streak + 1 : 0;
-          if (res.correct_option_id) {
-            const correctAnswer: PlatformChoice = ids[0] === res.correct_option_id ? 'A' : 'B';
-            set({ questions: questions.map((q, i) => (i === currentQuestionIndex ? { ...q, correctAnswer } : q)) });
-          }
-          const newPlatforms =
-            res.state?.platforms !== undefined
-              ? Math.max(0, Math.min(CFG.maxPlatforms, res.state.platforms))
-              : Math.max(0, Math.min(CFG.maxPlatforms, platforms + (isCorrect ? 1 : -1)));
-          set({
-            selectedPlatform: choice,
-            answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
-            correctCount: correctCount + (isCorrect ? 1 : 0),
-            incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
-            score: res.score,
-            xp: res.xp,
-            streak: newStreak,
-            platforms: newPlatforms,
-          });
-          if (isCorrect) {
-            recordAchievementEvent({ type: 'correct_answer', mode: 'abismos', metadata: { streak: newStreak } });
-            recordAchievementEvent({ type: 'xp', mode: 'abismos', metadata: { xp: 20 } });
-          } else {
-            recordAchievementEvent({ type: 'incorrect_answer', mode: 'abismos' });
-          }
-          if (newStreak > 1) {
-            recordAchievementEvent({ type: 'streak', mode: 'abismos', metadata: { streak: newStreak } });
-          }
-          recordAchievementEvent({ type: 'score', mode: 'abismos', metadata: { score: res.score } });
-          return { correct: isCorrect };
-        }
-      } catch {
-        // fallback local
-      }
-      set({ selectedPlatform: null });
-    }
+    const isSala = !!(roomId && ids && ids[0] && ids[1]);
+    const idx = currentQuestionIndex;
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
     const pointsEarned = isCorrect ? CFG.correctPoints : 0;
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
-    const starsEarnedNow = isCorrect && !isPractice ? 20 : 0;
-    const newPlatforms = Math.max(0, Math.min(CFG.maxPlatforms, platforms + (isCorrect ? 1 : -1)));
+    // Paridad con el flujo anterior: en sala las estrellas no se acumulan aquí.
+    const starsEarnedNow = !isSala && isCorrect && !isPractice ? 20 : 0;
+    const provisionalScore = score + pointsEarned;
+    const provisionalPlatforms = Math.max(0, Math.min(CFG.maxPlatforms, platforms + (isCorrect ? 1 : -1)));
 
     set({
       selectedPlatform: choice,
       answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
       correctCount: correctCount + (isCorrect ? 1 : 0),
       incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
-      score: score + pointsEarned,
+      score: provisionalScore,
       xp: xp + (isCorrect ? 20 : 0),
       streak: newStreak,
       starsEarned: starsEarned + starsEarnedNow,
-      platforms: newPlatforms,
+      platforms: provisionalPlatforms,
     });
 
     if (isCorrect) {
@@ -152,7 +116,47 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     if (isCorrect) {
       recordAchievementEvent({ type: 'xp', mode: 'abismos', metadata: { xp: 20 } });
     }
-    recordAchievementEvent({ type: 'score', mode: 'abismos', metadata: { score: score + pointsEarned } });
+    recordAchievementEvent({ type: 'score', mode: 'abismos', metadata: { score: provisionalScore } });
+
+    if (isSala) {
+      // Sincronización en segundo plano: no bloquea el feedback ni el avance.
+      void (async () => {
+        try {
+          const res = await submitMatchAnswer({ roomId: roomId!, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
+          if (!res) return;
+          const st = get();
+          const patch: Partial<ReturnType<typeof get>> = {};
+          const fixedAnswers = replaceLastAnswer(st.answers, question.id, res.correct);
+          if (fixedAnswers !== st.answers) {
+            patch.answers = fixedAnswers;
+            patch.correctCount = st.correctCount + (res.correct ? 1 : -1);
+            patch.incorrectCount = st.incorrectCount + (res.correct ? -1 : 1);
+            patch.streak = trailingStreak(fixedAnswers);
+            if (res.correct) {
+              patch.platforms = Math.max(0, Math.min(CFG.maxPlatforms, st.platforms + 2));
+            } else {
+              patch.platforms = Math.max(0, Math.min(CFG.maxPlatforms, st.platforms - 2));
+            }
+          }
+          if (res.state?.platforms !== undefined) {
+            const serverPlatforms = Math.max(0, Math.min(CFG.maxPlatforms, res.state.platforms));
+            if (serverPlatforms !== st.platforms) patch.platforms = serverPlatforms;
+          }
+          if (st.score !== res.score) patch.score = res.score;
+          if (st.xp !== res.xp) patch.xp = res.xp;
+          if (res.correct_option_id) {
+            const correctAnswer: PlatformChoice = ids[0] === res.correct_option_id ? 'A' : 'B';
+            if (correctAnswer !== question.correctAnswer) {
+              patch.questions = st.questions.map((q, i) => (i === idx ? { ...q, correctAnswer } : q));
+            }
+          }
+          if (Object.keys(patch).length > 0) set(patch);
+        } catch {
+          // Sin red: se mantiene el cálculo local (mismo fallback que antes).
+        }
+      })();
+    }
+
     return { correct: isCorrect };
   },
 

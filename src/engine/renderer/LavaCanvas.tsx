@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { LavaCamera } from '@/games/lava-knowledge/world/LavaCamera';
@@ -21,12 +21,20 @@ import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
 
+// Constantes de módulo: evitan recrear objetos en cada render del wrapper
+// (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
+// un contexto nuevo).
+const GRAVITY: [number, number, number] = [0, 0, 0];
+const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.5 } as const;
+const CAMERA_CONFIG = { fov: 55, near: 0.2, far: 200 } as const;
+const CANVAS_STYLE = { width: '100%', height: '100%', backgroundColor: '#2A2A2E' } as const;
+
 function Scene({ onReady }: { onReady: () => void }) {
   return (
     <>
       <LavaGameFlow />
       <RoundManager />
-      <Physics gravity={[0, 0, 0]}>
+      <Physics gravity={GRAVITY}>
         <LavaWorld />
       </Physics>
       <LavaCamera />
@@ -39,6 +47,27 @@ function ReadyNotifier({ onReady }: { onReady: () => void }) {
   useState(() => { setTimeout(onReady, 300); });
   return null;
 }
+
+// El <Canvas> queda memoizado: los re-renders del wrapper (HUD, overlays,
+// peligro) ya no reconcilian el árbol 3D completo 2-3 veces por respuesta.
+const SceneCanvas = memo(function SceneCanvas({ onReady }: { onReady: () => void }) {
+  return (
+    <Canvas
+      shadows
+      dpr={[0.75, clampDpr(1)]}
+      gl={GL_CONFIG}
+      camera={CAMERA_CONFIG}
+      style={CANVAS_STYLE}
+    >
+      <color attach="background" args={['#2A2A2E']} />
+      <AdaptiveDpr baseMax={1} />
+      <fog attach="fog" args={['#3A3A3E', 30, 80]} />
+      <Suspense fallback={null}>
+        <Scene onReady={onReady} />
+      </Suspense>
+    </Canvas>
+  );
+});
 
 function HeartbeatMonitor() {
   const ticks = useLavaStore((s) => s.ticks);
@@ -128,25 +157,7 @@ export function LavaCanvas() {
         @keyframes flash4 { 0%,100%{opacity:0} 15%{opacity:0.4} 45%{opacity:0.7} 65%{opacity:0.1} }
         @keyframes flash5 { 0%,100%{opacity:0} 25%{opacity:0.3} 55%{opacity:0.6} 80%{opacity:0.15} }
       `}</style>
-      <Canvas
-        shadows
-        dpr={[0.75, clampDpr(1)]}
-        gl={{
-          antialias: false,
-          powerPreference: 'high-performance',
-          toneMapping: 3,
-          toneMappingExposure: 1.5,
-        }}
-        camera={{ fov: 55, near: 0.2, far: 200 }}
-        style={{ width: '100%', height: '100%', backgroundColor: '#2A2A2E' }}
-      >
-        <color attach="background" args={['#2A2A2E']} />
-        <AdaptiveDpr baseMax={1} />
-        <fog attach="fog" args={['#3A3A3E', 30, 80]} />
-        <Suspense fallback={null}>
-          <Scene onReady={handleReady} />
-        </Suspense>
-      </Canvas>
+      <SceneCanvas onReady={handleReady} />
 
       <LavaHUD />
 

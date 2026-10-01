@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { motion } from 'framer-motion';
@@ -24,12 +24,20 @@ import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
 
+// Constantes de módulo: evitan recrear objetos en cada render del wrapper
+// (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
+// un contexto nuevo).
+const GRAVITY: [number, number, number] = [0, -9.81, 0];
+const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 } as const;
+const CAMERA_CONFIG = { fov: 55, near: 0.1, far: 300 } as const;
+const CANVAS_STYLE = { background: 'linear-gradient(to bottom, #6aafe8, #a0c8e8)' } as const;
+
 function Scene({ onReady, onReachFinish }: { onReady: () => void; onReachFinish: () => void }) {
   return (
     <>
       <AbismosGameFlow />
       <AbismosRoundManager />
-      <Physics gravity={[0, -9.81, 0]}>
+      <Physics gravity={GRAVITY}>
         <AbismosWorld onReachFinish={onReachFinish} />
         <AbismosCharacterController />
       </Physics>
@@ -43,6 +51,34 @@ function ReadyNotifier({ onReady }: { onReady: () => void }) {
   useState(() => { setTimeout(onReady, 300); });
   return null;
 }
+
+// El <Canvas> queda memoizado: los re-renders del wrapper (HUD, overlays,
+// victoria/derrota) ya no reconcilian el árbol 3D completo 2-3 veces por
+// respuesta.
+const SceneCanvas = memo(function SceneCanvas({
+  onReady,
+  onReachFinish,
+}: {
+  onReady: () => void;
+  onReachFinish: () => void;
+}) {
+  return (
+    <Canvas
+      shadows
+      dpr={[0.75, clampDpr(1)]}
+      gl={GL_CONFIG}
+      camera={CAMERA_CONFIG}
+      style={CANVAS_STYLE}
+    >
+      <color attach="background" args={['#7BB3E0']} />
+      <fog attach="fog" args={['#b0c8e0', 50, 220]} />
+      <AdaptiveDpr baseMax={1} />
+      <Suspense fallback={null}>
+        <Scene onReady={onReady} onReachFinish={onReachFinish} />
+      </Suspense>
+    </Canvas>
+  );
+});
 
 function DangerOverlay() {
   const fellInAbyss = useAbismosStore((s) => s.fellInAbyss);
@@ -132,25 +168,7 @@ export function AbismosCanvas() {
         <AbismosLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
 
-      <Canvas
-        shadows
-        dpr={[0.75, clampDpr(1)]}
-        gl={{
-          antialias: false,
-          powerPreference: 'high-performance',
-          toneMapping: 3,
-          toneMappingExposure: 1.15,
-        }}
-        camera={{ fov: 55, near: 0.1, far: 300 }}
-        style={{ background: 'linear-gradient(to bottom, #6aafe8, #a0c8e8)' }}
-      >
-        <color attach="background" args={['#7BB3E0']} />
-        <fog attach="fog" args={['#b0c8e0', 50, 220]} />
-        <AdaptiveDpr baseMax={1} />
-        <Suspense fallback={null}>
-          <Scene onReady={handleReady} onReachFinish={handleReachFinish} />
-        </Suspense>
-      </Canvas>
+      <SceneCanvas onReady={handleReady} onReachFinish={handleReachFinish} />
 
       <AbismosHUD />
       <DangerOverlay />

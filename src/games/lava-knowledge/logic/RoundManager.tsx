@@ -27,66 +27,71 @@ export function RoundManager() {
     processingRef.current = true;
 
     const prevTicks = prevTicksRef.current;
-    void (async () => {
-      let correct: boolean;
-      let override: { score?: number; ticks?: number } | undefined;
+    const questionIndex = store.currentQuestionIndex;
+    const localAnsResolved = localAns;
+    const isCorrect = localAnsResolved === q.correctAnswer;
 
-      const roomId = getMatchRoomId();
-      const ids = q.optionIds;
-      if (roomId && ids && ids[0] && ids[1]) {
-        // Paso 4: el servidor calcula correcto/puntos/ticks.
-        const res = await submitMatchAnswer({ roomId, questionId: q.id, optionId: ids[localAns === 'A' ? 0 : 1] });
-        if (!res) {
-          processingRef.current = false;
-          return;
-        }
-        correct = res.correct;
-        override = {
-          score: res.score,
-          ticks: res.state?.ticks !== undefined ? res.state.ticks : undefined,
-        };
-        if (res.correct_option_id) {
-          const correctAnswer = ids[0] === res.correct_option_id ? 'A' : 'B';
-          useLavaStore.setState((st) => ({
-            questions: st.questions.map((qq, i) => (i === st.currentQuestionIndex ? { ...qq, correctAnswer } : qq)),
-          }));
-        }
+    // Feedback inmediato: resultado, sonidos y avance no esperan a la red. En
+    // modo sala, el POST /api/partida corre en segundo plano y reconcilia el
+    // estado si difiere del cálculo local.
+    useLavaStore.getState().applyResults([{ playerId: 0, correct: isCorrect }]);
+    useLavaStore.setState({ phase: 'roundResult' });
+
+    const newTicks = useLavaStore.getState().ticks;
+    if (newTicks < prevTicks) {
+      gameAudio.lavaRise();
+      gameAudio.lavaTickChange();
+    } else if (newTicks > prevTicks) {
+      gameAudio.lavaTickChange();
+    }
+    prevTicksRef.current = newTicks;
+
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      const st = useLavaStore.getState();
+
+      if (st.ticks <= 0) {
+        gameAudio.lavaDefeat();
+        gameAudio.stopHeartbeat();
+        st.completeGame(true);
+        return;
+      }
+
+      const next = st.currentQuestionIndex + 1;
+      if (next >= st.questions.length) {
+        st.completeGame();
       } else {
-        correct = localAns === q.correctAnswer;
+        st.advanceQuestion();
+        st.startRound();
       }
+    }, C.resultDisplayTime * 1000);
 
-      useLavaStore.getState().applyResults([{ playerId: 0, correct }], override);
-      useLavaStore.setState({ phase: 'roundResult' });
-
-      const newTicks = useLavaStore.getState().ticks;
-      if (newTicks < prevTicks) {
-        gameAudio.lavaRise();
-        gameAudio.lavaTickChange();
-      } else if (newTicks > prevTicks) {
-        gameAudio.lavaTickChange();
-      }
-      prevTicksRef.current = newTicks;
-
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        const st = useLavaStore.getState();
-
-        if (st.ticks <= 0) {
-          gameAudio.lavaDefeat();
-          gameAudio.stopHeartbeat();
-          st.completeGame(true);
-          return;
+    const roomId = getMatchRoomId();
+    const ids = q.optionIds;
+    if (roomId && ids && ids[0] && ids[1]) {
+      void (async () => {
+        try {
+          const res = await submitMatchAnswer({
+            roomId,
+            questionId: q.id,
+            optionId: ids[localAnsResolved === 'A' ? 0 : 1],
+          });
+          if (!res) return;
+          let serverCorrectAnswer: 'A' | 'B' | null = null;
+          if (res.correct_option_id) serverCorrectAnswer = ids[0] === res.correct_option_id ? 'A' : 'B';
+          useLavaStore.getState().reconcileAnswer({
+            questionIndex,
+            localCorrect: isCorrect,
+            serverCorrect: res.correct,
+            score: res.score,
+            ticks: res.state?.ticks,
+            serverCorrectAnswer,
+          });
+        } catch {
+          // Sin red: se mantiene el cálculo local (mismo fallback que antes).
         }
-
-        const next = st.currentQuestionIndex + 1;
-        if (next >= st.questions.length) {
-          st.completeGame();
-        } else {
-          st.advanceQuestion();
-          st.startRound();
-        }
-      }, C.resultDisplayTime * 1000);
-    })();
+      })();
+    }
   });
 
   return null;

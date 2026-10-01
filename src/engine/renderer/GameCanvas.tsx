@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useCallback, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { Lighting } from '@/engine/lighting/Lighting';
@@ -25,12 +25,21 @@ import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 
+// Constantes de módulo: evitan recrear objetos en cada render del wrapper
+// (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
+// un contexto nuevo).
+const GRAVITY: [number, number, number] = [0, -9.81, 0];
+const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 } as const;
+const CAMERA_CONFIG = { fov: 55, near: 0.2, far: 600 } as const;
+const PERFORMANCE_CONFIG = { min: 0.5 } as const;
+const CANVAS_STYLE = { width: '100%', height: '100%', backgroundColor: '#7EC8E3' } as const;
+
 function Scene({ onReady }: { onReady: () => void }) {
   return (
     <>
       <Lighting />
       <GameFlow />
-      <Physics gravity={[0, -9.81, 0]}>
+      <Physics gravity={GRAVITY}>
         <DecisionWorld>
           <CharacterController />
         </DecisionWorld>
@@ -46,6 +55,26 @@ function ReadyNotifier({ onReady }: { onReady: () => void }) {
   useState(() => { setTimeout(onReady, 300); });
   return null;
 }
+
+// El <Canvas> queda memoizado: los re-renders del wrapper (phase del juego,
+// overlays, HUD) ya no reconcilian el árbol 3D completo 2-3 veces por respuesta.
+const SceneCanvas = memo(function SceneCanvas({ onReady }: { onReady: () => void }) {
+  return (
+    <Canvas
+      shadows
+      dpr={[0.75, clampDpr(1.25)]}
+      gl={GL_CONFIG}
+      camera={CAMERA_CONFIG}
+      performance={PERFORMANCE_CONFIG}
+      style={CANVAS_STYLE}
+    >
+      <color attach="background" args={['#7EC8E3']} />
+      <fog attach="fog" args={['#B3E5FC', 35, 140]} />
+      <AdaptiveDpr baseMax={1.25} />
+      <Suspense fallback={null}><Scene onReady={onReady} /></Suspense>
+    </Canvas>
+  );
+});
 
 export function GameCanvas() {
   const [phase, setPhase] = useState<'loading' | 'completing' | 'done'>('loading');
@@ -71,12 +100,7 @@ export function GameCanvas() {
       {phase !== 'done' && (
         <DecisionRoadLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
-      <Canvas shadows dpr={[0.75, clampDpr(1.25)]} gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 }} camera={{ fov: 55, near: 0.2, far: 600 }} performance={{ min: 0.5 }} style={{ width: '100%', height: '100%', backgroundColor: '#7EC8E3' }}>
-        <color attach="background" args={['#7EC8E3']} />
-        <fog attach="fog" args={['#B3E5FC', 35, 140]} />
-        <AdaptiveDpr baseMax={1.25} />
-        <Suspense fallback={null}><Scene onReady={handleReady} /></Suspense>
-      </Canvas>
+      <SceneCanvas onReady={handleReady} />
       <DecisionHUD />
       <QuestionPanel />
       <FeedbackOverlay />
