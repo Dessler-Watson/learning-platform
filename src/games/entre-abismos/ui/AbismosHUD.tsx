@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Star } from 'lucide-react';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { gameAudio } from '@/shared/lib/gameAudio';
@@ -354,6 +355,15 @@ export function AbismosHUD() {
               </div>
               <span style={{ color: '#F44336', fontSize: 16, fontWeight: 900, fontFamily: 'var(--font-baloo)' }}>{incorrectCount}</span>
             </div>
+            {!isPractice && (
+              <>
+                <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)', margin: '0 14px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Star size={24} fill="#FFD54F" color="#FFD54F" style={{ filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
+                  <span style={{ color: '#FFD54F', fontSize: 16, fontWeight: 900, fontFamily: 'var(--font-baloo)', textShadow: '0 0 12px rgba(255,213,79,0.3)' }}>{animatedScore}</span>
+                </div>
+              </>
+            )}
           </div>
         </motion.div>
       </div>

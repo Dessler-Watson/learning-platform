@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLavaStore } from '@/stores/lava.store';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
-import { Check, X } from 'lucide-react';
+import { Check, X, Star } from 'lucide-react';
 import { gameAudio } from '@/shared/lib/gameAudio';
 
 const MAX_TICKS = 3;
@@ -185,7 +185,7 @@ export function LavaHUD() {
                         style={{ position: 'absolute', inset: -8, borderRadius: 999, background: 'radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0.2) 50%, transparent 70%)', pointerEvents: 'none' }} />
                     )}
                   </AnimatePresence>
-                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isPhone ? 14 : isTablet ? 20 : 24, height: isPhone ? 14 : isTablet ? 20 : 24, objectFit: 'contain', filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
+                  <Star size={isPhone ? 14 : isTablet ? 20 : 24} fill="#FFD54F" color="#FFD54F" style={{ filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
                   <motion.span animate={scoreArrived && countTick > 0 ? { color: ['#66BB6A', '#FFD54F', '#66BB6A'] } : {}} transition={{ duration: 0.6 }}
                     style={{ fontSize: isPhone ? 14 : isTablet ? 18 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#FFD54F', textShadow: '0 0 12px rgba(255,213,79,0.3)' }}>
                     {animatedScore}

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
-import { Check, X } from 'lucide-react';
+import { Check, X, Star } from 'lucide-react';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
@@ -127,7 +127,7 @@ export function TierrasHUD() {
               {!isPractice && (
                 <motion.div key={countTick} animate={scoreArrived && countTick > 0 ? { scale: [1, 1.3, 0.95, 1.05, 1] } : { scale: 1 }} transition={{ duration: 0.6, ease: 'easeOut' }}
                   style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 8, minWidth: isMobile ? 36 : 60, justifyContent: 'center', position: 'relative', padding: '4px 8px', borderRadius: 999 }}>
-                  <img src="/images/puntos.png" alt="Puntos" style={{ width: isMobile ? 14 : 24, height: isMobile ? 14 : 24, objectFit: 'contain', filter: 'drop-shadow(0 0 6px rgba(180,220,80,0.4))' }} />
+                  <Star size={isMobile ? 14 : 24} fill="#FFD54F" color="#FFD54F" style={{ filter: 'drop-shadow(0 0 6px rgba(255,213,79,0.4))' }} />
                   <motion.span animate={scoreArrived && countTick > 0 ? { color: ['#66BB6A', '#B4DC50', '#66BB6A'] } : {}} transition={{ duration: 0.6 }}
                     style={{ fontSize: isMobile ? 14 : 22, fontWeight: 900, fontFamily: 'var(--font-baloo)', color: '#B4DC50', textShadow: '0 0 12px rgba(180,220,80,0.3)' }}>
                     {animatedScore}
