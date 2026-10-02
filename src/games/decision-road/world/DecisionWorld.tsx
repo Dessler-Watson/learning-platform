@@ -5,7 +5,6 @@ import { ParticleField } from '@/shared/world/effects/ParticleField';
 import { DoorSystem } from './DoorSystem';
 import { Path } from './Path';
 import { FinishLine } from './FinishLine';
-import { CharacterDissolve } from './CharacterDissolve';
 import { FloatingIslands } from './FloatingIslands';
 import { FloatingDiamonds } from './FloatingDiamonds';
 import { useGameStore } from '@/stores/game.store';
@@ -28,7 +27,6 @@ export function DecisionWorld({ children }: { children: React.ReactNode }) {
       <DoorSystem />
       <FinishLine lastStationZ={lastStationZ} />
       {children}
-      <CharacterDissolve />
     </group>
   );
 }

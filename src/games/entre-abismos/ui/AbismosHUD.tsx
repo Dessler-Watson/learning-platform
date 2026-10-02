@@ -242,8 +242,8 @@ export function AbismosHUD() {
           <div style={{ position: 'fixed', zIndex: 60, left: '50%', top: '35%', transform: 'translateX(-50%)' }}>
             <motion.div
               key="feedback-text"
-              initial={{ scale: 0.05, opacity: 0, filter: 'blur(8px)' }}
-              animate={{ scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1, filter: 'blur(0px)' }}
+              initial={{ scale: 0.05, opacity: 0 }}
+              animate={{ scale: [0.05, 1.25, 0.95, 1.05, 1], opacity: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.85, times: [0, 0.4, 0.6, 0.8, 1], ease: 'easeOut' }}
               style={{
