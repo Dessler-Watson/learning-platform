@@ -42,7 +42,9 @@ export async function GET(req: NextRequest) {
     const esStaff = session.role === 'teacher' || session.role === 'admin';
 
     // Entrada por código: auto-join solo en la carga inicial (join != '0').
-    if (code && shouldJoin && !soyParticipante) {
+    // El docente/admin nunca se registra como jugador: entra como observador
+    // (el host se identifica por teacher_id, no por participante).
+    if (code && shouldJoin && !soyParticipante && !esStaff) {
       if (room.status !== 'waiting') {
         const msg =
           room.status === 'finished' || room.status === 'archived'
@@ -141,6 +143,10 @@ export async function POST(req: NextRequest) {
     if (action === 'join') {
       const code = String(body.code ?? '').trim();
       if (!code) return NextResponse.json({ error: 'Código requerido' }, { status: 400 });
+      // El docente/admin nunca juega: no puede registrarse como participante.
+      if (esStaff) {
+        return NextResponse.json({ error: 'Los docentes no pueden unirse como jugadores' }, { status: 403 });
+      }
       const room = await getRoomByCode(code);
       if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
       const result = await joinRoom(room.id, session.id);

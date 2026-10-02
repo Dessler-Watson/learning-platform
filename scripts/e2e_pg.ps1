@@ -1048,13 +1048,17 @@ $wCode = $wSala.sala.code
 $wId = $wSala.sala.id
 Ok 'waiting: max_players stored' ([int]$wSala.sala.max_players -eq 3) "max=$($wSala.sala.max_players)"
 
+# El docente NO se registra como jugador al crear la sala (bug: sala registraba al docente)
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swp -UseBasicParsing
+Ok 'waiting: docente no registrado como jugador' ((@((J $r).participantes).Count) -eq 0) "count=$(@((J $r).participantes).Count)"
+
 $r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))" -WebSession $swp -UseBasicParsing
 Ok 'waiting: player GET join by code' ($r.StatusCode -eq 200) $r.StatusCode
 $wSnap = J $r
 $wParts = @($wSnap.participantes)
-Ok 'waiting: 2 jugadores tras join' ($wParts.Count -eq 2) "count=$($wParts.Count)"
+Ok 'waiting: 1 jugador tras join' ($wParts.Count -eq 1) "count=$($wParts.Count)"
 $wNames = @($wParts | ForEach-Object { $_.display_name })
-Ok 'waiting: nombres reales (no mock)' (($wNames -contains 'WaitPlayer') -and (($wNames | Where-Object { $_ -match 'Ana|Garc' }).Count -ge 1)) ($wNames -join ',')
+Ok 'waiting: nombres reales sin docente' (($wNames -contains 'WaitPlayer') -and (($wNames | Where-Object { $_ -match 'Ana|Garc' }).Count -eq 0)) ($wNames -join ',')
 Ok 'waiting: estrellas en participantes' (($wParts | Where-Object { $null -ne $_.stars }) -ne $null) (($wParts | Select-Object -First 1).stars)
 Ok 'waiting: sala status waiting' ($wSnap.sala.status -eq 'waiting') $wSnap.sala.status
 Ok 'waiting: docente/curso present' (($null -ne $wSnap.sala.docente) -and ($null -ne $wSnap.sala.curso)) "docente=$($wSnap.sala.docente)"
@@ -1063,6 +1067,22 @@ $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'applica
   action = 'join'; code = $wCode
 } | ConvertTo-Json) -UseBasicParsing
 Ok 'waiting: second player join' ($r.StatusCode -eq 200) $r.StatusCode
+$r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swp -UseBasicParsing
+Ok 'waiting: 2 jugadores' ((@((J $r).participantes).Count) -eq 2) "count=$(@((J $r).participantes).Count)"
+
+# Tercer jugador para llenar la sala (max_players = 3) sin contar al docente
+$r = Invoke-WebRequest -Uri "$base/api/auth/register" -Method Post -ContentType 'application/json' -Body (@{
+  nombre = 'WaitThird'; email = "e2e_wait_t_$stamp@gmail.com"; password = 'secret123'
+} | ConvertTo-Json) -UseBasicParsing -SessionVariable swt
+Ok 'waiting: third register' ($r.StatusCode -eq 201) $r.StatusCode
+try {
+  $r = Invoke-WebRequest -Uri "$base/api/salas" -Method Post -ContentType 'application/json' -WebSession $swt -Body (@{
+    action = 'join'; code = $wCode
+  } | ConvertTo-Json) -UseBasicParsing
+  Ok 'waiting: third player join' ($r.StatusCode -eq 200) $r.StatusCode
+} catch {
+  Ok 'waiting: third player join' $false $_.Exception.Message
+}
 $r = Invoke-WebRequest -Uri "$base/api/salas?code=$([uri]::EscapeDataString($wCode))&join=0" -WebSession $swp -UseBasicParsing
 Ok 'waiting: 3 jugadores (max full)' ((@((J $r).participantes).Count) -eq 3) "count=$(@((J $r).participantes).Count)"
 
@@ -3971,7 +3991,7 @@ try {
   $r = Invoke-WebRequest -Uri "$base/api/salas?id=$salaRT&join=0" -WebSession $srtT -UseBasicParsing
   $pollRT = J $r
   Ok 'rt: fallback polling 200' ($r.StatusCode -eq 200) $r.StatusCode
-  Ok 'rt: fallback polling consistente' ($pollRT.sala.status -eq 'in_progress' -and @($pollRT.participantes).Count -ge 2) "st=$($pollRT.sala.status) n=$(@($pollRT.participantes).Count)"
+  Ok 'rt: fallback polling consistente' ($pollRT.sala.status -eq 'in_progress' -and @($pollRT.participantes).Count -ge 1) "st=$($pollRT.sala.status) n=$(@($pollRT.participantes).Count)"
 } catch {
   Ok 'rt: fallback polling 200' $false $_.Exception.Message
   Ok 'rt: fallback polling consistente' $false 'skip'

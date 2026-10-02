@@ -124,14 +124,6 @@ export async function createRoom(input: {
       ? Math.min(50, Math.max(1, Math.trunc(input.maxPlayers)))
       : 8;
 
-  const user = await queryOne<{ nombre: string; apellido: string | null }>(
-    `SELECT nombre, apellido FROM users WHERE id = $1`,
-    [input.hostId]
-  );
-  const displayName = user
-    ? `${user.nombre}${user.apellido ? ' ' + user.apellido : ''}`
-    : 'Host';
-
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = generateRoomCode();
@@ -146,11 +138,8 @@ export async function createRoom(input: {
       );
       const roomId = room.rows[0]?.id;
       if (!roomId) throw new Error('No se pudo crear la sala');
-      await client.query(
-        `INSERT INTO room_participants (room_id, user_id, display_name, status)
-         VALUES ($1, $2, $3, 'waiting')`,
-        [roomId, input.hostId, displayName]
-      );
+      // El docente NO se registra como jugador: la sala nace vacía y solo
+      // los estudiantes/invitados se unen (el host se resuelve por teacher_id).
       await client.query('COMMIT');
       const full = await queryOne<RoomRow>(`${ROOM_SELECT} WHERE r.id = $1`, [roomId]);
       if (!full) throw new Error('Sala no encontrada tras crear');
