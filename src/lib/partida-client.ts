@@ -23,6 +23,15 @@ export function isRoomFinished(): boolean {
   return roomFinishedDetected;
 }
 
+/** ¿La partida actual es una sala real gestionada por el docente? */
+export function isMatchRoom(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (sessionStorage.getItem('eduplay_practice')) return false;
+  } catch { /* ignore */ }
+  return getMatchRoomId() !== null;
+}
+
 export interface MatchOptionDTO {
   id: string;
   text: string;

@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import type { GamePhase, GameQuestion, DoorChoice, GameResult } from '@/games/decision-road/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished, isMatchRoom, postGameRoute } from '@/lib/partida-client';
 
 interface GameStore {
   phase: GamePhase; currentQuestionIndex: number; questions: GameQuestion[];
@@ -96,12 +96,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setExplanation: (text) => set({ explanation: text }),
   advanceQuestion: () => set((s) => ({ currentQuestionIndex: s.currentQuestionIndex + 1, selectedDoor: null, explanation: null })),
   completeLevel: () => { const { questions, correctCount, score, xp, answers } = get(); const total = questions.length; const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0; const stars = accuracy >= 95 ? 3 : accuracy >= 85 ? 2 : accuracy >= 70 ? 1 : 0; set({ result: { totalQuestions: total, correctAnswers: correctCount, incorrectAnswers: total - correctCount, score, xp, stars, accuracy, completedAt: Date.now() } }); recordAchievementEvent({ type: 'game_completed', mode: 'decisiones', metadata: { accuracy, score, xp, defeated: false, correct: correctCount, total, bestStreak: bestStreakOf(answers), hadError: correctCount < total } }); },
-  // Finalización de sala detectada en el cliente (autoridad: backend). Sintetiza
-  // el resultado con el estado local al momento de finalizar y muestra los
-  // Resultados. Idempotente: si ya hay resultado (completado normalmente) se
-  // conserva; si ya está en 'results' no hace nada. No dispara logros (el
-  // servidor los evalúa de forma autoritativa).
+  // Finalización de sala detectada en el cliente (autoridad: backend). En modo
+  // sala sale de inmediato a la pantalla compartida de Resultados (igual que
+  // lava/tierras/abismos). En modo local sintetiza el resultado con el estado
+  // local al momento de finalizar y muestra los Resultados en la partida.
+  // Idempotente: si ya hay resultado (completado normalmente) se conserva; si
+  // ya está en 'results' no hace nada. No dispara logros (el servidor los
+  // evalúa de forma autoritativa).
   finishByRoom: () => {
+    if (isMatchRoom()) {
+      window.location.href = postGameRoute();
+      return;
+    }
     const s = get();
     if (s.result === null) {
       const total = s.questions.length;

@@ -24,6 +24,7 @@ import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
+import { isMatchRoom, postGameRoute } from '@/lib/partida-client';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -81,6 +82,12 @@ export function GameCanvas() {
   useGameFullscreen();
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
+  // Al terminar en modo sala se sale a la pantalla de Resultados compartida
+  // (/resultados?sala=…); en local/práctica se muestran los resultados en la partida.
+  const handleResultsExit = useCallback(() => {
+    if (isMatchRoom()) { window.location.href = postGameRoute(); return; }
+    useGameStore.getState().setPhase('results');
+  }, []);
   const gamePhase = useGameStore((s) => s.phase);
 
   useEffect(() => {
@@ -107,7 +114,7 @@ export function GameCanvas() {
       <ResultsScreen />
       <CompletionOverlay
         show={gamePhase === 'completed'}
-        onDone={() => useGameStore.getState().setPhase('results')}
+        onDone={handleResultsExit}
         duration={4000}
       />
       <MobileControls />
