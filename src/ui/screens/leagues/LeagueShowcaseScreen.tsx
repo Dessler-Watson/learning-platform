@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { LEAGUES, type League } from '@/lib/leagues';
@@ -23,7 +23,8 @@ const SHOWCASE_DATA: ShowcaseEntry[] = LEAGUES.map((l) => ({
 }));
 
 /* ── Starfield ── */
-function StarField() {
+// memo: no vuelve a renderizar las 250 estrellas cuando cambia la liga activa.
+const StarField = memo(function StarField() {
   const stars = useMemo(() => Array.from({ length: 250 }, (_, i) => ({
     id: i, x: Math.random() * 100, y: Math.random() * 100,
     size: Math.random() * 2.8 + 0.3, opacity: Math.random() * 0.8 + 0.15,
@@ -38,17 +39,21 @@ function StarField() {
       ))}
     </div>
   );
-}
+});
 
 /* ── Planet ── */
 function CosmicPlanet({ color, intensity }: { color: string; intensity: number }) {
   const size = 260 + intensity * 15;
   return (
     <div className="pointer-events-none absolute" style={{ right: '-2%', top: '5%' }}>
-      {/* Atmosphere glow */}
-      <div className="absolute -inset-20 rounded-full"
-        style={{ background: `radial-gradient(circle, ${color}18 0%, ${color}06 40%, transparent 70%)`,
-          filter: 'blur(25px)', animation: 'nebulaDrift2 20s ease-in-out infinite alternate' }} />
+      {/* Atmosphere glow — animación en el padre, blur estático en el hijo:
+          el ráster con blur se cachea una vez y solo se transforma por GPU. */}
+      <div className="absolute -inset-20"
+        style={{ animation: 'nebulaDrift2 20s ease-in-out infinite alternate' }}>
+        <div className="absolute inset-0 rounded-full"
+          style={{ background: `radial-gradient(circle, ${color}18 0%, ${color}06 40%, transparent 70%)`,
+            filter: 'blur(25px)' }} />
+      </div>
       {/* Planet body */}
       <div className="relative rounded-full"
         style={{ width: size, height: size,
@@ -81,48 +86,66 @@ function CosmicPlanet({ color, intensity }: { color: string; intensity: number }
   );
 }
 
-/* ── Nebula Layer — massive, colorful, pronounced ── */
+/* ── Nebula Layer — massive, colorful, pronounced ──
+ * Rendimiento móvil: la animación (transform) vive en un padre sin filtro y
+ * el `filter: blur()` queda estático en el hijo; el ráster desenfocado se
+ * calcula una sola vez y la animación solo lo mueve/escala por GPU. */
 function NebulaLayer({ color, intensity }: { color: string; intensity: number }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* Main nebula — huge, centered-left */}
       <div className="absolute" style={{
         left: '-10%', top: '-5%', width: '75%', height: '80%',
-        background: `radial-gradient(ellipse at 40% 45%, ${color}30 0%, ${color}15 25%, ${color}08 45%, transparent 65%)`,
-        filter: `blur(${30 + intensity * 3}px)`,
-        animation: 'nebulaDrift1 28s ease-in-out infinite alternate' }} />
+        animation: 'nebulaDrift1 28s ease-in-out infinite alternate' }}>
+        <div className="absolute inset-0" style={{
+          background: `radial-gradient(ellipse at 40% 45%, ${color}30 0%, ${color}15 25%, ${color}08 45%, transparent 65%)`,
+          filter: `blur(${30 + intensity * 3}px)` }} />
+      </div>
 
       {/* Secondary nebula — right side, different hue */}
       <div className="absolute" style={{
         right: '-8%', top: '15%', width: '60%', height: '65%',
-        background: `radial-gradient(ellipse at 60% 50%, ${color}22 0%, ${color}0c 35%, transparent 60%)`,
-        filter: `blur(${35 + intensity * 2}px)`,
-        animation: 'nebulaDrift2 32s ease-in-out 4s infinite alternate-reverse' }} />
+        animation: 'nebulaDrift2 32s ease-in-out 4s infinite alternate-reverse' }}>
+        <div className="absolute inset-0" style={{
+          background: `radial-gradient(ellipse at 60% 50%, ${color}22 0%, ${color}0c 35%, transparent 60%)`,
+          filter: `blur(${35 + intensity * 2}px)` }} />
+      </div>
 
       {/* Bottom nebula sweep */}
       <div className="absolute" style={{
         left: '10%', bottom: '-10%', width: '80%', height: '50%',
-        background: `radial-gradient(ellipse at 50% 80%, ${color}18 0%, ${color}06 40%, transparent 65%)`,
-        filter: 'blur(40px)',
-        animation: 'nebulaDrift3 25s ease-in-out 2s infinite alternate' }} />
+        animation: 'nebulaDrift3 25s ease-in-out 2s infinite alternate' }}>
+        <div className="absolute inset-0" style={{
+          background: `radial-gradient(ellipse at 50% 80%, ${color}18 0%, ${color}06 40%, transparent 65%)`,
+          filter: 'blur(40px)' }} />
+      </div>
 
       {/* Purple nebula cloud */}
       <div className="absolute" style={{
         left: '5%', top: '10%', width: '45%', height: '45%',
-        background: 'radial-gradient(ellipse, #6b21a820 0%, #6b21a808 40%, transparent 70%)',
-        filter: 'blur(35px)', animation: 'nebulaDrift1 20s ease-in-out 1s infinite alternate' }} />
+        animation: 'nebulaDrift1 20s ease-in-out 1s infinite alternate' }}>
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse, #6b21a820 0%, #6b21a808 40%, transparent 70%)',
+          filter: 'blur(35px)' }} />
+      </div>
 
       {/* Pink nebula cloud */}
       <div className="absolute" style={{
         right: '15%', top: '35%', width: '35%', height: '35%',
-        background: 'radial-gradient(ellipse, #db277715 0%, #db277706 45%, transparent 70%)',
-        filter: 'blur(30px)', animation: 'nebulaDrift2 24s ease-in-out 6s infinite alternate-reverse' }} />
+        animation: 'nebulaDrift2 24s ease-in-out 6s infinite alternate-reverse' }}>
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse, #db277715 0%, #db277706 45%, transparent 70%)',
+          filter: 'blur(30px)' }} />
+      </div>
 
       {/* Cyan nebula accent */}
       <div className="absolute" style={{
         left: '35%', bottom: '15%', width: '30%', height: '30%',
-        background: 'radial-gradient(ellipse, #0891b212 0%, #0891b205 45%, transparent 70%)',
-        filter: 'blur(25px)', animation: 'nebulaDrift3 22s ease-in-out 3s infinite alternate' }} />
+        animation: 'nebulaDrift3 22s ease-in-out 3s infinite alternate' }}>
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse, #0891b212 0%, #0891b205 45%, transparent 70%)',
+          filter: 'blur(25px)' }} />
+      </div>
 
       {/* Cosmic dust band — diagonal streak */}
       <div className="absolute inset-0" style={{
@@ -226,30 +249,35 @@ function GlowOrbitRings({ color, intensity }: { color: string; intensity: number
   );
 }
 
-/* ── Glow Aura (intense) ── */
+/* ── Glow Aura (intense) ──
+ * Igual que las nebulas: glowPulse (transform+opacidad) en el padre y el
+ * blur estático en el hijo para no re-desenfocar cada fotograma. */
 function BadgeGlow({ color, intensity }: { color: string; intensity: number }) {
   const size = 300 + intensity * 20;
   const glowStrength = 30 + intensity * 8;
   return (
     <>
       {/* Outer soft glow */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          width: size * 1.2, height: size * 1.2,
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ width: size * 1.2, height: size * 1.2, animation: 'glowPulse 4s ease-in-out infinite' }}>
+        <div className="absolute inset-0 rounded-full" style={{
           background: `radial-gradient(circle, ${color}12 0%, ${color}06 35%, transparent 65%)`,
-          filter: `blur(${glowStrength}px)`, animation: 'glowPulse 4s ease-in-out infinite' }} />
+          filter: `blur(${glowStrength}px)` }} />
+      </div>
       {/* Inner bright core */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          width: size * 0.6, height: size * 0.6,
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ width: size * 0.6, height: size * 0.6, animation: 'glowPulse 3s ease-in-out 0.5s infinite' }}>
+        <div className="absolute inset-0 rounded-full" style={{
           background: `radial-gradient(circle, ${color}35 0%, ${color}10 50%, transparent 80%)`,
-          filter: `blur(${glowStrength * 0.5}px)`, animation: 'glowPulse 3s ease-in-out 0.5s infinite' }} />
+          filter: `blur(${glowStrength * 0.5}px)` }} />
+      </div>
       {/* Bright center flash */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          width: 80, height: 80,
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ width: 80, height: 80, animation: 'glowPulse 2.5s ease-in-out 1s infinite' }}>
+        <div className="absolute inset-0 rounded-full" style={{
           background: `radial-gradient(circle, ${color}50 0%, ${color}20 40%, transparent 70%)`,
-          filter: 'blur(10px)', animation: 'glowPulse 2.5s ease-in-out 1s infinite' }} />
+          filter: 'blur(10px)' }} />
+      </div>
     </>
   );
 }
@@ -487,23 +515,30 @@ export function LeagueShowcaseScreen() {
 
       {/* ═══ MAIN SHOWCASE ═══ */}
       <div className="relative z-10 flex flex-col items-center" style={{ height: 'calc(100vh - 180px)' }}>
-        {/* Navigation Arrows */}
-        <motion.button whileHover={{ scale: 1.15, x: -2 }} whileTap={{ scale: 0.9 }}
-          onClick={goPrev}
-          className="absolute left-2 top-1/2 z-30 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border-2 text-white transition-colors md:left-6"
-          style={{ borderColor: `${league.color}40`, background: `${league.color}08`,
-            boxShadow: `0 0 25px ${league.color}20, inset 0 0 15px ${league.color}08`,
-            backdropFilter: 'blur(12px)' }}>
-          <ChevronLeft size={26} />
-        </motion.button>
-        <motion.button whileHover={{ scale: 1.15, x: 2 }} whileTap={{ scale: 0.9 }}
-          onClick={goNext}
-          className="absolute right-2 top-1/2 z-30 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border-2 text-white transition-colors md:right-6"
-          style={{ borderColor: `${league.color}40`, background: `${league.color}08`,
-            boxShadow: `0 0 25px ${league.color}20, inset 0 0 15px ${league.color}08`,
-            backdropFilter: 'blur(12px)' }}>
-          <ChevronRight size={26} />
-        </motion.button>
+        {/* Navigation Arrows — el centrado vertical vive en un wrapper fijo:
+            framer-motion escribe transform inline (whileTap/whileHover) y
+            pisaba el -translate-y-1/2 de Tailwind, desplazando el botón para
+            abajo de forma permanente tras el primer toque. */}
+        <div className="absolute left-2 top-1/2 z-30 -translate-y-1/2 md:left-6">
+          <motion.button whileHover={{ scale: 1.15, x: -2 }} whileTap={{ scale: 0.9 }}
+            onClick={goPrev}
+            className="flex h-14 w-14 items-center justify-center rounded-full border-2 text-white transition-colors"
+            style={{ borderColor: `${league.color}40`, background: `${league.color}08`,
+              boxShadow: `0 0 25px ${league.color}20, inset 0 0 15px ${league.color}08`,
+              backdropFilter: 'blur(12px)' }}>
+            <ChevronLeft size={26} />
+          </motion.button>
+        </div>
+        <div className="absolute right-2 top-1/2 z-30 -translate-y-1/2 md:right-6">
+          <motion.button whileHover={{ scale: 1.15, x: 2 }} whileTap={{ scale: 0.9 }}
+            onClick={goNext}
+            className="flex h-14 w-14 items-center justify-center rounded-full border-2 text-white transition-colors"
+            style={{ borderColor: `${league.color}40`, background: `${league.color}08`,
+              boxShadow: `0 0 25px ${league.color}20, inset 0 0 15px ${league.color}08`,
+              backdropFilter: 'blur(12px)' }}>
+            <ChevronRight size={26} />
+          </motion.button>
+        </div>
 
         {/* Center Content */}
         <div className="flex flex-1 flex-col items-center justify-center">
