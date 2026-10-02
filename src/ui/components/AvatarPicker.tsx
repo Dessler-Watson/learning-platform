@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Camera } from 'lucide-react';
 import { processAvatarFile } from '@/lib/custom-avatar';
+import { audioManager } from '@/shared/lib/audio';
 
 export interface Avatar {
   id_avatar: number;
@@ -94,7 +95,7 @@ export function AvatarPicker({
             type="button"
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.95, y: 2 }}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { audioManager.play('click'); fileInputRef.current?.click(); }}
             disabled={uploading}
             aria-label="Subir foto desde tu dispositivo"
             className="relative flex flex-col items-center gap-2 rounded-2xl p-3 transition-all disabled:opacity-60"
@@ -133,7 +134,7 @@ export function AvatarPicker({
             type="button"
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.95, y: 2 }}
-            onClick={onCustomSelect}
+            onClick={() => { audioManager.play('select'); onCustomSelect?.(); }}
             aria-label="Seleccionar mi foto personalizada"
             className="relative flex flex-col items-center gap-2 rounded-2xl p-3 transition-all"
             style={{
@@ -187,7 +188,7 @@ export function AvatarPicker({
               type="button"
               whileHover={{ scale: 1.04, y: -2 }}
               whileTap={{ scale: 0.95, y: 2 }}
-              onClick={() => onSelect(avatar.id_avatar)}
+              onClick={() => { audioManager.play('select'); onSelect(avatar.id_avatar); }}
               aria-label={`Seleccionar avatar ${avatar.nombre}`}
               className="relative flex flex-col items-center gap-2 rounded-2xl p-3 transition-all"
               style={{

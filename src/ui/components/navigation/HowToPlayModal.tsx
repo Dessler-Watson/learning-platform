@@ -2,6 +2,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gamepad2, Move } from 'lucide-react';
 import { ModeLogo } from '@/shared/lib/game-modes';
+import { audioManager } from '@/shared/lib/audio';
 
 interface HowToPlayModalProps {
   open: boolean;
@@ -267,7 +268,7 @@ export function HowToPlayModal({ open, onClose, mode }: HowToPlayModalProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={onClose}
+          onClick={() => { audioManager.play('modalClose'); onClose(); }}
         >
           <motion.div
             initial={{ scale: 0.9, y: 30, opacity: 0 }}
@@ -283,7 +284,7 @@ export function HowToPlayModal({ open, onClose, mode }: HowToPlayModalProps) {
                 <h2 className="text-lg font-bold text-white">Como se juega</h2>
               </div>
               <button
-                onClick={onClose}
+                onClick={() => { audioManager.play('modalClose'); onClose(); }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-surface-400 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <X size={16} />

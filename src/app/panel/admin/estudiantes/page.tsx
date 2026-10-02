@@ -308,7 +308,7 @@ export default function AdminEstudiantesPage() {
               <span className="text-xs text-gray-400">Filtro:</span>
               <span className="inline-flex items-center gap-1 rounded-full bg-[#00A0B5]/10 px-3 py-1 text-xs font-medium text-[#00A0B5]">
                 &quot;{busqueda}&quot;
-                <button onClick={() => setBusqueda('')} className="hover:text-[#00A0B5]/80">
+                <button onClick={() => { audioManager.play('click'); setBusqueda(''); }} className="hover:text-[#00A0B5]/80">
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -329,13 +329,13 @@ export default function AdminEstudiantesPage() {
             {seleccion.length === 1 ? '' : 's'}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+            <Button variant="outline" size="sm" onClick={() => { audioManager.play('click'); setSeleccion([]); }}>
               Limpiar
             </Button>
             <Button
               size="sm"
               className="bg-rose-500 text-white hover:bg-rose-600"
-              onClick={() => setShowEliminarMuchosDialog(true)}
+              onClick={() => { audioManager.play('delete'); setShowEliminarMuchosDialog(true); }}
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Eliminar seleccionados
@@ -357,7 +357,7 @@ export default function AdminEstudiantesPage() {
                         if (el) el.indeterminate = seleccion.length > 0 && !todosEnPagina;
                       }}
                       checked={todosEnPagina}
-                      onChange={toggleTodos}
+                      onChange={() => { audioManager.play('toggle'); toggleTodos(); }}
                       disabled={estudiantes.length === 0}
                       aria-label="Seleccionar todos los de esta pagina"
                       className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
@@ -405,7 +405,7 @@ export default function AdminEstudiantesPage() {
                           <input
                             type="checkbox"
                             checked={seleccion.includes(est.id)}
-                            onChange={() => toggleUno(est.id)}
+                            onChange={() => { audioManager.play('toggle'); toggleUno(est.id); }}
                             aria-label={`Seleccionar ${est.nombre}`}
                             className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
                           />
@@ -502,7 +502,7 @@ export default function AdminEstudiantesPage() {
       </div>
       <Pagination page={pagina} totalPages={totalPaginas} disabled={cargandoLista} onPage={cambiarPagina} />
 
-      <Dialog open={showVerModal} onOpenChange={setShowVerModal}>
+      <Dialog open={showVerModal} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowVerModal(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalle del estudiante</DialogTitle>
@@ -567,7 +567,7 @@ export default function AdminEstudiantesPage() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowVerModal(false)}>Cerrar</Button>
+                <Button variant="outline" onClick={() => { audioManager.play('modalClose'); setShowVerModal(false); }}>Cerrar</Button>
                 <Button onClick={() => { setShowVerModal(false); handleEditar(selected); }}>
                   <Edit3 className="h-4 w-4 mr-2" />
                   Editar
@@ -578,7 +578,7 @@ export default function AdminEstudiantesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showEditarModal} onOpenChange={setShowEditarModal}>
+      <Dialog open={showEditarModal} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowEditarModal(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar estudiante</DialogTitle>
@@ -624,7 +624,7 @@ export default function AdminEstudiantesPage() {
                 <Label>Estado</Label>
                 <select
                   value={editForm.estado}
-                  onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
+                  onChange={(e) => { audioManager.play('select'); setEditForm({ ...editForm, estado: e.target.value }); }}
                   className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm"
                 >
                   <option value="activo">Activo</option>
@@ -634,8 +634,8 @@ export default function AdminEstudiantesPage() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowEditarModal(false)} disabled={loading}>Cancelar</Button>
-                <Button onClick={guardarEdicion} disabled={loading}>
+                <Button variant="outline" onClick={() => { audioManager.play('back'); setShowEditarModal(false); }} disabled={loading}>Cancelar</Button>
+                <Button onClick={() => { audioManager.play('submit'); guardarEdicion(); }} disabled={loading}>
                   {loading ? 'Guardando...' : 'Guardar cambios'}
                 </Button>
               </DialogFooter>
@@ -644,7 +644,7 @@ export default function AdminEstudiantesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCambiarContrasena} onOpenChange={setShowCambiarContrasena}>
+      <Dialog open={showCambiarContrasena} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowCambiarContrasena(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cambiar contraseña</DialogTitle>
@@ -666,7 +666,7 @@ export default function AdminEstudiantesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowNewPassword(!showNewPassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -692,7 +692,7 @@ export default function AdminEstudiantesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowConfirmNewPassword(!showConfirmNewPassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showConfirmNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -706,8 +706,8 @@ export default function AdminEstudiantesPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCambiarContrasena(false)} disabled={loading}>Cancelar</Button>
-              <Button onClick={guardarContrasena} disabled={loading}>
+              <Button variant="outline" onClick={() => { audioManager.play('back'); setShowCambiarContrasena(false); }} disabled={loading}>Cancelar</Button>
+              <Button onClick={() => { audioManager.play('submit'); guardarContrasena(); }} disabled={loading}>
                 {loading ? 'Actualizando...' : 'Actualizar contraseña'}
               </Button>
             </DialogFooter>

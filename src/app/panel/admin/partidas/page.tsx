@@ -176,7 +176,7 @@ export default function AdminPartidasPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Modo:</span>
             <button
-              onClick={() => cambiarModo('')}
+              onClick={() => { audioManager.play('select'); cambiarModo(''); }}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition-all border ${
                 modo === ''
                   ? 'bg-[#00A0B5] text-white border-[#00A0B5] shadow-sm'
@@ -188,7 +188,7 @@ export default function AdminPartidasPage() {
             {MODE_CHIPS.map((m) => (
               <button
                 key={m.id}
-                onClick={() => cambiarModo(m.id)}
+                onClick={() => { audioManager.play('select'); cambiarModo(m.id); }}
                 className="rounded-full px-3 py-1 text-xs font-semibold transition-all border"
                 style={
                   modo === m.id
@@ -206,7 +206,7 @@ export default function AdminPartidasPage() {
               <span className="text-xs text-gray-400">Filtro:</span>
               <span className="inline-flex items-center gap-1 rounded-full bg-[#00A0B5]/10 px-3 py-1 text-xs font-medium text-[#00A0B5]">
                 &quot;{busqueda}&quot;
-                <button onClick={() => setBusqueda('')} className="hover:text-[#00A0B5]/80">
+                <button onClick={() => { audioManager.play('click'); setBusqueda(''); }} className="hover:text-[#00A0B5]/80">
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -226,13 +226,13 @@ export default function AdminPartidasPage() {
             {seleccion.length} partida{seleccion.length === 1 ? '' : 's'} seleccionada{seleccion.length === 1 ? '' : 's'}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+            <Button variant="outline" size="sm" onClick={() => { audioManager.play('click'); setSeleccion([]); }}>
               Limpiar
             </Button>
             <Button
               size="sm"
               className="bg-rose-500 text-white hover:bg-rose-600"
-              onClick={() => setShowEliminarMuchosDialog(true)}
+              onClick={() => { audioManager.play('delete'); setShowEliminarMuchosDialog(true); }}
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Eliminar seleccionados
@@ -254,7 +254,7 @@ export default function AdminPartidasPage() {
                         if (el) el.indeterminate = seleccion.length > 0 && !todosEnPagina;
                       }}
                       checked={todosEnPagina}
-                      onChange={toggleTodos}
+                      onChange={() => { audioManager.play('toggle'); toggleTodos(); }}
                       disabled={partidas.length === 0}
                       aria-label="Seleccionar todos los de esta pagina"
                       className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
@@ -303,7 +303,7 @@ export default function AdminPartidasPage() {
                           <input
                             type="checkbox"
                             checked={seleccion.includes(p.id)}
-                            onChange={() => toggleUno(p.id)}
+                            onChange={() => { audioManager.play('toggle'); toggleUno(p.id); }}
                             aria-label={`Seleccionar ${p.titulo}`}
                             className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
                           />

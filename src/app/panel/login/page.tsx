@@ -37,6 +37,7 @@ export default function LoginPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    audioManager.play('submit');
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
@@ -173,7 +174,7 @@ export default function LoginPage() {
                     <Label>Rol</Label>
                     <div className="relative">
                       <Shield className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 z-10" />
-                      <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)} disabled={loading}>
+                      <Select value={rol} onValueChange={(v) => { audioManager.play('select'); setRol(v as RolUsuario); }} disabled={loading}>
                         <SelectTrigger className="pl-11">
                           <SelectValue placeholder="Selecciona tu rol" />
                         </SelectTrigger>
@@ -185,7 +186,7 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 text-base font-bold" disabled={loading} onClick={() => audioManager.play('submit')}>
+                  <Button type="submit" className="w-full h-12 text-base font-bold" disabled={loading}>
                     {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                   </Button>
                 </form>

@@ -262,7 +262,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                   <motion.div
                     whileHover={{ scale: editingAvatar ? 1 : 1.03 }}
                     whileTap={{ scale: editingAvatar ? 1 : 0.97 }}
-                    onClick={() => { if (!editingAvatar) setEditingAvatar(true); }}
+                    onClick={() => { if (!editingAvatar) { audioManager.play('modalOpen'); setEditingAvatar(true); } }}
                     title={editingAvatar ? undefined : 'Cambiar avatar'}
                     className="absolute inset-0 cursor-pointer overflow-hidden rounded-full border-4 border-white shadow-glow-edu-blue"
                     style={{ background: '#fff7ef' }}
@@ -416,7 +416,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.97, y: 2 }}
-                          onClick={() => { setEditingAvatar(false); setAvatarError(null); setAvatarSaved(false); }}
+                          onClick={() => { audioManager.play('back'); setEditingAvatar(false); setAvatarError(null); setAvatarSaved(false); }}
                           disabled={savingAvatar}
                           className="flex-1 rounded-xl border-2 border-surface-200 bg-edu-cream py-3 text-sm font-black text-surface-500 shadow-card"
                         >
@@ -425,7 +425,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.97, y: 2 }}
-                          onClick={guardarAvatar}
+                          onClick={() => { audioManager.play('success'); void guardarAvatar(); }}
                           disabled={savingAvatar}
                           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm font-black text-white shadow-glow-edu-blue disabled:opacity-70"
                         >

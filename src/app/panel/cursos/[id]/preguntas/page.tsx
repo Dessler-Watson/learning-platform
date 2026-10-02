@@ -153,7 +153,6 @@ export default function PreguntasPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget || !clickLock()) return;
-    audioManager.play('delete');
     await preguntasService.eliminar(deleteTarget.id);
     toast('Pregunta eliminada.');
     setDeleteOpen(false);
@@ -205,7 +204,7 @@ export default function PreguntasPage() {
               iconComponent={Plus}
               title="No hay preguntas"
               description={search ? 'No se encontraron preguntas.' : 'Agrega preguntas a este curso.'}
-              action={!search && preguntas.length < MAX_PREGUNTAS_POR_CURSO ? <Button variant="outline" onClick={openCreate}><Plus className="mr-1 h-4 w-4" /> Crear pregunta</Button> : undefined}
+              action={!search && preguntas.length < MAX_PREGUNTAS_POR_CURSO ? <Button variant="outline" onClick={() => { audioManager.play('modalOpen'); openCreate(); }}><Plus className="mr-1 h-4 w-4" /> Crear pregunta</Button> : undefined}
             />
           </motion.div>
         ) : (
@@ -227,10 +226,10 @@ export default function PreguntasPage() {
                       </span>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEdit(pregunta)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                      <button onClick={() => { audioManager.play('modalOpen'); openEdit(pregunta); }} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => { setDeleteTarget(pregunta); setDeleteOpen(true); }} className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-500">
+                      <button onClick={() => { audioManager.play('delete'); setDeleteTarget(pregunta); setDeleteOpen(true); }} className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-500">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -252,7 +251,7 @@ export default function PreguntasPage() {
       </motion.div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog open={formOpen} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setFormOpen(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingPregunta ? 'Editar pregunta' : 'Nueva pregunta'}</DialogTitle>
@@ -291,7 +290,7 @@ export default function PreguntasPage() {
               <Label>Respuesta correcta</Label>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setForm({ ...form, respuestaCorrecta: 'A' })}
+                  onClick={() => { audioManager.play('select'); setForm({ ...form, respuestaCorrecta: 'A' }); }}
                   className={`flex-1 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-all ${
                     form.respuestaCorrecta === 'A' ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                   }`}
@@ -299,7 +298,7 @@ export default function PreguntasPage() {
                   A) {form.opcionA}
                 </button>
                 <button
-                  onClick={() => setForm({ ...form, respuestaCorrecta: 'B' })}
+                  onClick={() => { audioManager.play('select'); setForm({ ...form, respuestaCorrecta: 'B' }); }}
                   className={`flex-1 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-all ${
                     form.respuestaCorrecta === 'B' ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                   }`}
@@ -310,7 +309,7 @@ export default function PreguntasPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { audioManager.play('back'); setFormOpen(false); }}>Cancelar</Button>
             <Button onClick={handleSave}>{editingPregunta ? 'Guardar cambios' : 'Crear pregunta'}</Button>
           </DialogFooter>
         </DialogContent>
@@ -327,7 +326,7 @@ export default function PreguntasPage() {
       />
 
       {/* Limit Alert */}
-      <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+      <Dialog open={limitOpen} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setLimitOpen(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

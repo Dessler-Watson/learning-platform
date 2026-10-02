@@ -47,6 +47,7 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (data: RegisterFormData) => {
+    audioManager.play('submit');
     setServerError('');
     setLoading(true);
     const result = await register({
@@ -225,7 +226,7 @@ export default function RegisterPage() {
                     )}
                   </div>
 
-                  <Button type="submit" className="w-full h-12 text-base font-bold" disabled={loading} onClick={() => audioManager.play('submit')}>
+                  <Button type="submit" className="w-full h-12 text-base font-bold" disabled={loading}>
                     {loading ? 'Creando cuenta...' : 'Crear cuenta'}
                   </Button>
                 </form>

@@ -87,7 +87,7 @@ export function LoginScreen() {
         <motion.button
           whileHover={{ scale: 1.05, x: -2 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => { window.location.href = '/estudiante'; }}
+          onClick={() => { audioManager.play('back'); window.location.href = '/estudiante'; }}
           className="mb-4 flex items-center gap-2 text-sm font-black text-surface-500 transition-colors hover:text-surface-700"
         >
           <ArrowLeft size={18} /> Volver

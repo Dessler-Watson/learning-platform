@@ -175,7 +175,7 @@ export function GuestNameScreen() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97, y: 2 }}
-              onClick={() => { void start(); }}
+              onClick={() => { audioManager.play('start'); void start(); }}
               disabled={!name.trim() || started}
               className="btn-game mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFEF5A] py-4 text-base text-[#407516] disabled:opacity-60"
               style={{ boxShadow: name.trim() ? '0 6px 0 rgba(64, 117, 22, 0.5), 0 8px 24px rgba(64,117,22,0.35)' : undefined }}

@@ -77,6 +77,7 @@ export function RegisterScreen() {
   const edadInvalida = edad !== null && edad < 3;
 
   const onSubmit = async (data: FormData) => {
+    audioManager.play('submit');
     if (edadInvalida) return;
     setRegisterError(null);
     setRegistering(true);
@@ -150,7 +151,7 @@ export function RegisterScreen() {
         <motion.button
           whileHover={{ scale: 1.05, x: -2 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => { window.location.href = '/estudiante'; }}
+          onClick={() => { audioManager.play('back'); window.location.href = '/estudiante'; }}
           className="mb-4 flex items-center gap-2 text-sm font-black text-surface-500 transition-colors hover:text-surface-700"
         >
           <ArrowLeft size={18} /> Volver
@@ -239,7 +240,7 @@ export function RegisterScreen() {
                         <button
                           key={valor}
                           type="button"
-                          onClick={() => field.onChange(valor)}
+                          onClick={() => { audioManager.play('select'); field.onChange(valor); }}
                           className={`rounded-xl border-2 py-3 text-sm font-black transition-all ${
                             activo
                               ? 'border-[#407516] bg-[#407516] text-white shadow-card'

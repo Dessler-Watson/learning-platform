@@ -4,6 +4,7 @@ import { useState, useCallback, createContext, useContext } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, X, Info } from 'lucide-react';
 import { cn } from '../utils';
+import { audioManager } from '../lib/audio';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -69,7 +70,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             >
               {icons[t.type]}
               <span className="flex-1 text-sm font-medium text-foreground">{t.message}</span>
-              <button onClick={() => dismiss(t.id)} className="shrink-0 text-gray-400 hover:text-gray-600">
+              <button onClick={() => { audioManager.play('click'); dismiss(t.id); }} className="shrink-0 text-gray-400 hover:text-gray-600">
                 <X className="h-3.5 w-3.5" />
               </button>
             </motion.div>

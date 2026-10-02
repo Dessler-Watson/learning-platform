@@ -125,7 +125,6 @@ export default function CursosPorJuegoPage() {
 
   const handlePage = (page: number) => {
     if (page < 1 || page > totalPaginas || page === pagina || busy) return;
-    audioManager.play('click');
     void cargar(page, search);
   };
 
@@ -210,7 +209,6 @@ export default function CursosPorJuegoPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget || !clickLock()) return;
-    audioManager.play('delete');
     await cursosService.eliminar(deleteTarget.id);
     toast('Curso eliminado.');
     setDeleteOpen(false);
@@ -378,7 +376,7 @@ export default function CursosPorJuegoPage() {
               {seleccion.length} curso{seleccion.length === 1 ? '' : 's'} seleccionado{seleccion.length === 1 ? '' : 's'}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+              <Button variant="outline" size="sm" onClick={() => { audioManager.play('click'); setSeleccion([]); }}>
                 Limpiar
               </Button>
               <Button
@@ -399,7 +397,7 @@ export default function CursosPorJuegoPage() {
               iconComponent={BookOpen}
               title="No hay cursos"
               description={search ? 'No se encontraron cursos con ese nombre.' : 'Crea tu primer curso para comenzar.'}
-              action={!search ? <Button variant="outline" onClick={openCreate}><Plus className="mr-1 h-4 w-4" /> Nuevo curso</Button> : undefined}
+              action={!search ? <Button variant="outline" onClick={() => { audioManager.play('modalOpen'); openCreate(); }}><Plus className="mr-1 h-4 w-4" /> Nuevo curso</Button> : undefined}
             />
           </motion.div>
         ) : (
@@ -423,7 +421,7 @@ export default function CursosPorJuegoPage() {
                         <input
                           type="checkbox"
                           checked={seleccion.includes(curso.id)}
-                          onChange={() => toggleUno(curso.id)}
+                          onChange={() => { audioManager.play('toggle'); toggleUno(curso.id); }}
                           aria-label={`Seleccionar ${curso.nombre}`}
                           className="h-4 w-4 rounded border-gray-300 accent-[#EB5D70] cursor-pointer"
                         />
@@ -433,16 +431,16 @@ export default function CursosPorJuegoPage() {
                       </div>
                       <div className="relative">
                         <button
-                          onClick={() => setMenuOpen(menuOpen === curso.id ? null : curso.id)}
+                          onClick={() => { audioManager.play('click'); setMenuOpen(menuOpen === curso.id ? null : curso.id); }}
                           className="rounded-xl p-1.5 text-gray-300 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-500 group-hover:opacity-100"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
                         {menuOpen === curso.id && (
                           <>
-                            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(null)} />
+                            <div className="fixed inset-0 z-40" onClick={() => { audioManager.play('click'); setMenuOpen(null); }} />
                             <div className="absolute right-0 top-8 z-50 w-48 rounded-2xl border border-[#EB5D70]/20 bg-white py-1 shadow-md">
-                              <button onClick={() => openEdit(curso)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
+                              <button onClick={() => { audioManager.play('modalOpen'); openEdit(curso); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
                                 <Pencil className="h-3.5 w-3.5 text-gray-400" /> Editar curso
                               </button>
                               <button onClick={() => { handleCopiar(curso.id); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50">
@@ -452,7 +450,7 @@ export default function CursosPorJuegoPage() {
                                 <ClipboardList className="h-3.5 w-3.5 text-gray-400" /> Ver preguntas
                               </button>
                               <div className="my-1 border-t border-gray-100" />
-                              <button onClick={() => { setDeleteTarget(curso); setDeleteOpen(true); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50">
+                              <button onClick={() => { audioManager.play('delete'); setDeleteTarget(curso); setDeleteOpen(true); setMenuOpen(null); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50">
                                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
                               </button>
                             </div>
@@ -493,7 +491,7 @@ export default function CursosPorJuegoPage() {
       </motion.div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog open={formOpen} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setFormOpen(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingCurso ? 'Editar curso' : 'Nuevo curso'}</DialogTitle>
@@ -522,7 +520,7 @@ export default function CursosPorJuegoPage() {
             {editingCurso && (
               <div className="space-y-2">
                 <Label>Estado</Label>
-                <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => setForm({ ...form, estado: v })}>
+                <Select value={form.estado} onValueChange={(v: 'activo' | 'inactivo' | 'borrador') => { audioManager.play('select'); setForm({ ...form, estado: v }); }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -536,7 +534,7 @@ export default function CursosPorJuegoPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { audioManager.play('back'); setFormOpen(false); }}>Cancelar</Button>
             <Button onClick={handleSave}>{editingCurso ? 'Guardar cambios' : 'Crear curso'}</Button>
           </DialogFooter>
         </DialogContent>
@@ -565,7 +563,7 @@ export default function CursosPorJuegoPage() {
       />
 
       {/* Paste Dialog */}
-      <Dialog open={pasteOpen} onOpenChange={setPasteOpen}>
+      <Dialog open={pasteOpen} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setPasteOpen(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Pegar curso</DialogTitle>
@@ -582,7 +580,7 @@ export default function CursosPorJuegoPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPasteOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { audioManager.play('back'); setPasteOpen(false); }}>Cancelar</Button>
             <Button onClick={handlePegar}>Pegar curso</Button>
           </DialogFooter>
         </DialogContent>

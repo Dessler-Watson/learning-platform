@@ -195,7 +195,7 @@ export default function MonitoreoPage() {
               />
               {search && (
                 <button
-                  onClick={() => setSearch('')}
+                  onClick={() => { audioManager.play('click'); setSearch(''); }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-gray-500 transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />

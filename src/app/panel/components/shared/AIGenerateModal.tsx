@@ -446,7 +446,7 @@ export function AIGenerateModal({ open, onOpenChange, gameModeName, onQuestionsG
                               >
                                 <div className="mt-3 flex items-center justify-end gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs">
                                   <span className="text-gray-500 flex-1">Eliminar esta pregunta?</span>
-                                  <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteIndex(null)}>
+                                  <Button variant="ghost" size="sm" onClick={() => { audioManager.play('back'); setConfirmDeleteIndex(null); }}>
                                     Cancelar
                                   </Button>
                                   <Button

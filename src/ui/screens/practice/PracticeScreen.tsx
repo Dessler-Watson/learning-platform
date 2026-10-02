@@ -244,6 +244,7 @@ export function PracticeScreen() {
   const handlePublish = async (practiceId: string) => {
     if (!isRegistered) {
       setAuthModalContext('publish');
+      audioManager.play('modalOpen');
       setShowAuthModal(true);
       return;
     }
@@ -528,7 +529,7 @@ export function PracticeScreen() {
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => { audioManager.play('click'); setSearchQuery(''); }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
                   >
                     <X size={16} />
@@ -541,30 +542,30 @@ export function PracticeScreen() {
                 <FilterChip
                   label="Todas"
                   active={filterMode === 'all'}
-                  onClick={() => setFilterMode('all')}
+                  onClick={() => { audioManager.play('select'); setFilterMode('all'); }}
                 />
                 <FilterChip
                   label="Rumbo"
                   active={filterMode === 'decisiones'}
-                  onClick={() => setFilterMode('decisiones')}
+                  onClick={() => { audioManager.play('select'); setFilterMode('decisiones'); }}
                   color={MODE_THEME.decisiones.color}
                 />
                 <FilterChip
                   label="Bajo Presión"
                   active={filterMode === 'lava'}
-                  onClick={() => setFilterMode('lava')}
+                  onClick={() => { audioManager.play('select'); setFilterMode('lava'); }}
                   color={MODE_THEME.lava.color}
                 />
                 <FilterChip
                   label="Tierras"
                   active={filterMode === 'tierras'}
-                  onClick={() => setFilterMode('tierras')}
+                  onClick={() => { audioManager.play('select'); setFilterMode('tierras'); }}
                   color={MODE_THEME.tierras.color}
                 />
                 <FilterChip
                   label="Abismos"
                   active={filterMode === 'abismos'}
-                  onClick={() => setFilterMode('abismos')}
+                  onClick={() => { audioManager.play('select'); setFilterMode('abismos'); }}
                   color={MODE_THEME.abismos.color}
                 />
               </div>
@@ -1029,7 +1030,7 @@ function HistoryPracticeCard({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => setShowActions(!showActions)}
+            onClick={() => { audioManager.play('toggle'); setShowActions(!showActions); }}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-100 text-surface-500"
             title="Mas opciones"
           >
@@ -1099,7 +1100,7 @@ function AuthModal({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
     >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { audioManager.play('modalClose'); onClose(); }} />
       <motion.div
         initial={{ scale: 0.9, y: 20, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}

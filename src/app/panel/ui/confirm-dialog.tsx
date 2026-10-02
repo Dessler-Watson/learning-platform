@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '../utils';
+import { audioManager } from '../lib/audio';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -52,13 +53,19 @@ export function ConfirmDialog({
           </div>
           <div className="flex justify-end gap-2 mt-2">
             <AlertDialog.Cancel asChild>
-              <button className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50 active:scale-[0.98]">
+              <button
+                onClick={() => audioManager.play('back')}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50 active:scale-[0.98]"
+              >
                 {cancelLabel}
               </button>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
               <button
-                onClick={onConfirm}
+                onClick={() => {
+                  audioManager.play(/eliminar|delete/i.test(confirmLabel) ? 'delete' : 'confirm');
+                  onConfirm();
+                }}
                 className={cn(
                   'rounded-xl px-4 py-2 text-sm font-bold text-white transition-all active:scale-[0.98]',
                   variant === 'destructive'

@@ -238,7 +238,7 @@ export default function EstudianteDetallePage() {
           <Button
             variant="outline"
             className="w-full border-2 border-[#00A0B5]/30 bg-[#00A0B5]/10 text-[#00A0B5] font-semibold hover:bg-[#00A0B5]/20 hover:border-[#00A0B5]/50"
-            onClick={() => router.push(`/panel/salas/${salaId}/resultados`)}
+            onClick={() => { audioManager.play('back'); router.push(`/panel/salas/${salaId}/resultados`); }}
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver a resultados
           </Button>

@@ -9,6 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { gameRouteFor, type RoomData } from '@/lib/rooms';
 import { avatarUrl } from '@/lib/avatares';
 import { getCustomAvatar } from '@/lib/custom-avatar';
+import { audioManager } from '@/shared/lib/audio';
 import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
 interface Player {
@@ -261,7 +262,7 @@ export function WaitingRoomScreen() {
           </div>
           <p className="text-sm font-bold text-surface-500">{errorMsg}</p>
           <button
-            onClick={() => { window.location.href = '/inicio'; }}
+            onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
             className="mt-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white"
           >
             <ArrowLeft size={16} /> Volver al inicio
@@ -286,7 +287,7 @@ export function WaitingRoomScreen() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95, y: 2 }}
-          onClick={salir}
+          onClick={() => { audioManager.play('back'); void salir(); }}
           className="mb-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white"
         >
           <ArrowLeft size={16} /> Salir de la sala
@@ -419,7 +420,7 @@ export function WaitingRoomScreen() {
             <div>
               <p className="text-base font-black text-edu-pink">La sala ya termino</p>
               <button
-                onClick={() => { window.location.href = '/inicio'; }}
+                onClick={() => { audioManager.play('back'); window.location.href = '/inicio'; }}
                 className="mt-3 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2 text-sm font-black text-surface-500"
               >
                 Volver al inicio

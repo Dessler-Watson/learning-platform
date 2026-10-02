@@ -9,6 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { getLeagueByStars, getLeagueProgress, getStarsToNextLeague, getNextLeague } from '@/lib/leagues';
 import { avatarUrl as avatarById } from '@/lib/avatares';
 import { fetchMatchResult, getMatchRoomId, type MatchResultDTO } from '@/lib/partida-client';
+import { audioManager } from '@/shared/lib/audio';
 import type { GameResult } from '@/games/decision-road/types';
 
 /* ------------------------------------------------------------------ */
@@ -195,7 +196,7 @@ function SimpleScreen({ onContinue }: { onContinue: () => void }) {
         transition={{ delay: 0.55 }}
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97, y: 2 }}
-        onClick={onContinue}
+        onClick={() => { audioManager.play('click'); onContinue(); }}
         className="btn-game inline-flex items-center gap-2 rounded-xl bg-edu-blue px-8 py-4 text-base text-white"
         style={{ boxShadow: '0 6px 0 rgba(0, 138, 157, 0.4), 0 8px 24px rgba(0,160,181,0.35)' }}
       >
@@ -405,6 +406,7 @@ function FullResultsScreen({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97, y: 2 }}
               onClick={() => {
+                audioManager.play('navigate');
                 window.location.href = srv?.sala.codigo
                   ? `/sala-espera?codigo=${encodeURIComponent(srv.sala.codigo)}`
                   : '/inicio';
@@ -414,7 +416,7 @@ function FullResultsScreen({
               <Users size={16} /> Ir a la sala
             </motion.button>
           )}
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { const isPractice = !!sessionStorage.getItem('eduplay_practice'); window.location.href = isPractice ? '/practica/resultados' : '/inicio'; }} className="btn-game flex items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white" style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97, y: 2 }} onClick={() => { audioManager.play('back'); const isPractice = !!sessionStorage.getItem('eduplay_practice'); window.location.href = isPractice ? '/practica/resultados' : '/inicio'; }} className="btn-game flex items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white" style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}>
             <Home size={16} /> Salir al menu
           </motion.button>
         </div>

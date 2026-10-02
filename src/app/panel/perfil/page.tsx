@@ -143,7 +143,7 @@ export default function PerfilPage() {
                     <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => { if (!clickLock()) return; audioManager.play('modalClose'); setEditing(false); setError(''); }}>
                       <X className="mr-1 h-4 w-4" /> Cancelar
                     </Button>
-                    <Button className="flex-1 sm:flex-none" onClick={() => { if (!clickLock()) return; handleSave(); }}>
+                    <Button className="flex-1 sm:flex-none" onClick={() => { if (!clickLock()) return; audioManager.play('submit'); handleSave(); }}>
                       <Save className="mr-1 h-4 w-4" /> Guardar
                     </Button>
                   </div>

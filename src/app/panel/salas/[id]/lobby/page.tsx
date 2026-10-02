@@ -162,7 +162,7 @@ export default function LobbyPage() {
           <Button
             variant="outline"
             className="flex-1"
-            onClick={() => { if (clickLock()) void refresh(); }}
+            onClick={() => { if (!clickLock()) return; audioManager.play('click'); void refresh(); }}
             disabled={sala.estado !== 'esperando'}
           >
             <UserPlus className="mr-2 h-4 w-4" /> Actualizar

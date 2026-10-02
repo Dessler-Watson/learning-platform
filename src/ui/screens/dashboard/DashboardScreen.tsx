@@ -435,7 +435,7 @@ export function DashboardScreen() {
       {/* Auth Modal for achievements */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { audioManager.play('modalClose'); setShowAuthModal(false); }} />
           <motion.div
             initial={{ scale: 0.9, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}

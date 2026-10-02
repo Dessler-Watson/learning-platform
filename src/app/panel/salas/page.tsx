@@ -77,7 +77,6 @@ export default function SalasPage() {
 
   const handlePage = (page: number) => {
     if (page < 1 || page > totalPaginas || page === pagina || busy) return;
-    audioManager.play('click');
     void cargar(page, search);
   };
 
@@ -219,7 +218,7 @@ export default function SalasPage() {
               {seleccion.length} sala{seleccion.length === 1 ? '' : 's'} seleccionada{seleccion.length === 1 ? '' : 's'}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+              <Button variant="outline" size="sm" onClick={() => { audioManager.play('click'); setSeleccion([]); }}>
                 Limpiar
               </Button>
               <Button
@@ -241,7 +240,7 @@ export default function SalasPage() {
               title="No hay salas"
               description={search ? 'No se encontraron salas con ese nombre.' : 'Crea tu primera sala para comenzar.'}
               action={!search ? (
-                <Button variant="outline" onClick={() => router.push('/panel/salas/crear')}>
+                <Button variant="outline" onClick={() => { audioManager.play('navigate'); router.push('/panel/salas/crear'); }}>
                   <Plus className="mr-1 h-4 w-4" /> Crear sala
                 </Button>
               ) : undefined}
@@ -281,7 +280,7 @@ export default function SalasPage() {
                       <input
                         type="checkbox"
                         checked={seleccion.includes(sala.id)}
-                        onChange={() => toggleUno(sala.id)}
+                        onChange={() => { audioManager.play('toggle'); toggleUno(sala.id); }}
                         disabled={sala.estado === 'en_curso'}
                         aria-label={`Seleccionar ${sala.nombre}`}
                         className="mt-1 h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer disabled:opacity-40"

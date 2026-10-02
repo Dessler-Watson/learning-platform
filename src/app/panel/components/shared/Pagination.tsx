@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { audioManager } from '../../lib/audio';
 
 function pageNumbers(page: number, totalPages: number): (number | '...')[] {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -56,7 +57,7 @@ export function Pagination({
         <button
           type="button"
           disabled={disabled || page <= 1}
-          onClick={() => onPage(page - 1)}
+          onClick={() => { audioManager.play('click'); onPage(page - 1); }}
           className={`flex items-center gap-1 ${pillBase}`}
           style={pillIdle}
         >
@@ -73,7 +74,7 @@ export function Pagination({
               key={n}
               type="button"
               disabled={disabled}
-              onClick={() => onPage(n)}
+              onClick={() => { audioManager.play('click'); onPage(n); }}
               className={pillBase}
               style={n === page ? pillActive : pillIdle}
             >
@@ -84,7 +85,7 @@ export function Pagination({
         <button
           type="button"
           disabled={disabled || page >= totalPages}
-          onClick={() => onPage(page + 1)}
+          onClick={() => { audioManager.play('click'); onPage(page + 1); }}
           className={`flex items-center gap-1 ${pillBase}`}
           style={pillIdle}
         >
@@ -100,14 +101,14 @@ export function Pagination({
           value={goTo}
           onChange={(e) => setGoTo(e.target.value.replace(/[^0-9]/g, ''))}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') goToPage();
+            if (e.key === 'Enter') { audioManager.play('click'); goToPage(); }
           }}
           className="w-16 rounded-xl border-2 border-[#F0E6D6] bg-gray-50 px-2 py-1.5 text-center text-xs font-black text-gray-700 outline-none transition-all focus:border-[#00A0B5]"
         />
         <button
           type="button"
           disabled={disabled}
-          onClick={goToPage}
+          onClick={() => { audioManager.play('click'); goToPage(); }}
           className="rounded-full bg-[#00A0B5] px-3 py-1.5 text-xs font-black text-white disabled:opacity-40"
         >
           Ir

@@ -560,7 +560,7 @@ export default function AdminDocentesPage() {
               {busqueda && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#00A0B5]/10 px-3 py-1 text-xs font-medium text-[#00A0B5]">
                   Nombre: &quot;{busqueda}&quot;
-                  <button onClick={() => setBusqueda('')} className="hover:text-[#00A0B5]/80">
+                  <button onClick={() => { audioManager.play('click'); setBusqueda(''); }} className="hover:text-[#00A0B5]/80">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -568,7 +568,7 @@ export default function AdminDocentesPage() {
               {filtroInstitucion !== 'todas' && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">
                   Institución: {filtroInstitucion}
-                  <button onClick={() => setFiltroInstitucion('todas')} className="hover:text-amber-800">
+                  <button onClick={() => { audioManager.play('click'); setFiltroInstitucion('todas'); }} className="hover:text-amber-800">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -590,13 +590,13 @@ export default function AdminDocentesPage() {
             {seleccion.length === 1 ? '' : 's'}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSeleccion([])}>
+            <Button variant="outline" size="sm" onClick={() => { audioManager.play('click'); setSeleccion([]); }}>
               Limpiar
             </Button>
             <Button
               size="sm"
               className="bg-rose-500 text-white hover:bg-rose-600"
-              onClick={() => setShowEliminarMuchosDialog(true)}
+              onClick={() => { audioManager.play('delete'); setShowEliminarMuchosDialog(true); }}
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Eliminar seleccionados
@@ -618,7 +618,7 @@ export default function AdminDocentesPage() {
                         if (el) el.indeterminate = seleccion.length > 0 && !todosEnPagina;
                       }}
                       checked={todosEnPagina}
-                      onChange={toggleTodos}
+                      onChange={() => { audioManager.play('toggle'); toggleTodos(); }}
                       disabled={seleccionables.length === 0}
                       aria-label="Seleccionar todos los de esta pagina"
                       className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
@@ -668,7 +668,7 @@ export default function AdminDocentesPage() {
                             <input
                               type="checkbox"
                               checked={seleccion.includes(docente.id)}
-                              onChange={() => toggleUno(docente.id)}
+                              onChange={() => { audioManager.play('toggle'); toggleUno(docente.id); }}
                               aria-label={`Seleccionar ${docente.nombre}`}
                               className="h-4 w-4 rounded border-gray-300 accent-[#00A0B5] cursor-pointer"
                             />
@@ -770,7 +770,7 @@ export default function AdminDocentesPage() {
       </div>
       <Pagination page={pagina} totalPages={totalPaginas} disabled={cargandoLista} onPage={cambiarPagina} />
 
-      <Dialog open={showVerModal} onOpenChange={setShowVerModal}>
+      <Dialog open={showVerModal} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowVerModal(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalle del docente</DialogTitle>
@@ -839,7 +839,7 @@ export default function AdminDocentesPage() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowVerModal(false)}>Cerrar</Button>
+                <Button variant="outline" onClick={() => { audioManager.play('modalClose'); setShowVerModal(false); }}>Cerrar</Button>
                 <Button onClick={() => { setShowVerModal(false); handleEditar(selectedDocente); }}>
                   <Edit3 className="h-4 w-4 mr-2" />
                   Editar
@@ -850,7 +850,7 @@ export default function AdminDocentesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showEditarModal} onOpenChange={setShowEditarModal}>
+      <Dialog open={showEditarModal} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowEditarModal(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar docente</DialogTitle>
@@ -910,8 +910,8 @@ export default function AdminDocentesPage() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowEditarModal(false)} disabled={loading}>Cancelar</Button>
-                <Button onClick={guardarEdicion} disabled={loading}>
+                <Button variant="outline" onClick={() => { audioManager.play('back'); setShowEditarModal(false); }} disabled={loading}>Cancelar</Button>
+                <Button onClick={() => { audioManager.play('submit'); guardarEdicion(); }} disabled={loading}>
                   {loading ? 'Guardando...' : 'Guardar cambios'}
                 </Button>
               </DialogFooter>
@@ -920,7 +920,7 @@ export default function AdminDocentesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCambiarContrasena} onOpenChange={setShowCambiarContrasena}>
+      <Dialog open={showCambiarContrasena} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowCambiarContrasena(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cambiar contraseña</DialogTitle>
@@ -942,7 +942,7 @@ export default function AdminDocentesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowNewPassword(!showNewPassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -968,7 +968,7 @@ export default function AdminDocentesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowConfirmNewPassword(!showConfirmNewPassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showConfirmNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -982,8 +982,8 @@ export default function AdminDocentesPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCambiarContrasena(false)} disabled={loading}>Cancelar</Button>
-              <Button onClick={guardarContrasena} disabled={loading}>
+              <Button variant="outline" onClick={() => { audioManager.play('back'); setShowCambiarContrasena(false); }} disabled={loading}>Cancelar</Button>
+              <Button onClick={() => { audioManager.play('submit'); guardarContrasena(); }} disabled={loading}>
                 {loading ? 'Actualizando...' : 'Actualizar contraseña'}
               </Button>
             </DialogFooter>
@@ -991,7 +991,7 @@ export default function AdminDocentesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAgregarAdmin} onOpenChange={setShowAgregarAdmin}>
+      <Dialog open={showAgregarAdmin} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowAgregarAdmin(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Agregar administrador</DialogTitle>
@@ -1048,7 +1048,7 @@ export default function AdminDocentesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowAdminPassword(!showAdminPassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1099,8 +1099,8 @@ export default function AdminDocentesPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAgregarAdmin(false)} disabled={loading}>Cancelar</Button>
-              <Button onClick={crearAdmin} disabled={loading} className="bg-amber-500 hover:bg-amber-600">
+              <Button variant="outline" onClick={() => { audioManager.play('back'); setShowAgregarAdmin(false); }} disabled={loading}>Cancelar</Button>
+              <Button onClick={() => { audioManager.play('create'); crearAdmin(); }} disabled={loading} className="bg-amber-500 hover:bg-amber-600">
                 {loading ? 'Creando...' : 'Crear administrador'}
               </Button>
             </DialogFooter>
@@ -1108,7 +1108,7 @@ export default function AdminDocentesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAgregarDocente} onOpenChange={setShowAgregarDocente}>
+      <Dialog open={showAgregarDocente} onOpenChange={(v) => { if (!v) audioManager.play('modalClose'); setShowAgregarDocente(v); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Agregar docente</DialogTitle>
@@ -1165,7 +1165,7 @@ export default function AdminDocentesPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowDocentePassword(!showDocentePassword)}
+                  onClick={() => { audioManager.play('toggle'); setShowDocentePassword(!showDocentePassword); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground"
                 >
                   {showDocentePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1216,8 +1216,8 @@ export default function AdminDocentesPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAgregarDocente(false)} disabled={loading}>Cancelar</Button>
-              <Button onClick={crearDocente} disabled={loading}>
+              <Button variant="outline" onClick={() => { audioManager.play('back'); setShowAgregarDocente(false); }} disabled={loading}>Cancelar</Button>
+              <Button onClick={() => { audioManager.play('create'); crearDocente(); }} disabled={loading}>
                 {loading ? 'Creando...' : 'Crear docente'}
               </Button>
             </DialogFooter>

@@ -235,7 +235,7 @@ export function AchievementsScreen() {
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => { audioManager.play('click'); setSearchQuery(''); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
             >
               <X size={16} />
@@ -245,32 +245,32 @@ export function AchievementsScreen() {
 
         {/* Mode Filters */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <FilterChip label="Todos" active={modeFilter === 'all'} onClick={() => setModeFilter('all')} />
+          <FilterChip label="Todos" active={modeFilter === 'all'} onClick={() => { audioManager.play('select'); setModeFilter('all'); }} />
           <FilterChip
             label="Rumbo"
             active={modeFilter === 'decisiones'}
-            onClick={() => setModeFilter('decisiones')}
+            onClick={() => { audioManager.play('select'); setModeFilter('decisiones'); }}
             color={MODE_THEME.decisiones.color}
             icon={<ModeLogo mode="decisiones" size={16} shape="circle" showBox={false} />}
           />
           <FilterChip
             label="Bajo Presión"
             active={modeFilter === 'lava'}
-            onClick={() => setModeFilter('lava')}
+            onClick={() => { audioManager.play('select'); setModeFilter('lava'); }}
             color={MODE_THEME.lava.color}
             icon={<ModeLogo mode="lava" size={16} shape="circle" showBox={false} />}
           />
           <FilterChip
             label="Tierras"
             active={modeFilter === 'tierras'}
-            onClick={() => setModeFilter('tierras')}
+            onClick={() => { audioManager.play('select'); setModeFilter('tierras'); }}
             color={MODE_THEME.tierras.color}
             icon={<ModeLogo mode="tierras" size={16} shape="circle" showBox={false} />}
           />
           <FilterChip
             label="Abismos"
             active={modeFilter === 'abismos'}
-            onClick={() => setModeFilter('abismos')}
+            onClick={() => { audioManager.play('select'); setModeFilter('abismos'); }}
             color={MODE_THEME.abismos.color}
             icon={<ModeLogo mode="abismos" size={16} shape="circle" showBox={false} />}
           />
@@ -278,18 +278,18 @@ export function AchievementsScreen() {
 
         {/* Status Filters */}
         <div className="mb-4 flex items-center gap-2">
-          <FilterChip label="Todos" active={filter === 'all'} onClick={() => setFilter('all')} />
+          <FilterChip label="Todos" active={filter === 'all'} onClick={() => { audioManager.play('select'); setFilter('all'); }} />
           <FilterChip
             label="Desbloqueados"
             active={filter === 'unlocked'}
-            onClick={() => setFilter('unlocked')}
+            onClick={() => { audioManager.play('select'); setFilter('unlocked'); }}
             color="#98C54E"
             icon={<CheckCircle size={12} />}
           />
           <FilterChip
             label="Faltantes"
             active={filter === 'locked'}
-            onClick={() => setFilter('locked')}
+            onClick={() => { audioManager.play('select'); setFilter('locked'); }}
             color="#8A7A6A"
             icon={<Lock size={12} />}
           />
