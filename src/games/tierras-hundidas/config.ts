@@ -16,4 +16,16 @@ export const TIERRAS_CONFIG = {
   cameraDistance: 6,
   cameraHeight: 4,
   gapBetweenPlatforms: 4,
+  // Hueco de agua entre la última plataforma de respuesta y la meta:
+  // antes era 6.45 (salto casi imposible), ahora es un salto corto pero real.
+  finishGap: 4.5,
 };
+
+// Z de la plataforma de meta contando desde la última plataforma de respuesta.
+export function tierrasFinishZ(questionCount: number): number {
+  const lastQuestionZ = -questionCount * TIERRAS_CONFIG.platformSpacing;
+  return (
+    lastQuestionZ -
+    (TIERRAS_CONFIG.platformDepth / 2 + TIERRAS_CONFIG.finishPlatformDepth / 2 + TIERRAS_CONFIG.finishGap)
+  );
+}

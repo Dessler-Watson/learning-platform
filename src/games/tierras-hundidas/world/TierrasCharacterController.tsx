@@ -10,7 +10,7 @@ import { CHARACTER } from '@/shared/config/game.config';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from '@/shared/characters/RobloxAvatar';
 import { gameAudio } from '@/shared/lib/gameAudio';
-import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
+import { TIERRAS_CONFIG as CFG, tierrasFinishZ } from '@/games/tierras-hundidas/config';
 
 const _cf = new THREE.Vector3();
 const _cr = new THREE.Vector3();
@@ -131,7 +131,7 @@ export function TierrasCharacterController() {
       const qIndex = state.currentQuestionIndex;
 
       if (qIndex >= state.questions.length) {
-        const finishZ = -(state.questions.length + 1) * CFG.platformSpacing - CFG.platformSpacing;
+        const finishZ = tierrasFinishZ(state.questions.length);
         const hw = CFG.finishPlatformWidth / 2;
         const hd = CFG.finishPlatformDepth / 2;
         const onFinish = pos.x >= -hw && pos.x <= hw &&

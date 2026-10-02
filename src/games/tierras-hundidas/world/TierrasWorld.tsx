@@ -6,7 +6,7 @@ import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useTierrasStore } from '@/stores/tierras.store';
-import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
+import { TIERRAS_CONFIG as CFG, tierrasFinishZ } from '@/games/tierras-hundidas/config';
 import { createSwampWaterMaterial } from './SwampWaterMaterial';
 import { createGoldBrickTexture, createStoneMossTexture, createWoodPlankTexture, createGoldBrickNormal, createStoneMossNormal, createBarkTexture, createLeafTexture, createRockTexture, createRockNormal } from './PlatformTextures';
 
@@ -24,7 +24,7 @@ const _platformZones: { x: number; z: number; hw: number; hd: number }[] = [];
     _platformZones.push({ x: -halfGap, z: pz, hw: CFG.platformWidth / 2 + 0.4, hd: CFG.platformDepth / 2 + 0.4 });
     _platformZones.push({ x: halfGap, z: pz, hw: CFG.platformWidth / 2 + 0.4, hd: CFG.platformDepth / 2 + 0.4 });
   }
-  const finishZ = -(CFG.questionsPerGame + 1) * CFG.platformSpacing - CFG.platformSpacing;
+  const finishZ = tierrasFinishZ(CFG.questionsPerGame);
   _platformZones.push({ x: 0, z: finishZ, hw: CFG.finishPlatformWidth / 2 + 0.4, hd: CFG.finishPlatformDepth / 2 + 0.4 });
 })();
 
@@ -1063,7 +1063,7 @@ export function TierrasWorld({ children }: { children?: React.ReactNode }) {
     });
   }, [questions]);
 
-  const finishZ = -(questions.length + 1) * CFG.platformSpacing - CFG.platformSpacing;
+  const finishZ = tierrasFinishZ(questions.length);
 
   return (
     <group ref={worldRef}>
