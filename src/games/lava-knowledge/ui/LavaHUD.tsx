@@ -307,6 +307,7 @@ export function LavaHUD() {
         {show && question && !(isShort && showFeedback && feedbackStage === 'text') && (
           <motion.div
             key={qIndex}
+            data-qcard=""
             initial={{ x: '-50%', y: -70, opacity: 0 }}
             animate={{ x: '-50%', y: 0, opacity: 1 }}
             exit={{ x: '-50%', y: -70, opacity: 0 }}

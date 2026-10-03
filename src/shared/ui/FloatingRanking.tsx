@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { avatarUrl } from '@/lib/avatares';
@@ -27,6 +27,24 @@ interface FloatingRankingProps {
 }
 
 /**
+ * Ajuste de layout calculado contra la carta de pregunta ([data-qcard]):
+ * si la columna horizontal del panel choca con la carta, el panel baja
+ * debajo de ella y, si el espacio vertical no alcanza, muestra menos filas
+ * o se oculta. La cabecera (POSICIONES) nunca se oculta.
+ */
+interface LayoutAdj {
+  top?: number;
+  maxRows: number;
+  hidden: boolean;
+}
+const FULL_LAYOUT: LayoutAdj = { maxRows: Infinity, hidden: false };
+const sameAdj = (a: LayoutAdj, b: LayoutAdj) =>
+  a.top === b.top && a.maxRows === b.maxRows && a.hidden === b.hidden;
+
+/** Hueco vertical de respeto bajo la carta y bajo el borde inferior. */
+const GAP = 6;
+
+/**
  * Ventana flotante de POSICIONES en partida (mismo diseno que la de Rumbo).
  * `pointer-events: none` para nunca bloquear botones/respuestas del modo.
  */
@@ -40,6 +58,105 @@ export function FloatingRanking({ score, visible, slot = 'top-left', top }: Floa
   }
 
   const mostrar = !isPractice && visible;
+
+  // --- Evitar solapes con la carta de pregunta (mediciones en el cliente) ---
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [adj, setAdj] = useState<LayoutAdj>(FULL_LAYOUT);
+  const adjRef = useRef<LayoutAdj>(FULL_LAYOUT);
+  const applyAdj = (next: LayoutAdj) => {
+    if (!sameAdj(adjRef.current, next)) {
+      adjRef.current = next;
+      setAdj(next);
+    }
+  };
+  // Metricas del panel a tamano completo (solo se refrescan cuando se renderiza
+  // completo): el ancho cacheado evita oscilar al truncar filas (el contenido
+  // mas corto estrecha el panel y "esconderia" el solape).
+  const cacheRef = useRef<{ fullH: number; fullW: number; listH: number; n: number } | null>(null);
+  const enDerechaSlot = slot === 'top-right';
+
+  useLayoutEffect(() => {
+    if (!mostrar) return;
+    const isFull = (a: LayoutAdj) => !a.hidden && a.maxRows === Infinity;
+
+    const refreshCache = () => {
+      const self = rootRef.current;
+      if (!self) return;
+      const list = self.querySelector<HTMLElement>('[data-fr-list]');
+      const s = self.getBoundingClientRect();
+      const listH = list ? list.getBoundingClientRect().height : 0;
+      cacheRef.current = {
+        fullH: s.height,
+        fullW: s.width,
+        listH,
+        n: list ? list.children.length : 0,
+      };
+    };
+
+    const compute = () => {
+      const self = rootRef.current;
+      if (!self) return;
+      const estabaFull = isFull(adjRef.current);
+      if (estabaFull) refreshCache();
+      const anchor = document.querySelector<HTMLElement>('[data-qcard]');
+      if (!anchor) {
+        applyAdj(FULL_LAYOUT);
+        return;
+      }
+      const a = anchor.getBoundingClientRect();
+      const s = self.getBoundingClientRect();
+      // Ancho del panel en su estado completo (si ya esta compactado, el
+      // renderizado actual seria mas angosto y el juicio, incorrecto).
+      const w = estabaFull ? s.width : cacheRef.current?.fullW ?? s.width;
+      const right = isMobile ? 8 : 16;
+      const leftOff = isMobile ? 8 : 16;
+      const panelLeft = enDerechaSlot ? window.innerWidth - right - w : leftOff;
+      const panelRight = enDerechaSlot ? window.innerWidth - right : leftOff + w;
+      // Umbral identico al del test: solape horizontal real (> 2px).
+      const overlapX = Math.min(panelRight, a.right) - Math.max(panelLeft, a.left) > 2;
+      if (!overlapX) {
+        applyAdj(FULL_LAYOUT);
+        return;
+      }
+
+      const desiredTop = a.bottom + GAP;
+      const budget = window.innerHeight - GAP - desiredTop;
+      const c = cacheRef.current;
+      const fullH = c?.fullH ?? s.height;
+      if (budget <= 0) {
+        applyAdj({ top: desiredTop, maxRows: 0, hidden: true });
+        return;
+      }
+      if (budget >= fullH) {
+        applyAdj({ top: desiredTop, maxRows: Infinity, hidden: false });
+        return;
+      }
+      if (c && c.n > 0 && c.listH > 0) {
+        const base = fullH - c.listH; // padding + cabecera + huecos
+        const rowH = c.listH / c.n;
+        if (budget < base + rowH) {
+          applyAdj({ top: desiredTop, maxRows: 0, hidden: true });
+          return;
+        }
+        const maxRows = Math.max(1, Math.min(c.n, Math.floor((budget - base) / rowH)));
+        applyAdj({ top: desiredTop, maxRows, hidden: false });
+        return;
+      }
+      applyAdj({ top: desiredTop, maxRows: 1, hidden: false });
+    };
+
+    // Estado completo para (re)medir el panel, y recalcular tras el pintado.
+    adjRef.current = FULL_LAYOUT;
+    setAdj(FULL_LAYOUT);
+    let raf = requestAnimationFrame(() => requestAnimationFrame(compute));
+    const iv = window.setInterval(compute, 400);
+    window.addEventListener('resize', compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearInterval(iv);
+      window.removeEventListener('resize', compute);
+    };
+  }, [mostrar, slot, isMobile, competitors.length]);
 
   const cargarRef = useRef<(() => void) | null>(null);
 
@@ -103,19 +220,31 @@ export function FloatingRanking({ score, visible, slot = 'top-left', top }: Floa
   const allPlayers = [...competitors, playerEntry].sort((a, b) => b.score - a.score);
 
   if (!mostrar) return null;
+  if (adj.hidden) return null;
 
   const enDerecha = slot === 'top-right';
 
+  // Filas visibles al compactar: siempre las mejores y "Tu" (realIdx conserva
+  // la posicion real en el orden completo).
+  let shownPlayers = allPlayers;
+  if (adj.maxRows !== Infinity && allPlayers.length > adj.maxRows) {
+    shownPlayers = allPlayers.slice(0, adj.maxRows);
+    if (!shownPlayers.includes(playerEntry)) {
+      shownPlayers = [...shownPlayers.slice(0, Math.max(0, adj.maxRows - 1)), playerEntry];
+    }
+  }
+
   return (
     <motion.div
+      ref={rootRef}
       initial={{ x: enDerecha ? 100 : -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 160, damping: 20 }}
       style={{
         position: 'fixed',
         ...(enDerecha
-          ? { top: top ?? 64, right: isMobile ? 8 : 16 }
-          : { top: top ?? (isMobile ? 8 : 16), left: isMobile ? 8 : 16 }),
+          ? { top: adj.top ?? top ?? 64, right: isMobile ? 8 : 16 }
+          : { top: adj.top ?? top ?? (isMobile ? 8 : 16), left: isMobile ? 8 : 16 }),
         zIndex: 50,
         pointerEvents: 'none',
       }}
@@ -130,7 +259,7 @@ export function FloatingRanking({ score, visible, slot = 'top-left', top }: Floa
         border: '1px solid rgba(255,255,255,0.08)',
       }}>
         {/* Header */}
-        <div style={{
+        <div data-fr-header style={{
           display: 'flex', alignItems: 'center', gap: isMobile ? 5 : 8,
           marginBottom: isMobile ? 8 : 12, paddingBottom: isMobile ? 6 : 10,
           borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -148,10 +277,11 @@ export function FloatingRanking({ score, visible, slot = 'top-left', top }: Floa
         </div>
 
         {/* Player list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 3 : 5 }}>
+        <div data-fr-list style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 3 : 5 }}>
           <AnimatePresence mode="popLayout">
-            {allPlayers.map((p, idx) => {
+            {shownPlayers.map((p) => {
               const isPlayer = 'isPlayer' in p && p.isPlayer;
+              const realIdx = allPlayers.indexOf(p);
               return (
                 <motion.div
                   key={p.id}
@@ -176,9 +306,9 @@ export function FloatingRanking({ score, visible, slot = 'top-left', top }: Floa
                     width: isMobile ? 14 : 18, textAlign: 'center',
                     fontSize: isMobile ? 10 : 12, fontWeight: 900,
                     fontFamily: 'var(--font-baloo)',
-                    color: idx === 0 ? '#FFD54F' : idx === 1 ? '#E0E0E0' : idx === 2 ? '#FFAB91' : 'rgba(255,255,255,0.4)',
+                    color: realIdx === 0 ? '#FFD54F' : realIdx === 1 ? '#E0E0E0' : realIdx === 2 ? '#FFAB91' : 'rgba(255,255,255,0.4)',
                   }}>
-                    {idx + 1}
+                    {realIdx + 1}
                   </span>
 
                   {/* Avatar */}

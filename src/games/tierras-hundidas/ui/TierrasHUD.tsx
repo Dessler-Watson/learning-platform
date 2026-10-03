@@ -144,6 +144,7 @@ export function TierrasHUD() {
         {show && question && !(isShort && showFeedback && feedbackStage === 'text') && (
           <motion.div
             key={qIndex}
+            data-qcard=""
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
