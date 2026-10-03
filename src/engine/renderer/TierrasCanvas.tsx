@@ -18,6 +18,7 @@ import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { FloatingRanking } from '@/shared/ui/FloatingRanking';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
@@ -95,6 +96,7 @@ export function TierrasCanvas() {
   const tierrasPhase = useTierrasStore((s) => s.phase);
   const fallenInWater = useTierrasStore((s) => s.fallenInWater);
   const starsEarned = useTierrasStore((s) => s.starsEarned);
+  const tierrasScore = useTierrasStore((s) => s.score);
   const starsPersisted = useRef(false);
 
   useEffect(() => {
@@ -159,6 +161,17 @@ export function TierrasCanvas() {
       <SceneCanvas onReady={handleReady} />
 
       <TierrasHUD />
+      <FloatingRanking
+        slot="top-left"
+        score={tierrasScore}
+        visible={
+          tierrasPhase === 'playing' ||
+          tierrasPhase === 'correctFeedback' ||
+          tierrasPhase === 'incorrectFeedback' ||
+          tierrasPhase === 'sinking' ||
+          tierrasPhase === 'falling'
+        }
+      />
       {phase === 'done' && tierrasPhase !== 'loading' && tierrasPhase !== 'completed' && tierrasPhase !== 'results' && (
         <MobileControls />
       )}

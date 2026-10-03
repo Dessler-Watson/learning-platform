@@ -16,6 +16,7 @@ import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { FloatingRanking } from '@/shared/ui/FloatingRanking';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
@@ -107,6 +108,7 @@ export function LavaCanvas() {
   const lavaPhase = useLavaStore((s) => s.phase);
   const defeated = useLavaStore((s) => s.defeated);
   const starsEarned = useLavaStore((s) => s.starsEarned);
+  const lavaScore = useLavaStore((s) => s.score);
   const starsPersisted = useRef(false);
 
   // Persist stars when lava game completes (sala mode only)
@@ -160,6 +162,12 @@ export function LavaCanvas() {
       <SceneCanvas onReady={handleReady} />
 
       <LavaHUD />
+      <FloatingRanking
+        slot="top-right"
+        top={180}
+        score={lavaScore}
+        visible={lavaPhase === 'roundActive' || lavaPhase === 'roundResult'}
+      />
 
       <CompletionOverlay
         show={lavaPhase === 'completed' && !defeated}

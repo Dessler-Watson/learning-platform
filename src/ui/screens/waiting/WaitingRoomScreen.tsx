@@ -7,6 +7,7 @@ import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPop
 import { Background } from '@/ui/components/primitives/Background';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { gameRouteFor, type RoomData } from '@/lib/rooms';
+import { getModeTheme, modeButtonGradient, ModeLogo } from '@/shared/lib/game-modes';
 import { avatarUrl } from '@/lib/avatares';
 import { getCustomAvatar } from '@/lib/custom-avatar';
 import { audioManager } from '@/shared/lib/audio';
@@ -240,6 +241,7 @@ export function WaitingRoomScreen() {
   const room = snapshot?.room;
   const players = snapshot?.players ?? [];
   const pct = room ? Math.round((players.length / room.maxJugadores) * 100) : 0;
+  const modeTheme = getModeTheme(room?.modo);
 
   if (phase === 'loading' && !snapshot) {
     return (
@@ -276,7 +278,7 @@ export function WaitingRoomScreen() {
 
   return (
     <main className="relative min-h-screen px-4 pb-12 pt-6">
-      <Background />
+      <Background variant={modeTheme?.id ?? null} />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -302,11 +304,30 @@ export function WaitingRoomScreen() {
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-edu-pink-light/30 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-edu-pink">
             <Sparkles size={14} /> Bienvenido a la sala!
           </div>
+          {modeTheme && (
+            <div
+              className="mb-3 ml-2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white"
+              style={{
+                background: modeTheme.colorDark,
+                boxShadow: `0 3px 0 ${modeTheme.colorDark}80, 0 4px 12px ${modeTheme.color}40`,
+                textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+              }}
+            >
+              <ModeLogo mode={modeTheme.id} size={14} shape="circle" />
+              {modeTheme.label}
+            </div>
+          )}
           <h1 className="font-baloo text-3xl font-black text-surface-800">
             {room.nombre}
           </h1>
           <p className="mt-1 text-sm font-bold text-surface-500">
-            Codigo: <span className="font-black tracking-wider text-edu-pink">{room.codigo}</span>
+            Codigo:{' '}
+            <span
+              className="font-black tracking-wider text-edu-pink"
+              style={modeTheme ? { color: modeTheme.colorDark } : undefined}
+            >
+              {room.codigo}
+            </span>
           </p>
         </motion.div>
 
@@ -318,15 +339,22 @@ export function WaitingRoomScreen() {
         >
           <InfoRow icon={<GraduationCap size={20} />} label="Docente" value={room.docente} color="#EB5D70" />
           <InfoRow icon={<BookOpen size={20} />} label="Curso" value={room.curso} color="#00A0B5" />
-          <InfoRow icon={<Gamepad2 size={20} />} label="Actividad" value={room.actividad} color="#FFA000" />
+          <InfoRow icon={<Gamepad2 size={20} />} label="Actividad" value={room.actividad} color={modeTheme?.colorDark ?? '#FFA000'} />
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-5 flex items-center justify-center gap-3 rounded-3xl bg-edu-blue p-5 text-white shadow-game"
-          style={{ boxShadow: '0 6px 0 rgba(0, 138, 157, 0.4), 0 10px 28px rgba(0,160,181,0.35)' }}
+          className={`mt-5 flex items-center justify-center gap-3 rounded-3xl p-5 text-white shadow-game${modeTheme ? '' : ' bg-edu-blue'}`}
+          style={
+            modeTheme
+              ? {
+                  background: modeTheme.colorDark,
+                  boxShadow: `0 6px 0 ${modeTheme.colorDark}66, 0 10px 28px ${modeTheme.color}59`,
+                }
+              : { boxShadow: '0 6px 0 rgba(0, 138, 157, 0.4), 0 10px 28px rgba(0,160,181,0.35)' }
+          }
         >
           <Users size={24} />
           <span className="text-2xl font-black">
@@ -358,12 +386,21 @@ export function WaitingRoomScreen() {
                   transition={{ type: 'spring', stiffness: 400, damping: 16 }}
                   className={`relative flex flex-col items-center gap-2 rounded-2xl p-3 ${p.esYo ? 'bg-white' : 'bg-white/70'}`}
                   style={{
-                    border: p.esYo ? '2px solid #EB5D70' : '2px solid rgba(0,0,0,0.05)',
-                    boxShadow: p.esYo ? '0 6px 0 rgba(235,93,112,0.15), 0 8px 20px rgba(235,93,112,0.2)' : '0 4px 0 rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
+                    border: p.esYo
+                      ? `2px solid ${modeTheme?.color ?? '#EB5D70'}`
+                      : '2px solid rgba(0,0,0,0.05)',
+                    boxShadow: p.esYo
+                      ? modeTheme
+                        ? `0 6px 0 ${modeTheme.color}26, 0 8px 20px ${modeTheme.color}33`
+                        : '0 6px 0 rgba(235,93,112,0.15), 0 8px 20px rgba(235,93,112,0.2)'
+                      : '0 4px 0 rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
                   }}
                 >
                   {p.esYo && (
-                    <span className="absolute -top-2 right-3 rounded-full bg-edu-pink px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">
+                    <span
+                      className="absolute -top-2 right-3 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white"
+                      style={{ background: modeTheme?.colorDark ?? '#EB5D70' }}
+                    >
                       TU
                     </span>
                   )}
@@ -371,7 +408,10 @@ export function WaitingRoomScreen() {
                     <img src={p.avatar} alt={p.nombre} draggable={false} className="h-full w-full object-cover" />
                   </div>
                   <LeagueBadge stars={p.stars} size="xs" circular />
-                  <span className={`text-center text-[11px] font-black leading-tight ${p.esYo ? 'text-edu-pink' : 'text-surface-500'}`}>
+                  <span
+                    className={`text-center text-[11px] font-black leading-tight ${p.esYo ? 'text-edu-pink' : 'text-surface-500'}`}
+                    style={p.esYo && modeTheme ? { color: modeTheme.colorDark } : undefined}
+                  >
                     {p.nombre}
                   </span>
                 </motion.div>
@@ -504,7 +544,8 @@ export function WaitingRoomScreen() {
           <motion.div
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="h-full rounded-full bg-gradient-to-r from-edu-pink to-edu-blue"
+            className={`h-full rounded-full${modeTheme ? '' : ' bg-gradient-to-r from-edu-pink to-edu-blue'}`}
+            style={modeTheme ? { background: modeButtonGradient(modeTheme.id) } : undefined}
           />
         </div>
       </motion.div>

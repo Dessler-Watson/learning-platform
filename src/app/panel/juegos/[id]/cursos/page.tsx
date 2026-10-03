@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles, ArrowLeft, Book, HelpCircle } from 'lucide-react';
+import { Plus, BookOpen, MoreVertical, Pencil, Copy, Trash2, ClipboardList, Sparkles, ArrowLeft, Book, HelpCircle, ListChecks } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Label } from '../../../ui/label';
@@ -62,6 +62,7 @@ export default function CursosPorJuegoPage() {
   const [totalPreguntasStat, setTotalPreguntasStat] = useState(0);
   const [busy, setBusy] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [seleccionandoTodas, setSeleccionandoTodas] = useState(false);
   const [showEliminarMuchosDialog, setShowEliminarMuchosDialog] = useState(false);
   const reqRef = useRef(0);
 
@@ -128,37 +129,67 @@ export default function CursosPorJuegoPage() {
     void cargar(page, search);
   };
 
-  const todosEnPagina = cursos.length > 0 && cursos.every((c) => seleccion.includes(c.id));
-
-  const toggleTodos = () => {
-    const idsPagina = cursos.map((c) => c.id);
-    setSeleccion((prev) => {
-      if (idsPagina.length > 0 && idsPagina.every((id) => prev.includes(id))) {
-        return prev.filter((id) => !idsPagina.includes(id));
-      }
-      return Array.from(new Set([...prev, ...idsPagina]));
-    });
-  };
-
   const toggleUno = (id: string) => {
     setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  // Selecciona TODOS los cursos de todos los paginas (respetando la busqueda activa).
+  // El borrado se hace desde la barra roja existente.
+  const seleccionarTodas = async () => {
+    if (seleccionandoTodas || busy) return;
+    audioManager.play('click');
+    setSeleccionandoTodas(true);
+    try {
+      const ids: string[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const data = await cursosService.listar({ q: search.trim(), mode: gameModeId, page, limit: 100 });
+        for (const c of data.cursos) {
+          if (!ids.includes(c.id)) ids.push(c.id);
+        }
+        totalPages = data.totalPages;
+        page++;
+      } while (page <= totalPages && page <= 50);
+      if (ids.length === 0) {
+        toast('No hay cursos para seleccionar', 'error');
+      } else {
+        setSeleccion(ids);
+        toast(`${ids.length} curso${ids.length === 1 ? '' : 's'} seleccionado${ids.length === 1 ? '' : 's'}`, 'success');
+      }
+    } catch {
+      toast('Error al cargar los cursos', 'error');
+    } finally {
+      setSeleccionandoTodas(false);
+    }
   };
 
   const confirmarEliminarMuchos = async () => {
     if (seleccion.length === 0) return;
     setBusy(true);
-    const result = await cursosService.eliminarMuchos([...seleccion]);
+    // La API admite maximo 200 ids por llamada: se borra por lotes.
+    const ids = [...seleccion];
+    let deleted = 0;
+    let error: string | undefined;
+    for (let i = 0; i < ids.length; i += 200) {
+      const result = await cursosService.eliminarMuchos(ids.slice(i, i + 200));
+      if (!result.success) {
+        error = result.error;
+        break;
+      }
+      deleted += result.deleted;
+    }
     setBusy(false);
     setShowEliminarMuchosDialog(false);
-    if (result.success) {
+    if (!error) {
       toast(
-        `${result.deleted} curso${result.deleted === 1 ? '' : 's'} eliminado${result.deleted === 1 ? '' : 's'}`,
+        `${deleted} curso${deleted === 1 ? '' : 's'} eliminado${deleted === 1 ? '' : 's'}`,
         'success'
       );
       setSeleccion([]);
       await cargar(pagina, search);
     } else {
-      toast(result.error || 'Error al eliminar', 'error');
+      toast(error || 'Error al eliminar', 'error');
     }
   };
 
@@ -304,6 +335,14 @@ export default function CursosPorJuegoPage() {
           </div>
           <PageHeader title="Cursos" description={`Gestiona los cursos de ${juego?.nombre ?? 'este modo de juego'}`}>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={busy || seleccionandoTodas || loading}
+                onClick={() => { if (clickLock()) seleccionarTodas(); }}
+              >
+                <ListChecks className="mr-1 h-4 w-4" />
+                {seleccionandoTodas ? 'Seleccionando…' : 'Seleccionar todos'}
+              </Button>
               {cursoCopiado && (
                 <Button variant="outline" onClick={() => { audioManager.play('click'); openPaste(); }}>
                   <ClipboardList className="mr-1 h-4 w-4" /> Pegar curso

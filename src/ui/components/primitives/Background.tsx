@@ -1,5 +1,6 @@
 import { DoodleBackground } from './DoodleBackground';
+import type { GameModeId } from '@/shared/lib/game-modes';
 
-export function Background() {
-  return <DoodleBackground />;
+export function Background({ variant = null }: { variant?: GameModeId | null } = {}) {
+  return <DoodleBackground variant={variant} />;
 }

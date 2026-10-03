@@ -18,6 +18,7 @@ import { CompletionOverlay } from '@/shared/ui/CompletionOverlay';
 import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
 import { MobileControls } from '@/shared/ui/MobileControls';
 import { LandscapeGate } from '@/shared/ui/LandscapeGate';
+import { FloatingRanking } from '@/shared/ui/FloatingRanking';
 import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
@@ -104,6 +105,7 @@ export function AbismosCanvas() {
   const result = useAbismosStore((s) => s.result);
   const starsEarned = useAbismosStore((s) => s.starsEarned);
   const fellInAbyss = useAbismosStore((s) => s.fellInAbyss);
+  const abismosScore = useAbismosStore((s) => s.score);
   const starsPersisted = useRef(false);
   const defeatSfxPlayed = useRef(false);
 
@@ -171,6 +173,22 @@ export function AbismosCanvas() {
       <SceneCanvas onReady={handleReady} onReachFinish={handleReachFinish} />
 
       <AbismosHUD />
+      <FloatingRanking
+        slot="top-right"
+        top={
+          gamePhase === 'questions' || gamePhase === 'correctFeedback' || gamePhase === 'incorrectFeedback'
+            ? 230
+            : 64
+        }
+        score={abismosScore}
+        visible={
+          gamePhase !== 'loading' &&
+          gamePhase !== 'intro' &&
+          gamePhase !== 'completed' &&
+          gamePhase !== 'defeat' &&
+          gamePhase !== 'results'
+        }
+      />
       <DangerOverlay />
       <GameAchievementNotification />
       <LandscapeGate

@@ -13,6 +13,12 @@
   background: linear-gradient(160deg, #FFF7F2 0%, #FFF3EC 40%, #FFF8F3 70%, #FFF7F2 100%);
 }
 
+.doodleTint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .doodle {
   position: absolute;
   pointer-events: none;

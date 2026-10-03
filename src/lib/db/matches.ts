@@ -17,7 +17,7 @@ export const MODE_RULES: Record<string, ModeRules> = {
   lava: {
     correctPoints: 15,
     incorrectPoints: -5,
-    floorAtZero: true,
+    floorAtZero: false,
     xpPerCorrect: 15,
     resource: { key: 'ticks', start: 2, max: 3 },
     eliminateOnIncorrect: false,
@@ -25,7 +25,7 @@ export const MODE_RULES: Record<string, ModeRules> = {
   tierras: { correctPoints: 20, incorrectPoints: 0, floorAtZero: false, xpPerCorrect: 20, eliminateOnIncorrect: true },
   abismos: {
     correctPoints: 20,
-    incorrectPoints: 0,
+    incorrectPoints: -5,
     floorAtZero: false,
     xpPerCorrect: 20,
     resource: { key: 'platforms', start: 0, max: 5 },

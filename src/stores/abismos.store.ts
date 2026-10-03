@@ -88,7 +88,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
-    const pointsEarned = isCorrect ? CFG.correctPoints : 0;
+    const pointsEarned = isCorrect ? CFG.correctPoints : -CFG.wrongPoints;
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
     // Paridad con el flujo anterior: en sala las estrellas no se acumulan aquí.
     const starsEarnedNow = !isSala && isCorrect && !isPractice ? 20 : 0;
@@ -181,13 +181,13 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
         fellInAbyss: true,
         reachedFinish: false,
         phase: 'defeat',
-        score: 0,
+        score,
         result: {
           totalQuestions: total,
           correctAnswers: correctCount,
           incorrectAnswers: total - correctCount,
           finalPlatforms: 0,
-          score: 0,
+          score,
           xp: 0,
           stars: 0,
           accuracy,
@@ -201,7 +201,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
         mode: 'abismos',
         metadata: {
           accuracy,
-          score: 0,
+          score,
           defeated: true,
           fellInAbyss: true,
           platforms: 0,
@@ -224,7 +224,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     const { phase, fellInAbyss } = get();
     if (phase === 'defeat' || phase === 'completed' || fellInAbyss) return;
 
-    const { questions, correctCount, incorrectCount, platforms, answers } = get();
+    const { questions, correctCount, incorrectCount, platforms, answers, score } = get();
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
@@ -232,13 +232,13 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
       fellInAbyss: true,
       reachedFinish: false,
       phase: 'defeat',
-      score: 0,
+      score,
       result: {
         totalQuestions: total,
         correctAnswers: correctCount,
         incorrectAnswers: incorrectCount,
         finalPlatforms: platforms,
-        score: 0,
+        score,
         xp: 0,
         stars: 0,
         accuracy,
@@ -253,7 +253,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
       mode: 'abismos',
       metadata: {
         accuracy,
-        score: 0,
+        score,
         defeated: true,
         fellInAbyss: true,
         platforms,

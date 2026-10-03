@@ -33,7 +33,7 @@ function LavaInstructions() {
           <p className="mb-2 font-semibold text-white">Que pasa al responder</p>
           <div className="space-y-1.5">
             <p><span className="font-bold text-green-400">Correcta:</span> +15 puntos, +1 tick de vida. La torre sube un bloque y tu personaje asciende sobre el lava.</p>
-            <p><span className="font-bold text-red-400">Incorrecta:</span> -5 puntos (minimo 0), -1 tick de vida. La torre baja un bloque y tu personaje desciende hacia el lava. Se muestra la respuesta correcta.</p>
+            <p><span className="font-bold text-red-400">Incorrecta:</span> -5 puntos, -1 tick de vida. La torre baja un bloque y tu personaje desciende hacia el lava. Se muestra la respuesta correcta.</p>
           </div>
         </div>
 
@@ -242,16 +242,16 @@ function AbismosInstructions() {
 
         <div className="rounded-xl bg-white/5 p-3">
           <p className="mb-2 font-semibold text-white">Fase 2: Cruzar el puente</p>
-          <p>Despues de las preguntas, controlas libremente al personaje para saltar de plataforma en plataforma hasta la montana final con el cristal dorado. <b className="text-white">Si caes al abismo, la puntuacion final es 0.</b></p>
+          <p>Despues de las preguntas, controlas libremente al personaje para saltar de plataforma en plataforma hasta la montana final con el cristal dorado. <b className="text-white">Si caes al abismo, pierdes la partida pero conservas tus puntos.</b></p>
         </div>
 
         <div className="rounded-xl bg-white/5 p-3">
           <p className="mb-2 font-semibold text-white">Puntuacion</p>
           <div className="space-y-1">
             <p><span className="font-bold text-green-400">Correcta:</span> +20 puntos, +20 XP, +1 plataforma</p>
-            <p><span className="font-bold text-red-400">Incorrecta:</span> -1 plataforma (minimo 0), sin penalizacion de puntos (ganas 0 en esa pregunta)</p>
-            <p><span className="font-bold text-red-400">0 plataformas al terminar preguntas:</span> Derrota, puntuacion = 0</p>
-            <p><span className="font-bold text-red-400">Caer al abismo:</span> Puntuacion final = 0</p>
+            <p><span className="font-bold text-red-400">Incorrecta:</span> -5 puntos y -1 plataforma (minimo 0)</p>
+            <p><span className="font-bold text-red-400">0 plataformas al terminar preguntas:</span> Derrota (conservas tus puntos)</p>
+            <p><span className="font-bold text-red-400">Caer al abismo:</span> Derrota (conservas tus puntos)</p>
           </div>
         </div>
       </div>

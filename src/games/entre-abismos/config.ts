@@ -1,6 +1,7 @@
 export const ABISMOS_CONFIG = {
   questionsPerGame: 15,
   correctPoints: 20,
+  wrongPoints: 5,
   maxPlatforms: 5,
 
   platformWidth: 5.2,

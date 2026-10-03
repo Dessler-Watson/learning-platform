@@ -1,6 +1,7 @@
 'use client';
 
 import styles from './DoodleBackground.module.css';
+import { MODE_THEME, type GameModeId } from '@/shared/lib/game-modes';
 
 const DOODLES = [
   { id: 'star1', top: '6%', left: '7%', size: 56, opacity: 0.75, color: '#EB5D70', delayClass: styles.doodle1, type: 'star' as const },
@@ -85,11 +86,24 @@ function DoodleSvg({ type, size, color }: { type: string; size: number; color: s
   }
 }
 
-export function DoodleBackground() {
+export function DoodleBackground({ variant = null }: { variant?: GameModeId | null } = {}) {
+  const theme = variant ? MODE_THEME[variant] : null;
+  const doodles = theme
+    ? DOODLES.map((d, i) => ({ ...d, color: i % 2 === 0 ? theme.color : theme.colorDark }))
+    : DOODLES;
+
   return (
     <div className={styles.doodleContainer} aria-hidden="true">
       <div className={styles.doodleLayer} />
-      {DOODLES.map((d) => (
+      {theme && (
+        <div
+          className={styles.doodleTint}
+          style={{
+            background: `radial-gradient(ellipse at 15% 0%, ${theme.color}24, transparent 55%), radial-gradient(ellipse at 90% 100%, ${theme.colorDark}1C, transparent 50%), linear-gradient(160deg, ${theme.color}10 0%, transparent 45%, ${theme.colorDark}14 100%)`,
+          }}
+        />
+      )}
+      {doodles.map((d) => (
         <div
           key={d.id}
           className={`${styles.doodle} ${d.delayClass}`}

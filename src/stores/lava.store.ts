@@ -126,7 +126,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     } else {
       newTicks = Math.max(0, s.ticks - 1);
     }
-    const newScore = override?.score !== undefined ? override.score : isCorrect ? s.score + 15 : Math.max(0, s.score - 5);
+    const newScore = override?.score !== undefined ? override.score : isCorrect ? s.score + 15 : s.score - 5;
     const newCorrect = s.correctCount + (isCorrect ? 1 : 0);
     const newIncorrect = s.incorrectCount + (isCorrect ? 0 : 1);
     const eliminated = newTicks <= 0;
