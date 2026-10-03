@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUser, getUserByEmail, hashPassword, createSession, setSessionCookie, updateLastLogin, getSessionUser } from '@/lib/db';
+import { createUser, getUserByEmail, hashPassword, createSession, setPanelSessionCookie, updateLastLogin, getSessionUser } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const token = await createSession(user.id, req.headers.get('user-agent'), req.headers.get('x-forwarded-for'));
     const res = NextResponse.json(payload, { status: 201 });
-    res.headers.set('Set-Cookie', setSessionCookie(token, req));
+    res.headers.set('Set-Cookie', setPanelSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[panel/auth/register]', err);

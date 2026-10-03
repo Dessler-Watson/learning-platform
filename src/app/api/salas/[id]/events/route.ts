@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSessionUser, getRoomById, listParticipants } from '@/lib/db';
+import { getSessionCandidates, getRoomById, listParticipants } from '@/lib/db';
 import { currentRoomSeq, subscribeRoom, type RoomEvent } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
@@ -26,17 +26,23 @@ function jsonError(error: string, status: number): Response {
  */
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSessionUser(req);
-    if (!session) return jsonError('No autenticado', 401);
+    const candidates = await getSessionCandidates(req);
+    if (candidates.length === 0) return jsonError('No autenticado', 401);
 
     const room = await getRoomById(params.id);
     if (!room) return jsonError('Sala no encontrada', 404);
 
     const participantes = await listParticipants(room.id);
-    const soyParticipante = participantes.some((p) => p.user_id === session.id);
-    const soyHost = room.teacher_id === session.id;
-    const autorizado = soyParticipante || soyHost || session.role === 'admin';
-    if (!autorizado) return jsonError('No autorizado', 403);
+    // Primera identidad autorizada: participante, host dueño o admin. En un
+    // navegador con cuenta docente Y estudiante, cada lado se suscribe con la
+    // suya sin pisarse.
+    const session =
+      candidates.find((c) => {
+        const soyParticipante = participantes.some((p) => p.user_id === c.id);
+        const soyHost = room.teacher_id === c.id;
+        return soyParticipante || soyHost || c.role === 'admin';
+      }) ?? null;
+    if (!session) return jsonError('No autorizado', 403);
 
     const encoder = new TextEncoder();
     let closed = false;

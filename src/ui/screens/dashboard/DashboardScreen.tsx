@@ -151,11 +151,22 @@ export function DashboardScreen() {
     }
 
     fetch(`/api/estudiante/perfil?usuario_id=${stored.id_usuario}`)
-      .then(res => res.json())
+      .then(res => {
+        // Sesión inválida o de otra cuenta (p.ej. cookie de una sesión docente
+        // anterior): se limpia y se pide iniciar sesión como estudiante.
+        if (res.status === 401) {
+          localStorage.removeItem('eduplay_user');
+          window.location.href = '/estudiante';
+          throw new Error('no-auth');
+        }
+        return res.json();
+      })
       .then((data: Perfil) => {
         if (data.usuario) setPerfil(data);
       })
-      .catch(() => setPerfil(DEFAULT_PERFIL))
+      .catch(() => {
+        setPerfil(DEFAULT_PERFIL);
+      })
       .finally(() => setLoading(false));
 
     return () => clearTimeout(t1);

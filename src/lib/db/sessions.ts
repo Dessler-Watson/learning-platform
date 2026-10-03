@@ -4,6 +4,12 @@ import { query, queryOne } from './client';
 
 export const SESSION_COOKIE = 'eduplay_session';
 /**
+ * Cookie de sesión del panel (docente/admin). Vive junto a SESSION_COOKIE para
+ * que una cuenta docente y una de estudiante en el mismo navegador NO se
+ * pisen: el panel solo lee esta y el lado estudiante solo lee la suya.
+ */
+export const PANEL_SESSION_COOKIE = 'eduplay_panel_session';
+/**
  * Cookie de vínculo invitado→cuenta: contiene el token de sesión del invitado
  * vigente en el momento de registrarse/iniciar sesión. /api/auth/migrate la
  * exige para demostrar la propiedad del guest_id (previene IDOR de fusión).
@@ -148,10 +154,125 @@ export function getSessionTokenFromRequest(req?: Request): string | null {
   }
 }
 
+export function getPanelSessionTokenFromRequest(req?: Request): string | null {
+  const fromHeader = readCookie(req, PANEL_SESSION_COOKIE);
+  if (fromHeader) return fromHeader;
+  try {
+    const store = cookies();
+    return store.get(PANEL_SESSION_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function requestPathname(req?: Request): string | null {
+  try {
+    return req?.url ? new URL(req.url).pathname : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPanelPath(path: string | null): boolean {
+  return path !== null && path.startsWith('/api/panel');
+}
+
+// Rutas que atienden a ambos lados (sala en vivo y proxy de IA): resuelven
+// con las dos cookies (ver getSessionCandidates).
+function isSharedPath(path: string | null): boolean {
+  return path !== null && (path.startsWith('/api/salas') || path.startsWith('/api/ai'));
+}
+
+/**
+ * Sesión válida para la ruta de la petición:
+ * - /api/panel/*: solo la cookie del panel (con respaldo legado: la cookie
+ *   compartida sólo si pertenece a un docente/admin, para no romper sesiones
+ *   antiguas antes de este split).
+ * - /api/salas/* y /api/ai/*: cualquiera de las dos cookies (la del
+ *   estudiante primero); estas rutas usan getSessionCandidates cuando necesitan
+ *   distinguir identidades.
+ * - resto (lado estudiante): solo la cookie del estudiante; una sesión de
+ *   docente/admin no pasa por rutas de estudiante (cuentas independientes).
+ */
+// Rutas de la familia estudiante que también atienden a staff por diseño:
+// /api/partida valida por participación, /api/usuarios y /api/estrellas por
+// rol (admin), /api/ranking es de sesión cualquiera, /api/auth/* por flujo de
+// login/migración. En ellas (y SOLO en ellas) se acepta la cookie del panel
+// como fallback cuando no hay sesión de estudiante, y se omite el bloqueo de
+// rol del lado estudiante.
+const STAFF_OK_PREFIXES = ['/api/partida', '/api/usuarios', '/api/ranking', '/api/estrellas', '/api/auth/'];
+
 export async function getSessionUser(req?: Request): Promise<SessionUser | null> {
+  const path = requestPathname(req);
+
+  if (isPanelPath(path)) {
+    const panelToken = getPanelSessionTokenFromRequest(req);
+    if (panelToken) {
+      const user = await getUserBySessionToken(panelToken);
+      if (user) return user;
+    }
+    const legacyToken = getSessionTokenFromRequest(req);
+    if (legacyToken) {
+      const user = await getUserBySessionToken(legacyToken);
+      if (user && (user.role === 'teacher' || user.role === 'admin')) return user;
+    }
+    return null;
+  }
+
+  if (isSharedPath(path)) {
+    const studentToken = getSessionTokenFromRequest(req);
+    if (studentToken) {
+      const user = await getUserBySessionToken(studentToken);
+      if (user) return user;
+    }
+    const panelToken = getPanelSessionTokenFromRequest(req);
+    if (panelToken) return getUserBySessionToken(panelToken);
+    return null;
+  }
+
+  const staffOk = path !== null && STAFF_OK_PREFIXES.some((p) => path.startsWith(p));
+
   const token = getSessionTokenFromRequest(req);
-  if (!token) return null;
-  return getUserBySessionToken(token);
+  if (token) {
+    const user = await getUserBySessionToken(token);
+    if (user) {
+      // Cuentas independientes: una sesión docente/admin solo pasa por las
+      // rutas que atienden a staff; en las personales del estudiante (perfil,
+      // logros, prácticas...) se ignora (401) para forzar re-login.
+      if ((user.role === 'teacher' || user.role === 'admin') && !staffOk) return null;
+      return user;
+    }
+  }
+
+  // Sin sesión de estudiante: en rutas que atienden a staff se acepta la
+  // identidad del panel (docente/admin), p.ej. encuestas/progreso con la
+  // sesión del panel en la misma pestaña.
+  if (staffOk) {
+    const panelToken = getPanelSessionTokenFromRequest(req);
+    if (panelToken) return getUserBySessionToken(panelToken);
+  }
+  return null;
+}
+
+/**
+ * Identidades válidas de ESTA petición en rutas compartidas (/api/salas,
+ * /api/ai): primero la del estudiante (cookie compartida) y luego la del
+ * panel, sin duplicados. Permite que un navegador con ambas cuentas operen
+ * sala: join/respuestas como estudiante y create/start como docente.
+ */
+export async function getSessionCandidates(req?: Request): Promise<SessionUser[]> {
+  const out: SessionUser[] = [];
+  const studentToken = getSessionTokenFromRequest(req);
+  if (studentToken) {
+    const user = await getUserBySessionToken(studentToken);
+    if (user) out.push(user);
+  }
+  const panelToken = getPanelSessionTokenFromRequest(req);
+  if (panelToken) {
+    const user = await getUserBySessionToken(panelToken);
+    if (user && !out.some((u) => u.id === user.id)) out.push(user);
+  }
+  return out;
 }
 
 export function setSessionCookie(token: string, req?: Request): string {
@@ -161,4 +282,13 @@ export function setSessionCookie(token: string, req?: Request): string {
 
 export function clearSessionCookie(req?: Request): string {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureAttr(req)}`;
+}
+
+export function setPanelSessionCookie(token: string, req?: Request): string {
+  const maxAge = SESSION_TTL_DAYS * 24 * 60 * 60;
+  return `${PANEL_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureAttr(req)}`;
+}
+
+export function clearPanelSessionCookie(req?: Request): string {
+  return `${PANEL_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureAttr(req)}`;
 }

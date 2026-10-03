@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, ensureLeagueProgress, queryOne, ensureActiveMatch } from '@/lib/db';
+import { getSessionCandidates, ensureLeagueProgress, queryOne, ensureActiveMatch, type SessionUser } from '@/lib/db';
 import {
   createRoom,
   getRoomByCode,
@@ -15,6 +15,10 @@ export const dynamic = 'force-dynamic';
 
 const MAX_NAME = 120;
 
+function isStaff(user: SessionUser): boolean {
+  return user.role === 'teacher' || user.role === 'admin';
+}
+
 function parseMaxPlayers(raw: unknown): number | null {
   if (raw == null || raw === '') return null;
   const n = Number(raw);
@@ -24,8 +28,8 @@ function parseMaxPlayers(raw: unknown): number | null {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getSessionUser(req);
-    if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const candidates = await getSessionCandidates(req);
+    if (candidates.length === 0) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
@@ -37,58 +41,82 @@ export async function GET(req: NextRequest) {
     if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
 
     const participantes = await listParticipants(room.id);
-    const soyParticipante = participantes.some((p) => p.user_id === session.id);
-    const soyHost = room.teacher_id === session.id;
-    const esStaff = session.role === 'teacher' || session.role === 'admin';
+    const flags = candidates.map((s) => ({
+      session: s,
+      soyParticipante: participantes.some((p) => p.user_id === s.id),
+      soyHost: room.teacher_id === s.id,
+      esStaff: isStaff(s),
+    }));
 
-    // Entrada por código: auto-join solo en la carga inicial (join != '0').
-    // El docente/admin nunca se registra como jugador: entra como observador
-    // (el host se identifica por teacher_id, no por participante).
-    if (code && shouldJoin && !soyParticipante && !esStaff) {
-      if (room.status !== 'waiting') {
-        const msg =
-          room.status === 'finished' || room.status === 'archived'
-            ? 'La sala ya finalizó'
-            : 'La sala no está disponible';
-        return NextResponse.json({ error: msg }, { status: 400 });
+    // Entrada por código: auto-join solo en la carga inicial (join != '0') y
+    // solo con una identidad de estudiante (el docente/admin entra como
+    // observador; el host se identifica por teacher_id, no por participante).
+    if (code && shouldJoin) {
+      const cand = flags.find((f) => !f.esStaff && !f.soyParticipante);
+      if (cand) {
+        if (room.status !== 'waiting') {
+          const msg =
+            room.status === 'finished' || room.status === 'archived'
+              ? 'La sala ya finalizó'
+              : 'La sala no está disponible';
+          return NextResponse.json({ error: msg }, { status: 400 });
+        }
+        const join = await joinRoom(room.id, cand.session.id);
+        if (!join.joined) {
+          return NextResponse.json({ error: join.reason ?? 'No se pudo unir' }, { status: 400 });
+        }
+        const lista = await listParticipants(room.id);
+        return NextResponse.json({
+          sala: room,
+          participantes: lista,
+          usuario_id: cand.session.id,
+          es_host: cand.soyHost,
+        });
       }
-      const join = await joinRoom(room.id, session.id);
-      if (!join.joined) {
-        return NextResponse.json({ error: join.reason ?? 'No se pudo unir' }, { status: 400 });
-      }
-      const lista = await listParticipants(room.id);
-      return NextResponse.json({
-        sala: room,
-        participantes: lista,
-        usuario_id: session.id,
-        es_host: soyHost,
-      });
     }
+
+    const autorizado = (f: (typeof flags)[number]) =>
+      f.soyParticipante ||
+      f.soyHost ||
+      (f.esStaff && (f.session.role === 'admin' || room.teacher_id === f.session.id));
 
     // Sin code: solo participantes, host o staff dueño pueden ver la sala.
     if (!code) {
-      const allowed =
-        soyParticipante ||
-        soyHost ||
-        (esStaff && (session.role === 'admin' || room.teacher_id === session.id));
-      if (!allowed) {
+      const cand = flags.find(autorizado);
+      if (!cand) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      if (!soyParticipante && !soyHost && room.status !== 'waiting' && room.status !== 'in_progress') {
+      if (
+        !cand.soyParticipante &&
+        !cand.soyHost &&
+        room.status !== 'waiting' &&
+        room.status !== 'in_progress'
+      ) {
         return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
       }
+      return NextResponse.json({
+        sala: room,
+        participantes,
+        usuario_id: cand.session.id,
+        es_host: cand.soyHost,
+      });
     }
 
+    // Con code: se usa la identidad involucrada (participante/host/staff); si
+    // ninguna califica se usa la primera para mantener las validaciones de
+    // estado de abajo.
+    const cand = flags.find(autorizado) ?? flags.find((f) => f.esStaff) ?? flags[0];
+
     // Poll por código de un no-participante en sala cerrada → no disponible.
-    if (code && !soyParticipante && !soyHost && room.status !== 'waiting' && room.status !== 'in_progress') {
+    if (!cand.soyParticipante && !cand.soyHost && room.status !== 'waiting' && room.status !== 'in_progress') {
       return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
     }
 
     return NextResponse.json({
       sala: room,
       participantes,
-      usuario_id: session.id,
-      es_host: soyHost,
+      usuario_id: cand.session.id,
+      es_host: cand.soyHost,
     });
   } catch (err) {
     console.error('[salas GET]', err);
@@ -98,12 +126,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSessionUser(req);
-    if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    const candidates = await getSessionCandidates(req);
+    if (candidates.length === 0) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
 
     const body = await req.json();
     const action = String(body.action ?? 'create');
-    const esStaff = session.role === 'teacher' || session.role === 'admin';
+    // create/start/finish requieren identidad staff; join/leave usan la de
+    // estudiante cuando existe (un navegador con ambas cuentas no se mezcla).
+    const staffSession = candidates.find((c) => isStaff(c));
+    const playerSession = candidates.find((c) => !isStaff(c));
+    const session = action === 'join' || action === 'leave' ? playerSession ?? candidates[0] : staffSession ?? candidates[0];
+    const esStaff = isStaff(session);
 
     if (action === 'create') {
       if (!esStaff) {
@@ -160,7 +195,9 @@ export async function POST(req: NextRequest) {
     if (action === 'leave') {
       const roomId = String(body.room_id ?? '');
       if (!roomId) return NextResponse.json({ error: 'room_id requerido' }, { status: 400 });
-      const ok = await leaveRoom(roomId, session.id);
+      // Si ninguna identidad es jugador (solo staff), usa la primera.
+      const leaveSession = playerSession ?? session;
+      const ok = await leaveRoom(roomId, leaveSession.id);
       return NextResponse.json({ ok });
     }
 

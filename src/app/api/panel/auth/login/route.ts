@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserByEmail, verifyPassword, createSession, setSessionCookie, updateLastLogin } from '@/lib/db';
+import { getUserByEmail, verifyPassword, createSession, setPanelSessionCookie, updateLastLogin } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         institution: user.institution_name,
       },
     });
-    res.headers.set('Set-Cookie', setSessionCookie(token, req));
+    res.headers.set('Set-Cookie', setPanelSessionCookie(token, req));
     return res;
   } catch (err) {
     console.error('[panel/auth/login]', err);
