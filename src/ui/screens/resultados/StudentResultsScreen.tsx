@@ -106,9 +106,9 @@ export function StudentResultsScreen() {
   return (
     <main className="relative min-h-screen px-4 pb-12 pt-6">
       <Background />
-      <div className="relative z-10 mx-auto max-w-lg space-y-5">
+      <div className="relative z-10 mx-auto max-w-lg space-y-5 xl:max-w-5xl xl:grid xl:grid-cols-2 xl:items-start xl:gap-5 xl:space-y-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between xl:col-span-2">
           <button
             onClick={() => {
               audioManager.play('click');
@@ -127,7 +127,7 @@ export function StudentResultsScreen() {
         </div>
 
         {/* Estado + duración */}
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-2 xl:col-span-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-black ${
               eliminado
@@ -152,6 +152,7 @@ export function StudentResultsScreen() {
         </div>
 
         {/* Stats */}
+        <div>
         <div className="grid grid-cols-3 gap-3">
           {stats.map((s, i) => (
             <motion.div
@@ -221,6 +222,7 @@ export function StudentResultsScreen() {
             })}
           </div>
         </div>
+        </div>
 
         {/* Mis respuestas */}
         <div className="rounded-3xl border border-surface-200 bg-white/85 p-4 shadow-card">
@@ -272,7 +274,7 @@ export function StudentResultsScreen() {
             audioManager.play('click');
             window.location.href = '/inicio';
           }}
-          className="btn-game flex w-full items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white"
+          className="btn-game flex w-full items-center justify-center gap-2 rounded-xl bg-edu-blue py-3 text-sm text-white xl:col-span-2"
           style={{ boxShadow: '0 5px 0 rgba(0, 138, 157, 0.4), 0 6px 18px rgba(0,160,181,0.3)' }}
         >
           <Home size={16} /> Salir al menú

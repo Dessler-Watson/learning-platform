@@ -209,7 +209,7 @@ export function DashboardScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-md"
+        className="relative z-10 mx-auto max-w-md xl:max-w-5xl"
       >
         {/* Encabezado */}
         <header className="relative z-20 mb-6 flex items-center justify-between">
@@ -271,12 +271,13 @@ export function DashboardScreen() {
           </div>
         </header>
 
+        <div className="xl:grid xl:grid-cols-5 xl:items-start xl:gap-5">
         {/* Tarjeta de liga principal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="card-game card-game-hover mb-5 overflow-hidden cursor-pointer"
+          className="card-game card-game-hover mb-5 overflow-hidden cursor-pointer xl:col-span-2 xl:row-span-2 xl:mb-0"
           style={{ border: `2px solid ${withAlpha(currentLeague.color, 0.18)}` }}
           onClick={() => { audioManager.play('click'); window.location.href = '/ligas'; }}
         >
@@ -347,7 +348,7 @@ export function DashboardScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="relative overflow-hidden rounded-[28px]"
+          className="relative overflow-hidden rounded-[28px] xl:col-span-3"
           style={{
             background: 'linear-gradient(90deg, #F478B0 0%, #E85D70 100%)',
             boxShadow: '0 8px 0 rgba(224, 90, 20, 0.35), 0 12px 32px rgba(244, 120, 176, 0.35)',
@@ -396,7 +397,7 @@ export function DashboardScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, duration: 0.5 }}
-          className="relative mt-5 overflow-hidden rounded-[28px]"
+          className="relative mt-5 overflow-hidden rounded-[28px] xl:col-span-3 xl:mt-0"
           style={{
             background: 'linear-gradient(90deg, #00A0B5 0%, #008A9D 100%)',
             boxShadow: '0 8px 0 rgba(0, 100, 120, 0.35), 0 12px 32px rgba(0, 160, 181, 0.35)',
@@ -424,6 +425,7 @@ export function DashboardScreen() {
             </motion.button>
           </div>
         </motion.div>
+        </div>
       </motion.div>
 
       <ProfileModal

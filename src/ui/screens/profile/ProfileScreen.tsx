@@ -39,9 +39,9 @@ export function ProfileScreen() {
     <main className="relative min-h-screen px-5 pb-16 pt-7">
       <Background />
 
-      <motion.div variants={c} initial="hidden" animate="show" className="relative z-10 mx-auto max-w-md">
+      <motion.div variants={c} initial="hidden" animate="show" className="relative z-10 mx-auto max-w-md xl:grid xl:grid-cols-2 xl:items-start xl:gap-6 xl:max-w-4xl">
 
-        <motion.div variants={it} className="mb-6 flex items-center gap-3">
+        <motion.div variants={it} className="mb-6 flex items-center gap-3 xl:col-span-2 xl:mb-0">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95, y: 2 }}
@@ -53,7 +53,7 @@ export function ProfileScreen() {
           <h1 className="text-2xl font-black text-surface-800">Mi Perfil</h1>
         </motion.div>
 
-        <motion.div variants={it} className="mb-6 flex flex-col items-center">
+        <motion.div variants={it} className="mb-6 flex flex-col items-center xl:mb-0">
           <motion.div
             key={avatarId}
             initial={{ scale: 0.8, opacity: 0 }}
@@ -73,6 +73,7 @@ export function ProfileScreen() {
           <p className="text-xs font-black text-surface-500">Miembro desde {DATA.joined}</p>
         </motion.div>
 
+        <div>
         <motion.div variants={it} className="mb-4 grid grid-cols-3 gap-3">
           <StatBox icon={<Star size={20} />} value={`Nivel ${DATA.level}`} color="#FFEF5A" bg="rgba(255,239,90,0.2)" />
           <StatBox icon={<Trophy size={20} />} value={`${DATA.cups}`} label="Copas" color="#FFA000" bg="rgba(255,160,0,0.15)" />
@@ -102,6 +103,7 @@ export function ProfileScreen() {
             <Camera size={18} /> Cambiar avatar
           </motion.button>
         </motion.div>
+        </div>
       </motion.div>
     </main>
   );

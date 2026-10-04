@@ -284,13 +284,13 @@ export function WaitingRoomScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-lg"
+        className="relative z-10 mx-auto max-w-lg xl:max-w-5xl xl:grid xl:grid-cols-2 xl:items-start xl:gap-5"
       >
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95, y: 2 }}
           onClick={() => { audioManager.play('back'); void salir(); }}
-          className="mb-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border-2 border-surface-200 bg-white/70 px-4 py-2.5 text-sm font-black text-surface-500 shadow-card transition-colors hover:bg-white xl:col-span-2 xl:mb-0 xl:w-max"
         >
           <ArrowLeft size={16} /> Salir de la sala
         </motion.button>
@@ -299,7 +299,7 @@ export function WaitingRoomScreen() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-          className="mb-2 text-center"
+          className="mb-2 text-center xl:col-span-2 xl:mb-0"
         >
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-edu-pink-light/30 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-edu-pink">
             <Sparkles size={14} /> Bienvenido a la sala!
@@ -331,11 +331,12 @@ export function WaitingRoomScreen() {
           </p>
         </motion.div>
 
+        <div>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.12 }}
-          className="card-game mt-5 p-4"
+          className="card-game mt-5 p-4 xl:mt-0"
         >
           <InfoRow icon={<GraduationCap size={20} />} label="Docente" value={room.docente} color="#EB5D70" />
           <InfoRow icon={<BookOpen size={20} />} label="Curso" value={room.curso} color="#00A0B5" />
@@ -364,12 +365,13 @@ export function WaitingRoomScreen() {
             Jugadores
           </span>
         </motion.div>
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.28 }}
-          className="mt-5"
+          className="mt-5 xl:mt-0"
         >
           <p className="mb-3 text-xs font-black uppercase tracking-widest text-surface-500">
             Jugadores en la sala
@@ -424,7 +426,7 @@ export function WaitingRoomScreen() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-          className="mt-6 text-center"
+          className="mt-6 text-center xl:col-span-2 xl:mt-0"
         >
           {(phase === 'waiting' || phase === 'loading') && (
             <div>
@@ -479,7 +481,7 @@ export function WaitingRoomScreen() {
               initial={{ opacity: 0, y: 20, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.9 }}
-              className="sticky bottom-5 z-10 mx-auto w-max max-w-[90%] rounded-full border-2 border-edu-blue/20 bg-white/95 px-5 py-2.5 text-sm font-black text-surface-500 shadow-lg"
+              className="sticky bottom-5 z-10 mx-auto w-max max-w-[90%] rounded-full border-2 border-edu-blue/20 bg-white/95 px-5 py-2.5 text-sm font-black text-surface-500 shadow-lg xl:col-span-2"
             >
               <Sparkles size={14} className="mr-1 inline text-edu-blue" /> <span className="text-edu-blue">{announcement}</span>
             </motion.div>

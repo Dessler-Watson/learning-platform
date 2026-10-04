@@ -107,9 +107,9 @@ export function LeaguesScreen() {
         ))}
       </div>
 
-      <div className="relative z-10 mx-auto max-w-lg px-4 pb-20 pt-6">
+      <div className="relative z-10 mx-auto max-w-lg px-4 pb-20 pt-6 xl:max-w-6xl xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-10">
         {/* Header */}
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-6 flex items-center gap-3 xl:col-span-2">
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
@@ -125,6 +125,7 @@ export function LeaguesScreen() {
         </div>
 
         {/* Ver diseños de ligas button */}
+        <div>
         <motion.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -243,8 +244,10 @@ export function LeaguesScreen() {
             })}
           </div>
         </div>
+        </div>
 
         {/* Ranking toggle */}
+        <div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -353,6 +356,7 @@ export function LeaguesScreen() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
 
       {/* Twinkle animation */}

@@ -270,7 +270,7 @@ export function PracticeScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-md"
+        className="relative z-10 mx-auto max-w-md xl:max-w-5xl"
       >
         {/* Header */}
         <header className="mb-6 flex items-center gap-3">
@@ -321,11 +321,11 @@ export function PracticeScreen() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.25 }}
-              className="space-y-5"
+              className="space-y-5 xl:grid xl:grid-cols-2 xl:items-start xl:gap-5 xl:space-y-0"
             >
-              <div>
+              <div className="xl:col-span-2">
                 <h3 className="mb-3 text-sm font-black text-surface-700">Selecciona el modo de juego</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                   <ModeCard
                     mode="decisiones"
                     label="Rumbo"
@@ -390,7 +390,7 @@ export function PracticeScreen() {
                 <motion.div
                   initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-2 rounded-2xl border-2 border-[#EB5D70]/20 bg-[#EB5D70]/5 p-4 text-sm font-bold text-[#EB5D70]"
+                  className="flex items-start gap-2 rounded-2xl border-2 border-[#EB5D70]/20 bg-[#EB5D70]/5 p-4 text-sm font-bold text-[#EB5D70] xl:col-span-2"
                 >
                   <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                   {error}
@@ -401,7 +401,7 @@ export function PracticeScreen() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98, y: 2 }}
                 onClick={handleGenerate}
-                className="w-full rounded-2xl px-6 py-4 text-base font-black text-white shadow-game"
+                className="w-full rounded-2xl px-6 py-4 text-base font-black text-white shadow-game xl:col-span-2"
                 style={{
                   background: 'linear-gradient(90deg, #00A0B5 0%, #008A9D 100%)',
                   boxShadow: '0 6px 0 rgba(0, 100, 120, 0.35), 0 8px 24px rgba(0, 160, 181, 0.3)',
@@ -587,7 +587,7 @@ export function PracticeScreen() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0">
                   {publicPractices.map((practice) => (
                     <PublicPracticeCard
                       key={practice.id}
@@ -632,7 +632,7 @@ export function PracticeScreen() {
                   <p className="text-xs text-surface-400">Crea una practica y se guardara automaticamente.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0">
                   {userPractices.map((practice) => (
                     <HistoryPracticeCard
                       key={practice.id}

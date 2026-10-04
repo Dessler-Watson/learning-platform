@@ -232,7 +232,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 24 }}
             onClick={e => e.stopPropagation()}
-            className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[32px] border-[3px] border-white/70 bg-edu-cream p-0"
+            className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[32px] border-[3px] border-white/70 bg-edu-cream p-0 xl:max-w-xl"
             style={{ boxShadow: '0 24px 80px rgba(90,50,10,0.30)', scrollbarWidth: 'none' }}
           >
             <motion.button

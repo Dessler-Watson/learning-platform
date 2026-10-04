@@ -157,7 +157,7 @@ export function PracticeResultsScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-md"
+        className="relative z-10 mx-auto max-w-md xl:max-w-4xl"
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -199,7 +199,8 @@ export function PracticeResultsScreen() {
             </p>
           </div>
 
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
+            <div>
             <div className="mb-4 text-center">
               <span className="text-4xl font-black text-surface-800">{result.totalQuestions}</span>
               <span className="ml-2 text-sm font-bold text-surface-500">preguntas</span>
@@ -239,7 +240,9 @@ export function PracticeResultsScreen() {
                 />
               </div>
             </div>
+            </div>
 
+            <div>
             {result.answeredQuestions.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.01 }}
@@ -333,8 +336,9 @@ export function PracticeResultsScreen() {
                 </motion.div>
               )}
             </AnimatePresence>
+            </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 xl:col-span-2">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98, y: 2 }}

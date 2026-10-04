@@ -496,7 +496,7 @@ export function LeagueShowcaseScreen() {
 
       {/* ═══ HEADER ═══ */}
       <div className="relative z-20 px-5 pt-5 pb-2">
-        <div className="mx-auto max-w-md flex items-center gap-3">
+        <div className="mx-auto max-w-md flex items-center gap-3 xl:max-w-4xl">
           <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
             onClick={() => { audioManager.play('back'); window.location.href = '/ligas'; }}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm border border-white/10">
@@ -519,7 +519,7 @@ export function LeagueShowcaseScreen() {
             framer-motion escribe transform inline (whileTap/whileHover) y
             pisaba el -translate-y-1/2 de Tailwind, desplazando el botón para
             abajo de forma permanente tras el primer toque. */}
-        <div className="absolute left-2 top-1/2 z-30 -translate-y-1/2 md:left-6">
+        <div className="absolute left-2 top-1/2 z-30 -translate-y-1/2 md:left-6 xl:left-[calc(50%-264px)]">
           <motion.button whileHover={{ scale: 1.15, x: -2 }} whileTap={{ scale: 0.9 }}
             onClick={goPrev}
             className="flex h-14 w-14 items-center justify-center rounded-full border-2 text-white transition-colors"
@@ -529,7 +529,7 @@ export function LeagueShowcaseScreen() {
             <ChevronLeft size={26} />
           </motion.button>
         </div>
-        <div className="absolute right-2 top-1/2 z-30 -translate-y-1/2 md:right-6">
+        <div className="absolute right-2 top-1/2 z-30 -translate-y-1/2 md:right-6 xl:right-[calc(50%-264px)]">
           <motion.button whileHover={{ scale: 1.15, x: 2 }} whileTap={{ scale: 0.9 }}
             onClick={goNext}
             className="flex h-14 w-14 items-center justify-center rounded-full border-2 text-white transition-colors"

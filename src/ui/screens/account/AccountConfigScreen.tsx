@@ -177,9 +177,9 @@ export function AccountConfigScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-md"
+        className="relative z-10 mx-auto max-w-md xl:max-w-5xl xl:grid xl:grid-cols-2 xl:items-start xl:gap-4"
       >
-        <header className="mb-6 flex items-center gap-3">
+        <header className="mb-6 flex items-center gap-3 xl:col-span-2 xl:mb-0">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95, y: 2 }}
@@ -196,7 +196,7 @@ export function AccountConfigScreen() {
         </header>
 
         {user?.modo === 'invitado' && (
-          <div className="mb-5 rounded-2xl border-2 border-edu-yellow/40 bg-edu-yellow-light/40 p-4 text-sm font-bold text-[#8a6d1a]">
+          <div className="mb-5 rounded-2xl border-2 border-edu-yellow/40 bg-edu-yellow-light/40 p-4 text-sm font-bold text-[#8a6d1a] xl:col-span-2 xl:mb-0">
             Estas jugando como invitado. Crea una cuenta para editar tu perfil.
           </div>
         )}
@@ -206,7 +206,7 @@ export function AccountConfigScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="card-game mb-4 p-5"
+          className="card-game mb-4 p-5 xl:mb-0"
         >
           <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-edu-pink">
             Informacion personal
@@ -259,7 +259,7 @@ export function AccountConfigScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card-game mb-4 p-5"
+          className="card-game mb-4 p-5 xl:mb-0"
         >
           <h2 className="mb-3 text-sm font-black uppercase tracking-widest text-edu-blue">
             Correo
@@ -284,7 +284,7 @@ export function AccountConfigScreen() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="card-game mb-4 p-5"
+          className="card-game mb-4 p-5 xl:mb-0"
         >
           <h2 className="mb-4 text-sm font-black uppercase tracking-widest text-edu-orange">
             Seguridad

@@ -178,7 +178,7 @@ export function AchievementsScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 mx-auto max-w-md"
+        className="relative z-10 mx-auto max-w-md xl:max-w-6xl"
       >
         {/* Header */}
         <header className="mb-5 flex items-center gap-3">
@@ -310,7 +310,7 @@ export function AchievementsScreen() {
             </p>
           </div>
         ) : (
-          <motion.div variants={c} initial="hidden" animate="show" className="space-y-6">
+          <motion.div variants={c} initial="hidden" animate="show" className="space-y-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6 xl:space-y-0">
             {/* Rumbo */}
             {decisionesAchievements.length > 0 && (
               <div>
