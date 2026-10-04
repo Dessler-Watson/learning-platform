@@ -129,7 +129,7 @@ export default function ResultadosPage() {
                   <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-gray-300 text-white' : i === 2 ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {i + 1}
                   </span>
-                  <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
+                  <StudentAvatar nombre={p.nombre} avatar={p.avatar} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
                   <span className="flex-1 text-sm font-semibold text-foreground">{p.nombre}</span>
                   <StatusBadge
                     label={eliminado ? 'Eliminado' : 'Completado'}

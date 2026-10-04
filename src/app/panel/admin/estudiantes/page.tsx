@@ -413,9 +413,18 @@ export default function AdminEstudiantesPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-sm font-bold text-white">
-                                {est.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                              </div>
+                              {est.avatar ? (
+                                <img
+                                  src={est.avatar}
+                                  alt={est.nombre}
+                                  draggable={false}
+                                  className="h-10 w-10 rounded-xl object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-sm font-bold text-white">
+                                  {est.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                </div>
+                              )}
                               <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
                                 online ? 'bg-emerald-400' : 'bg-gray-300'
                               }`} />
@@ -511,9 +520,18 @@ export default function AdminEstudiantesPage() {
           {selected && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-xl font-bold text-white">
-                  {selected.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                </div>
+                {selected.avatar ? (
+                  <img
+                    src={selected.avatar}
+                    alt={selected.nombre}
+                    draggable={false}
+                    className="h-16 w-16 rounded-2xl object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#00A0B5] to-[#98C54E] text-xl font-bold text-white">
+                    {selected.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                  </div>
+                )}
                 <div>
                   <h3 className="text-lg font-bold text-foreground">{selected.nombre}</h3>
                   <div className="flex items-center gap-2 mt-1">

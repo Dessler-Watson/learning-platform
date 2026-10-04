@@ -5,6 +5,7 @@ import { getLeagueByStars } from '@/lib/leagues';
 
 interface StudentAvatarProps {
   nombre: string;
+  avatar?: string | null;
   avatar_id?: number;
   estrellas?: number;
   size?: 'sm' | 'md' | 'lg';
@@ -19,7 +20,7 @@ const SIZES = {
   lg: { container: 'h-14 w-14', img: 'h-14 w-14', badge: 'h-8 w-8', text: 'text-lg' },
 };
 
-export function StudentAvatar({ nombre, avatar_id, estrellas = 0, size = 'md', eliminado = false, esLava = false }: StudentAvatarProps) {
+export function StudentAvatar({ nombre, avatar, avatar_id, estrellas = 0, size = 'md', eliminado = false, esLava = false }: StudentAvatarProps) {
   const s = SIZES[size];
   const initial = nombre.charAt(0);
   const league = getLeagueByStars(estrellas);
@@ -39,9 +40,9 @@ export function StudentAvatar({ nombre, avatar_id, estrellas = 0, size = 'md', e
 
   return (
     <div className={`${s.container} relative shrink-0`}>
-      {avatar_id ? (
+      {(avatar || avatar_id) ? (
         <img
-          src={avatarUrl(avatar_id)}
+          src={avatar || avatarUrl(avatar_id ?? 1)}
           alt={nombre}
           draggable={false}
           className={`${s.img} rounded-full object-cover`}

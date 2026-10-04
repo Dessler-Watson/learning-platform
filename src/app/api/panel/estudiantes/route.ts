@@ -60,14 +60,17 @@ export async function GET(req: NextRequest) {
       created_at: string;
       last_seen: string | null;
       stars: number;
+      avatar: string | null;
     }>(
       `SELECT u.id, u.nombre, u.email, u.status::text AS status,
               u.created_at::text AS created_at,
               (SELECT max(created_at)::text FROM audit_events ae WHERE ae.actor_id = u.id) AS last_seen,
-              coalesce(plp.stars, 0)::int AS stars
+              coalesce(plp.stars, 0)::int AS stars,
+              coalesce(u.custom_avatar, nullif(concat('/images/avatares/', av.image), '/images/avatares/')) AS avatar
        FROM users u
        JOIN roles r ON r.id = u.role_id
        LEFT JOIN player_league_progress plp ON plp.user_id = u.id
+       LEFT JOIN avatars av ON av.id = u.avatar_id
        WHERE ${where}
        ORDER BY u.created_at DESC, u.id DESC
        LIMIT ${limit} OFFSET ${(safePage - 1) * limit}`,
@@ -94,6 +97,7 @@ export async function GET(req: NextRequest) {
         fechaRegistro: r.created_at.split('T')[0],
         ultimaActividad: r.last_seen ?? r.created_at,
         estrellas: r.stars,
+        avatar: r.avatar,
       })),
       page: safePage,
       limit,

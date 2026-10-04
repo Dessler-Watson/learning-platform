@@ -24,6 +24,7 @@ export interface CuentaJugador {
   fechaRegistro: string;
   ultimaActividad: string;
   estrellas: number;
+  avatar?: string | null;
 }
 
 /** Envelope de paginación devuelto por el backend (solo la página pedida). */
@@ -212,7 +213,7 @@ export interface DetalleEstudianteSala {
 export interface ParticipanteSala {
   estudianteId: string;
   nombre: string;
-  avatar?: string;
+  avatar?: string | null;
   avatar_id?: number;
   estrellas?: number;
   progreso: number;
@@ -260,6 +261,7 @@ export interface ResultadoRankingSala {
   user_id: string;
   nombre: string;
   avatar_id: number | null;
+  avatar?: string | null;
   score: number;
   estado: string;
   posicion: number;

@@ -59,6 +59,7 @@ export default function EstudianteDetallePage() {
   const esEliminado = detalle.estadoFinal === 'eliminado';
   const participante = sala.participantes.find((p) => p.estudianteId === estudianteId);
   const avatarId = participante?.avatar_id;
+  const avatarSrc = participante?.avatar ?? null;
   const estrellas = participante?.estrellas ?? 0;
 
   return (
@@ -82,7 +83,7 @@ export default function EstudianteDetallePage() {
           <Card variant={esEliminado ? 'rose' : 'cyan'}>
             <CardContent className="p-5">
               <div className="flex items-center gap-4 mb-5">
-                <StudentAvatar nombre={detalle.nombre} avatar_id={avatarId} estrellas={estrellas} size="lg" eliminado={esEliminado} esLava={esLava} />
+                <StudentAvatar nombre={detalle.nombre} avatar={avatarSrc} avatar_id={avatarId} estrellas={estrellas} size="lg" eliminado={esEliminado} esLava={esLava} />
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-foreground">{detalle.nombre}</h2>
                   <div className="flex items-center gap-2 mt-1">

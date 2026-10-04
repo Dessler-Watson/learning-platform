@@ -168,7 +168,7 @@ export default function MonitoreoPage() {
                       }`}>
                         {i + 1}
                       </span>
-                      <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="sm" eliminado={eliminado} esLava={esLava} />
+                      <StudentAvatar nombre={p.nombre} avatar={p.avatar} avatar_id={p.avatar_id} estrellas={p.estrellas} size="sm" eliminado={eliminado} esLava={esLava} />
                       <span className="flex-1 text-sm font-medium text-foreground truncate">{p.nombre}</span>
                       {eliminado && (
                         <span className="flex items-center gap-1 text-xs font-bold text-red-500">
@@ -228,7 +228,7 @@ export default function MonitoreoPage() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
+                    <StudentAvatar nombre={p.nombre} avatar={p.avatar} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.nombre}</p>
                       <StatusBadge

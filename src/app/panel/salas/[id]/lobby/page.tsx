@@ -148,7 +148,7 @@ export default function LobbyPage() {
                       transition={{ duration: 0.3, delay: i * 0.05 }}
                       className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
                     >
-                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" esLava={esLava} />
+                    <StudentAvatar nombre={p.nombre} avatar={p.avatar} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" esLava={esLava} />
                       <span className="text-sm font-semibold text-foreground">{p.nombre}</span>
                     </motion.div>
                   ))

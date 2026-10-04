@@ -85,6 +85,7 @@ async function mapRoom(room: {
     user_id: string;
     display_name: string;
     avatar_sort: number | null;
+    avatar: string | null;
     score: number;
     correctas: number;
     incorrectas: number;
@@ -93,7 +94,9 @@ async function mapRoom(room: {
     eliminated_on_question: number | null;
     stars: number;
   }>(
-    `SELECT mp.user_id, mp.display_name, a.sort_order AS avatar_sort, mp.score,
+    `SELECT mp.user_id, mp.display_name, a.sort_order AS avatar_sort,
+            coalesce(u.custom_avatar, nullif(concat('/images/avatares/', a.image), '/images/avatares/')) AS avatar,
+            mp.score,
             coalesce(pa.correctas, 0)::int AS correctas,
             coalesce(pa.incorrectas, 0)::int AS incorrectas,
             coalesce(pa.progreso, 0)::int AS progreso,
@@ -102,6 +105,7 @@ async function mapRoom(room: {
             coalesce(lp.stars, 0)::int AS stars
      FROM match_participants mp
      JOIN matches m ON m.id = mp.match_id
+     LEFT JOIN users u ON u.id = mp.user_id
      LEFT JOIN avatars a ON a.id = (SELECT avatar_id FROM room_participants rp WHERE rp.room_id = m.room_id AND rp.user_id = mp.user_id LIMIT 1)
      LEFT JOIN player_league_progress lp ON lp.user_id = mp.user_id
      LEFT JOIN LATERAL (
@@ -121,6 +125,7 @@ async function mapRoom(room: {
       ? live.map((p) => ({
           estudianteId: p.user_id,
           nombre: p.display_name,
+          avatar: p.avatar,
           avatar_id: p.avatar_sort ?? 1,
           estrellas: p.stars,
           progreso: p.progreso,
@@ -147,6 +152,7 @@ async function mapRoom(room: {
             return {
               estudianteId: p.user_id,
               nombre: p.display_name,
+              avatar: p.avatar ?? null,
               avatar_id: p.avatar_sort ?? 1,
               estrellas: stars?.stars ?? 0,
               progreso: 0,
@@ -572,9 +578,11 @@ export async function POST(req: NextRequest) {
         status: string;
         position: number;
         avatar_id: number | null;
+        avatar: string | null;
       }>(
         `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position,
-                a.sort_order AS avatar_id
+                a.sort_order AS avatar_id,
+                coalesce(u.custom_avatar, nullif(concat('/images/avatares/', a.image), '/images/avatares/')) AS avatar
          FROM v_match_ranking r
          LEFT JOIN users u ON u.id = r.user_id
          LEFT JOIN avatars a ON a.id = u.avatar_id
@@ -661,6 +669,7 @@ export async function POST(req: NextRequest) {
             user_id: r.user_id,
             nombre: r.display_name,
             avatar_id: r.avatar_id,
+            avatar: r.avatar,
             score: r.score,
             estado: r.status,
             posicion: r.position,
