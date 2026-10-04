@@ -78,7 +78,7 @@ async function assertCourseAccess(
     [cursoId]
   );
   if (!course) return null;
-  if (session.role !== 'admin' && course.teacher_id !== session.id) return null;
+  if (course.teacher_id !== session.id) return null;
   return course;
 }
 
@@ -98,8 +98,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
       rows = await query<QuestionRow>(`${SELECT_Q} AND q.course_id = $1 ORDER BY q.sort_order, q.id`, [cursoId]);
-    } else if (session.role === 'admin') {
-      rows = await query<QuestionRow>(`${SELECT_Q} ORDER BY q.created_at DESC LIMIT 500`);
     } else {
       rows = await query<QuestionRow>(
         `${SELECT_Q} AND c.teacher_id = $1 ORDER BY q.created_at DESC LIMIT 500`,
@@ -208,7 +206,7 @@ export async function POST(req: NextRequest) {
          WHERE q.id = $1 AND q.deleted_at IS NULL AND q.practice_id IS NULL`,
         [id]
       );
-      if (!existing || (session.role !== 'admin' && existing.teacher_id !== session.id)) {
+      if (!existing || existing.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
 
@@ -297,7 +295,7 @@ export async function POST(req: NextRequest) {
          WHERE q.id = $1 AND q.deleted_at IS NULL AND q.practice_id IS NULL`,
         [id]
       );
-      if (!existing || (session.role !== 'admin' && existing.teacher_id !== session.id)) {
+      if (!existing || existing.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
       const client = await getPool().connect();

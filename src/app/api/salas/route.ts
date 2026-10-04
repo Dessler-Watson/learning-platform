@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     const autorizado = (f: (typeof flags)[number]) =>
       f.soyParticipante ||
       f.soyHost ||
-      (f.esStaff && (f.session.role === 'admin' || room.teacher_id === f.session.id));
+      (f.esStaff && room.teacher_id === f.session.id);
 
     // Sin code: solo participantes, host o staff dueño pueden ver la sala.
     if (!code) {
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
           `SELECT id, teacher_id FROM courses WHERE id = $1 AND deleted_at IS NULL`,
           [courseId]
         );
-        if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+        if (!course || course.teacher_id !== session.id) {
           return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
         }
       }
@@ -209,10 +209,10 @@ export async function POST(req: NextRequest) {
       }
       const room = await getRoomById(roomId);
       if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
-      if (session.role !== 'admin' && room.teacher_id !== session.id) {
+      if (room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
-      const result = await startRoom(roomId, session.id, { isAdmin: session.role === 'admin' });
+      const result = await startRoom(roomId, session.id);
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala no está esperando jugadores' }, { status: 409 });
@@ -232,12 +232,12 @@ export async function POST(req: NextRequest) {
       }
       const room = await getRoomById(roomId);
       if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
-      if (session.role !== 'admin' && room.teacher_id !== session.id) {
+      if (room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       }
       // Paso 5/7: finalización definitiva en una sola transacción
       // (sala + match + participantes + estrellas de liga + auditoría).
-      const result = await finalizeMatch(roomId, session.id, { isAdmin: session.role === 'admin' });
+      const result = await finalizeMatch(roomId, session.id);
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });

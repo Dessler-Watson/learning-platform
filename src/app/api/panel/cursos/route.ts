@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
 
     if (id) {
       const course = await getCourse(id);
-      if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+      if (!course || course.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
       const questions = await listCourseQuestions(id);
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest) {
       }
       const result = await listCoursesPage(
         {
-          teacherId: session.role === 'admin' ? undefined : session.id,
+          teacherId: session.id,
           search: q || undefined,
           mode: mode ?? undefined,
         },
@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const rows = await listCourses({ teacherId: session.role === 'admin' ? undefined : session.id });
+    const rows = await listCourses({ teacherId: session.id });
     const cursos = await Promise.all(rows.map(mapCourse));
     return NextResponse.json({ cursos });
   } catch (err) {
@@ -284,7 +284,7 @@ export async function POST(req: NextRequest) {
     if (action === 'update') {
       const id = String(body.id ?? '');
       const course = await getCourse(id);
-      if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+      if (!course || course.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
 
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
     if (action === 'delete') {
       const id = String(body.id ?? '');
       const course = await getCourse(id);
-      if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+      if (!course || course.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
       const client = await getPool().connect();
@@ -378,7 +378,7 @@ export async function POST(req: NextRequest) {
         [ids]
       );
       const elegibles = rows
-        .filter((r) => session.role === 'admin' || r.teacher_id === session.id)
+        .filter((r) => r.teacher_id === session.id)
         .map((r) => r.id);
       let deleted = 0;
       if (elegibles.length > 0) {
@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
     if (action === 'copy') {
       const sourceId = String(body.id ?? '');
       const source = await getCourse(sourceId);
-      if (!source || (session.role !== 'admin' && source.teacher_id !== session.id)) {
+      if (!source || source.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
       }
       const preguntas = await loadQuestionsAsPreguntas(sourceId, source.teacher_id, source.mode_code);

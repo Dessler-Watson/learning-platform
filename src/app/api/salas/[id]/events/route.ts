@@ -17,7 +17,7 @@ function jsonError(error: string, status: number): Response {
 /**
  * Canal SSE de una sala (Paso 11).
  *
- * - Auth por sesión (cookie httpOnly) y authz por dueño/admin o participante.
+ * - Auth por sesión (cookie httpOnly) y authz por dueño o participante.
  * - Solo comunica TIPOS de evento (room:* o match:*) con seq; el cliente
  *   refresca el estado por las APIs existentes → PostgreSQL es la fuente
  *   de verdad y los eventos son idempotentes.
@@ -33,14 +33,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!room) return jsonError('Sala no encontrada', 404);
 
     const participantes = await listParticipants(room.id);
-    // Primera identidad autorizada: participante, host dueño o admin. En un
+    // Primera identidad autorizada: participante o host dueño. En un
     // navegador con cuenta docente Y estudiante, cada lado se suscribe con la
     // suya sin pisarse.
     const session =
       candidates.find((c) => {
         const soyParticipante = participantes.some((p) => p.user_id === c.id);
         const soyHost = room.teacher_id === c.id;
-        return soyParticipante || soyHost || c.role === 'admin';
+        return soyParticipante || soyHost;
       }) ?? null;
     if (!session) return jsonError('No autorizado', 403);
 

@@ -188,7 +188,7 @@ export async function GET(req: NextRequest) {
 
     if (id) {
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       return NextResponse.json({ sala: await mapRoom(room) });
@@ -213,8 +213,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'limit debe ser un entero entre 1 y 100' }, { status: 400 });
       }
 
-      const params: unknown[] = [session.role === 'admin', session.id];
-      let where = `r.deleted_at IS NULL AND ($1 OR r.teacher_id = $2)`;
+      const params: unknown[] = [session.id];
+      let where = `r.deleted_at IS NULL AND r.teacher_id = $1`;
       if (q) {
         params.push(`%${q}%`);
         where += ` AND r.name ILIKE $${params.length}`;
@@ -257,10 +257,10 @@ export async function GET(req: NextRequest) {
        FROM rooms r
        JOIN game_modes gm ON gm.id = r.game_mode_id
        WHERE r.deleted_at IS NULL
-         AND ($1 OR r.teacher_id = $2)
+         AND r.teacher_id = $1
        ORDER BY r.created_at DESC
        LIMIT 100`,
-      [session.role === 'admin', session.id]
+      [session.id]
     );
     const salas = await Promise.all(rows.map(mapRoom));
     return NextResponse.json({ salas });
@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
         `SELECT id, teacher_id FROM courses WHERE id = $1 AND deleted_at IS NULL`,
         [cursoId]
       );
-      if (!course || (session.role !== 'admin' && course.teacher_id !== session.id)) {
+      if (!course || course.teacher_id !== session.id) {
         return NextResponse.json({ error: 'Curso no encontrado' }, { status: 404 });
       }
       const maxRaw = body.maxPlayers ?? body.max_players;
@@ -316,10 +316,10 @@ export async function POST(req: NextRequest) {
     if (action === 'start') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
-      const result = await startRoom(id, session.id, { isAdmin: session.role === 'admin' });
+      const result = await startRoom(id, session.id);
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala no está esperando jugadores' }, { status: 409 });
@@ -339,11 +339,11 @@ export async function POST(req: NextRequest) {
     if (action === 'finish') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       // Paso 5: finalización definitiva (sala + match + participantes + auditoría).
-      const result = await finalizeMatch(id, session.id, { isAdmin: session.role === 'admin' });
+      const result = await finalizeMatch(id, session.id);
       if (!result.ok) {
         if (result.reason === 'bad_status') {
           return NextResponse.json({ error: 'La sala ya finalizó' }, { status: 409 });
@@ -360,7 +360,7 @@ export async function POST(req: NextRequest) {
     if (action === 'delete') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       // No se puede borrar una sala con partida en curso: dejaría matches y
@@ -390,7 +390,7 @@ export async function POST(req: NextRequest) {
         [ids]
       );
       const elegibles = rows
-        .filter((r) => (session.role === 'admin' || r.teacher_id === session.id) && r.status !== 'in_progress')
+        .filter((r) => r.teacher_id === session.id && r.status !== 'in_progress')
         .map((r) => r.id);
       let deleted = 0;
       if (elegibles.length > 0) {
@@ -406,7 +406,7 @@ export async function POST(req: NextRequest) {
     if (action === 'poll') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       return NextResponse.json({ sala: await mapRoom(room) });
@@ -415,7 +415,7 @@ export async function POST(req: NextRequest) {
     if (action === 'hard_questions') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       const rows = await query<{
@@ -467,7 +467,7 @@ export async function POST(req: NextRequest) {
       const id = String(body.id ?? body.room_id ?? '');
       const estudianteId = String(body.estudianteId ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
       const answers = await query<{
@@ -543,7 +543,7 @@ export async function POST(req: NextRequest) {
     if (action === 'results') {
       const id = String(body.id ?? body.room_id ?? '');
       const room = await getRoomById(id);
-      if (!room || (session.role !== 'admin' && room.teacher_id !== session.id)) {
+      if (!room || room.teacher_id !== session.id) {
         return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
       }
 
