@@ -88,8 +88,10 @@ export default function EstudianteDetallePage() {
                   <div className="flex items-center gap-2 mt-1">
                     <StatusBadge
                       label={esEliminado ? 'Eliminado' : 'Completado'}
+                      icon={esEliminado ? Skull : undefined}
+                      iconClassName="text-red-500"
                       className={esEliminado
-                        ? (esLava ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-rose-50 text-rose-600 border border-rose-200')
+                        ? 'bg-red-50 text-red-600 border border-red-200'
                         : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                       }
                     />

@@ -112,7 +112,7 @@ export default function ResultadosPage() {
             </h3>
             <div className="space-y-2">
               {ranking.map((p, i) => {
-                const eliminadoLava = esLava && p.estado === 'eliminado';
+                const eliminado = p.estado === 'eliminado';
                 return (
                 <motion.div
                   key={p.estudianteId}
@@ -121,18 +121,23 @@ export default function ResultadosPage() {
                   transition={{ duration: 0.3, delay: i * 0.05 }}
                   onClick={() => { audioManager.play('select'); router.push(`/panel/salas/${salaId}/resultados/${p.estudianteId}`); }}
                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 cursor-pointer transition-all ${
-                    eliminadoLava
-                      ? 'bg-red-50/60 border border-red-200/60 shadow-sm'
+                    eliminado
+                      ? 'bg-red-50 border border-red-300 shadow-sm'
                       : 'hover:bg-gray-50 hover:border-gray-200 border border-transparent'
                   }`}
                 >
                   <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-gray-300 text-white' : i === 2 ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {i + 1}
                   </span>
-                  <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminadoLava} esLava={esLava} />
+                  <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
                   <span className="flex-1 text-sm font-semibold text-foreground">{p.nombre}</span>
-                  <StatusBadge label={p.estado === 'eliminado' ? 'Eliminado' : 'Completado'} className={p.estado === 'eliminado' ? (esLava ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-rose-50 text-rose-600 border border-rose-200') : 'bg-emerald-50 text-emerald-600 border border-emerald-200'} />
-                   <span className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</span>
+                  <StatusBadge
+                    label={eliminado ? 'Eliminado' : 'Completado'}
+                    icon={eliminado ? Skull : undefined}
+                    iconClassName="text-red-500"
+                    className={eliminado ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}
+                  />
+                   <span className={`text-lg font-bold ${eliminado ? 'text-red-500' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</span>
                   <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
                 </motion.div>
                 );

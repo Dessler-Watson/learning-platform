@@ -225,11 +225,11 @@ export function StudentResultsScreen() {
         </div>
 
         {/* Mis respuestas */}
-        <div className="rounded-3xl border border-surface-200 bg-white/85 p-4 shadow-card">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-surface-700">
+        <div className="flex h-[70vh] flex-col rounded-3xl border border-surface-200 bg-white/85 p-4 shadow-card">
+          <h3 className="mb-3 flex shrink-0 items-center gap-2 text-sm font-black text-surface-700">
             <Zap size={15} className="text-[#00A0B5]" /> Tus respuestas
           </h3>
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {respuestas.length === 0 && (
               <p className="text-center text-xs font-bold text-surface-400">Sin respuestas registradas</p>
             )}

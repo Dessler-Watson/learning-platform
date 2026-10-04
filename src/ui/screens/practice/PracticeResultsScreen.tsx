@@ -261,8 +261,9 @@ export function PracticeResultsScreen() {
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="mb-4 overflow-hidden space-y-2"
+                  className="mb-4 overflow-hidden"
                 >
+                  <div className="h-[70vh] space-y-2 overflow-y-auto pr-1">
                   {result.answeredQuestions.map((q, i) => {
                     const isDeath = q.deathQuestion === true;
                     return (
@@ -333,6 +334,7 @@ export function PracticeResultsScreen() {
                     </motion.div>
                     );
                   })}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

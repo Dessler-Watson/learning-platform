@@ -23,7 +23,7 @@ const ESTADO_COLOR: Record<string, string> = {
   esperando: 'bg-amber-50 text-amber-600 border border-amber-200',
   jugando: 'bg-[#00A0B5]/10 text-[#00A0B5] border border-[#00A0B5]/20',
   finalizado: 'bg-emerald-50 text-emerald-600 border border-emerald-200',
-  eliminado: 'bg-rose-50 text-rose-600 border border-rose-200',
+  eliminado: 'bg-red-50 text-red-600 border border-red-200',
 };
 
 export default function MonitoreoPage() {
@@ -155,12 +155,12 @@ export default function MonitoreoPage() {
               </h3>
               <div className="space-y-1.5">
                 {ranking.map((p, i) => {
-                  const eliminadoLava = esLava && p.estado === 'eliminado';
+                  const eliminado = p.estado === 'eliminado';
                   return (
                     <div
                       key={p.estudianteId}
                       className={`flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
-                        eliminadoLava ? 'bg-red-50/50' : i === 0 ? (esLava ? 'bg-orange-50' : 'bg-amber-50') : 'hover:bg-gray-50'
+                        eliminado ? 'bg-red-50/80 border border-red-200/70' : i === 0 ? (esLava ? 'bg-orange-50' : 'bg-amber-50') : 'hover:bg-gray-50'
                       }`}
                     >
                       <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
@@ -168,10 +168,14 @@ export default function MonitoreoPage() {
                       }`}>
                         {i + 1}
                       </span>
-                      <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="sm" eliminado={eliminadoLava} esLava={esLava} />
+                      <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="sm" eliminado={eliminado} esLava={esLava} />
                       <span className="flex-1 text-sm font-medium text-foreground truncate">{p.nombre}</span>
-                      {eliminadoLava && <span className="text-xs text-red-400 font-medium">Eliminado</span>}
-                       <span className={`text-sm font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
+                      {eliminado && (
+                        <span className="flex items-center gap-1 text-xs font-bold text-red-500">
+                          <Skull className="h-3.5 w-3.5" /> Eliminado
+                        </span>
+                      )}
+                       <span className={`text-sm font-bold ${eliminado ? 'text-red-500' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
                         {p.puntosNetos}
                       </span>
                     </div>
@@ -208,7 +212,7 @@ export default function MonitoreoPage() {
           )}
           <AnimatePresence>
             {filtered.map((p, i) => {
-              const eliminadoLava = esLava && p.estado === 'eliminado';
+              const eliminado = p.estado === 'eliminado';
               return (
               <motion.div
                 key={p.estudianteId}
@@ -217,21 +221,26 @@ export default function MonitoreoPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.04 }}
                 className={`rounded-3xl border p-4 transition-all ${
-                  eliminadoLava
-                    ? 'border-red-200 bg-red-50/50 shadow-sm'
+                  eliminado
+                    ? 'border-red-300 bg-red-50/70 shadow-sm'
                      : esLava ? 'border-orange-200 bg-white shadow-sm' : 'border-[#00A0B5]/20 bg-white shadow-sm'
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminadoLava} esLava={esLava} />
+                    <StudentAvatar nombre={p.nombre} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.nombre}</p>
-                      <StatusBadge label={p.estado} className={esLava && p.estado === 'jugando' ? 'bg-orange-50 text-orange-600 border border-orange-200' : ESTADO_COLOR[p.estado]} />
+                      <StatusBadge
+                        label={eliminado ? 'Eliminado' : p.estado}
+                        icon={eliminado ? Skull : undefined}
+                        iconClassName="text-red-500"
+                        className={esLava && p.estado === 'jugando' ? 'bg-orange-50 text-orange-600 border border-orange-200' : ESTADO_COLOR[p.estado]}
+                      />
                     </div>
                   </div>
                   <div className="text-right">
-                     <p className={`text-lg font-bold ${eliminadoLava ? 'text-red-400' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</p>
+                     <p className={`text-lg font-bold ${eliminado ? 'text-red-500' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</p>
                     <p className="text-xs text-gray-400">puntos</p>
                   </div>
                 </div>
@@ -243,7 +252,7 @@ export default function MonitoreoPage() {
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                     <motion.div
-                       className={`h-full rounded-full ${eliminadoLava ? 'bg-gradient-to-r from-red-300 to-red-400' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E]'}`}
+                       className={`h-full rounded-full ${eliminado ? 'bg-gradient-to-r from-red-400 to-red-500' : esLava ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-[#00A0B5] to-[#98C54E]'}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${progressPct(p.progreso)}%` }}
                       transition={{ duration: 0.5 }}
