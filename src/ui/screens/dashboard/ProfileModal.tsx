@@ -9,7 +9,7 @@ import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { useLeagueStore } from '@/stores/league.store';
 import { getLeagueByStars, getLeagueProgress, getNextLeague, getStarsToNextLeague } from '@/lib/leagues';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
-import { getCustomAvatar, setCustomAvatar, clearCustomAvatar } from '@/lib/custom-avatar';
+import { getCustomAvatar, setCustomAvatar, clearCustomAvatar, rememberCustomAvatarSync } from '@/lib/custom-avatar';
 
 interface ProfileModalProps {
   open: boolean;
@@ -128,7 +128,29 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
       setSavingAvatar(true);
       setAvatarError(null);
       setAvatarSaved(false);
+      // Además del dispositivo, guarda la foto en la cuenta para que se vea
+      // en todas las interfaces y en otros dispositivos.
+      if (!isGuest) {
+        try {
+          const res = await fetch('/api/estudiante/perfil', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ custom_avatar: pendingCustomPhoto }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            setAvatarError(err.error || 'No se pudo guardar la foto en la cuenta');
+            setSavingAvatar(false);
+            return;
+          }
+        } catch {
+          setAvatarError('Error al guardar la foto en la cuenta');
+          setSavingAvatar(false);
+          return;
+        }
+      }
       setCustomAvatar(pendingCustomPhoto);
+      rememberCustomAvatarSync(pendingCustomPhoto);
       setCustomPhotoState(pendingCustomPhoto);
       setPendingCustomPhoto(null);
       if (onAvatarChange) {
@@ -153,6 +175,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
     const hadCustom = customPhoto !== null;
     if (hadCustom) {
       clearCustomAvatar();
+      rememberCustomAvatarSync(null);
       setCustomPhotoState(null);
     }
 
@@ -192,6 +215,7 @@ export function ProfileModal({ open, onClose, perfil, isGuest, onAvatarChange }:
         body: JSON.stringify({
           usuario_id: perfil.usuario.id_usuario,
           avatar_id: defaultId,
+          custom_avatar: null,
         }),
       });
       const data = await res.json();

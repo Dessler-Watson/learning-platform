@@ -8,6 +8,7 @@ import { useLeagueStore } from '@/stores/league.store';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { getLeagueByStars, getLeagueProgress, getStarsToNextLeague, getNextLeague } from '@/lib/leagues';
 import { avatarUrl as avatarById } from '@/lib/avatares';
+import { getCustomAvatar } from '@/lib/custom-avatar';
 import { fetchMatchResult, getMatchRoomId, type MatchResultDTO } from '@/lib/partida-client';
 import { audioManager } from '@/shared/lib/audio';
 import type { GameResult } from '@/games/decision-road/types';
@@ -240,16 +241,17 @@ function FullResultsScreen({
   const tiempoRealMs = srv ? srv.partida.duracion_ms : null;
 
   const yoNombre = srv?.yo.nombre || perfil?.usuario.nombre || 'Tu';
-  const yoAvatar = perfil?.usuario.avatar.imagen
-    ? avatarUrl(perfil.usuario.avatar.imagen)
-    : '/images/avatares/gueguense.png';
+  const yoAvatar = getCustomAvatar() ||
+    (perfil?.usuario.avatar.imagen
+      ? avatarUrl(perfil.usuario.avatar.imagen)
+      : '/images/avatares/gueguense.png');
 
   // Ranking real de la sala (servidor, Paso 5). Sin datos reales: no se muestra.
   const ranking = srv
     ? srv.ranking.map((r) => ({
         id: r.user_id,
         nombre: r.user_id === srv.yo.user_id ? yoNombre : r.nombre,
-        avatar: r.user_id === srv.yo.user_id ? yoAvatar : avatarById(r.avatar_id ?? 1),
+        avatar: r.user_id === srv.yo.user_id ? yoAvatar : r.avatar || avatarById(r.avatar_id ?? 1),
         puntos: r.score,
         esYo: r.user_id === srv.yo.user_id,
         posicion: r.posicion,

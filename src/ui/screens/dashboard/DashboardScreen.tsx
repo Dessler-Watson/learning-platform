@@ -10,7 +10,7 @@ import { useLeagueStore } from '@/stores/league.store';
 import { getLeagueByStars, getNextLeague, getLeagueProgress, getStarsToNextLeague } from '@/lib/leagues';
 import { audioManager } from '@/shared/lib/audio';
 import { avatarImagen as avatarFile } from '@/lib/avatares';
-import { getCustomAvatar } from '@/lib/custom-avatar';
+import { getCustomAvatar, rememberCustomAvatarSync } from '@/lib/custom-avatar';
 import { useAchievementStore } from '@/stores/achievement.store';
 import { shouldBounceToWelcome } from '@/shared/lib/appEntry';
 import { AchievementNotification } from '@/ui/components/AchievementNotification';
@@ -21,6 +21,7 @@ interface StoredUser {
   avatar_id: number;
   correo?: string;
   modo: 'registrado' | 'invitado';
+  custom_avatar?: string | null;
 }
 
 interface Perfil {
@@ -34,6 +35,7 @@ interface Perfil {
       id_avatar: number;
       nombre: string;
       imagen: string;
+      custom?: string | null;
     };
   };
   puntos: number;
@@ -125,7 +127,21 @@ export function DashboardScreen() {
     }
 
     const stored: StoredUser = JSON.parse(raw);
-    setCustomPhoto(getCustomAvatar());
+    const localPhoto = getCustomAvatar();
+    setCustomPhoto(localPhoto);
+
+    // Auto-sincroniza la foto local a la cuenta (cuentas antiguas que solo la
+    // tenían guardada en este dispositivo).
+    if (stored.modo === 'registrado' && localPhoto && !stored.custom_avatar) {
+      fetch('/api/estudiante/perfil', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custom_avatar: localPhoto }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d?.success) rememberCustomAvatarSync(localPhoto); })
+        .catch(() => { /* best-effort */ });
+    }
 
     const t1 = setTimeout(() => {
       audioManager.playWelcome();
@@ -162,7 +178,10 @@ export function DashboardScreen() {
         return res.json();
       })
       .then((data: Perfil) => {
-        if (data.usuario) setPerfil(data);
+        if (data.usuario) {
+          setPerfil(data);
+          setCustomPhoto((prev) => prev ?? data.usuario.avatar.custom ?? null);
+        }
       })
       .catch(() => {
         setPerfil(DEFAULT_PERFIL);

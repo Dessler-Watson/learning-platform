@@ -134,6 +134,7 @@ export interface MatchResultDTO {
     user_id: string;
     nombre: string;
     avatar_id: number | null;
+    avatar: string | null;
     score: number;
     estado: string;
   }[];

@@ -63,9 +63,11 @@ export async function GET(req: NextRequest) {
       status: string;
       position: number;
       avatar_id: number | null;
+      avatar: string | null;
     }>(
       `SELECT r.user_id, r.display_name, r.score, r.status, r.position::int AS position,
-              a.sort_order AS avatar_id
+              a.sort_order AS avatar_id,
+              coalesce(u.custom_avatar, nullif(concat('/images/avatares/', a.image), '/images/avatares/')) AS avatar
        FROM v_match_ranking r
        LEFT JOIN users u ON u.id = r.user_id
        LEFT JOIN avatars a ON a.id = u.avatar_id
@@ -161,6 +163,7 @@ export async function GET(req: NextRequest) {
         user_id: r.user_id,
         nombre: r.display_name,
         avatar_id: r.avatar_id,
+        avatar: r.avatar,
         score: r.score,
         estado: r.status,
       })),

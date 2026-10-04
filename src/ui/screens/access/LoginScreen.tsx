@@ -64,6 +64,7 @@ export function LoginScreen() {
         avatar_id: u.avatar_sort ?? u.avatar_id ?? 1,
         correo: u.email,
         modo: 'registrado',
+        custom_avatar: u.custom_avatar ?? null,
       }));
 
       grantAppEntry();

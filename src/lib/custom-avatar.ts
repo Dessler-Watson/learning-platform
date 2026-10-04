@@ -1,14 +1,21 @@
 'use client';
 
-import { readUserJson, writeUserJson, removeUserKey } from '@/shared/lib/userStorage';
+import { readUserJson, writeUserJson, removeUserKey, getCurrentUser } from '@/shared/lib/userStorage';
 
 const BASE = 'eduplay_custom_avatar';
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 const OUTPUT_SIZE = 512;
 
+function isDataImage(v: unknown): v is string {
+  return typeof v === 'string' && v.startsWith('data:image');
+}
+
 export function getCustomAvatar(): string | null {
   const v = readUserJson<string | null>(BASE, null);
-  return typeof v === 'string' && v.startsWith('data:image') ? v : null;
+  if (isDataImage(v)) return v;
+  // Fallback: foto sincronizada con la cuenta (login / perfil), p.ej. en otro dispositivo.
+  const cuenta = getCurrentUser()?.custom_avatar;
+  return isDataImage(cuenta) ? cuenta : null;
 }
 
 export function setCustomAvatar(dataUrl: string): void {
@@ -17,6 +24,15 @@ export function setCustomAvatar(dataUrl: string): void {
 
 export function clearCustomAvatar(): void {
   removeUserKey(BASE);
+}
+
+/** Marca en eduplay_user que la foto local ya está guardada en la cuenta (o se limpió). */
+export function rememberCustomAvatarSync(dataUrl: string | null): void {
+  try {
+    const raw = localStorage.getItem('eduplay_user');
+    if (!raw) return;
+    localStorage.setItem('eduplay_user', JSON.stringify({ ...JSON.parse(raw), custom_avatar: dataUrl }));
+  } catch { /* ignore */ }
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

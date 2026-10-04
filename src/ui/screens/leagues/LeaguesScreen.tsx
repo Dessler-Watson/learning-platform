@@ -50,7 +50,11 @@ export function LeaguesScreen() {
       const avatarId = user.avatar_id || 1;
       setCurrentUser({
         nombre: user.nombre || 'Jugador',
-        avatar: `/images/avatares/${['gueguense.png','leon.png','mascara.png','mariposa.png','nacatamal.png','guardabarranco.png','sacuanjoche.png','madrono.png','ideay.png','presion.png','abismo.png','rumbo.png','pantano.png'][avatarId] || 'gueguense.png'}`,
+        avatar:
+          (typeof user.custom_avatar === 'string' && user.custom_avatar.startsWith('data:image')
+            ? user.custom_avatar
+            : null) ||
+          `/images/avatares/${['gueguense.png','leon.png','mascara.png','mariposa.png','nacatamal.png','guardabarranco.png','sacuanjoche.png','madrono.png','ideay.png','presion.png','abismo.png','rumbo.png','pantano.png'][avatarId] || 'gueguense.png'}`,
       });
     }
   }, []);
@@ -281,6 +285,7 @@ export function LeaguesScreen() {
                     Cargando ranking...
                   </div>
                 )}
+                <div className="max-h-[70vh] overflow-y-auto overscroll-contain">
                 {ranking.map((player, idx) => {
                   const league = getLeagueByStars(player.estrellas);
                   return (
@@ -317,6 +322,7 @@ export function LeaguesScreen() {
                     </div>
                   );
                 })}
+                </div>
 
                 {/* Player's own position */}
                 <div className="border-t border-yellow-400/30 bg-yellow-400/10 px-4 py-3">

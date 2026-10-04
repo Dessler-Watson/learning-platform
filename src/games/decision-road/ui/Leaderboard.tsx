@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { avatarUrl } from '@/lib/avatares';
+import { getCustomAvatar } from '@/lib/custom-avatar';
+import { getCurrentUser } from '@/shared/lib/userStorage';
 import { fetchMatchResult, getMatchRoomId } from '@/lib/partida-client';
 import { useRoomEvents } from '@/shared/hooks/useRoomEvents';
 
@@ -58,7 +60,7 @@ export function Leaderboard() {
               return {
                 id: r.user_id,
                 name: r.nombre,
-                avatar: avatarUrl(r.avatar_id ?? 1),
+                avatar: r.avatar || avatarUrl(r.avatar_id ?? 1),
                 score: nuevo,
                 prevScore: viejo,
                 trend: (nuevo > viejo ? 'up' : nuevo < viejo ? 'down' : 'same') as Competitor['trend'],
@@ -83,7 +85,7 @@ export function Leaderboard() {
   const playerEntry = {
     id: 'player',
     name: 'Tu',
-    avatar: avatarUrl(1),
+    avatar: getCustomAvatar() || avatarUrl(getCurrentUser()?.avatar_id ?? 1),
     score,
     prevScore: 0,
     trend: 'same' as const,

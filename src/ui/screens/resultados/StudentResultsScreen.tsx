@@ -203,7 +203,7 @@ export function StudentResultsScreen() {
                     {r.posicion}
                   </span>
                   <img
-                    src={avatarUrl(r.avatar_id ?? 1)}
+                    src={r.avatar || avatarUrl(r.avatar_id ?? 1)}
                     alt=""
                     className="h-8 w-8 shrink-0 rounded-full object-cover"
                   />

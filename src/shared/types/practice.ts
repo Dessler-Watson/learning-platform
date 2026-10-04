@@ -37,4 +37,5 @@ export interface StoredUser {
   avatar_id: number;
   correo?: string;
   modo: 'registrado' | 'invitado';
+  custom_avatar?: string | null;
 }
