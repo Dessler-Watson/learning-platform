@@ -149,7 +149,7 @@ export function AbismosCanvas() {
   }, [gamePhase]);
 
   // Persist stars to league store when the game ends (never in practice).
-  // Win: add accumulated stars. Lose: deduct penalty.
+  // Win: add accumulated stars. Lose (caer al vacío): lose ALL of them.
   useEffect(() => {
     if ((gamePhase !== 'completed' && gamePhase !== 'defeat') || starsPersisted.current) return;
     const isPractice = !!sessionStorage.getItem('eduplay_practice');
@@ -158,10 +158,8 @@ export function AbismosCanvas() {
       return;
     }
     if (gamePhase === 'defeat' || fellInAbyss) {
-      const penalty = Math.min(Math.ceil(starsEarned * 0.5), 30);
-      if (penalty > 0) {
-        useLeagueStore.getState().removeStars(penalty);
-      }
+      // Cayó al vacío: pierde todos los puntos de liga ganados en esta partida.
+      useLeagueStore.getState().resetStarsEarnedThisGame();
     } else if (starsEarned > 0) {
       useLeagueStore.getState().addStars(starsEarned);
     }

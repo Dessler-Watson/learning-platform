@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       display_name: string;
       status: string;
       score: number;
+      stars_earned: number;
       answered: number;
       correct: number;
       incorrect: number;
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
       avg_response_ms: number | null;
     }>(
       `SELECT s.display_name, s.status, s.score,
+              s.stars_earned::int AS stars_earned,
               s.answered::int AS answered, s.correct::int AS correct,
               s.incorrect::int AS incorrect, s.timeouts::int AS timeouts,
               s.avg_response_ms::int AS avg_response_ms
@@ -139,6 +141,8 @@ export async function GET(req: NextRequest) {
         xp: participant.xp,
         estado: stats?.status ?? participant.status,
         eliminado_en: participant.eliminated_on_question,
+        // Estrellas de liga ganadas EN ESTA partida (0 si las perdió al caer al vacío).
+        estrellas_partida: stats?.stars_earned ?? 0,
         correctas: correct,
         incorrectas: stats?.incorrect ?? 0,
         timeouts: stats?.timeouts ?? 0,

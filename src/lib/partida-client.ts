@@ -110,6 +110,7 @@ export interface MatchResultDTO {
     xp: number;
     estado: string;
     eliminado_en: number | null;
+    estrellas_partida: number;
     correctas: number;
     incorrectas: number;
     timeouts: number;
@@ -235,12 +236,15 @@ export async function submitMatchAnswer(opts: {
 
 /**
  * Reporta una muerte SIN respuesta al servidor (p.ej. caída al agua en
- * tierras-hundidas por salto fallido o caída al costado). Fire-and-forget:
- * el servidor solo actualiza si el participante sigue 'playing', por lo que
- * es seguro llamarlo también cuando la eliminación ya vino de una respuesta
- * incorrecta (idempotente).
+ * tierras-hundidas por salto fallido, caída al costado o caída al vacío en
+ * entre-abismos). Fire-and-forget: el servidor solo actualiza si el
+ * participante sigue 'playing', por lo que es seguro llamarlo también cuando
+ * la eliminación ya vino de una respuesta incorrecta (idempotente).
+ *
+ * `forfeitStars` (entre-abismos): el participante pierde TODAS las estrellas
+ * de liga ganadas en la partida al caer al vacío.
  */
-export async function reportMatchElimination(): Promise<boolean> {
+export async function reportMatchElimination(opts?: { forfeitStars?: boolean }): Promise<boolean> {
   const roomId = getMatchRoomId();
   if (!roomId) return false;
   if (roomFinishedDetected) return false;
@@ -250,7 +254,11 @@ export async function reportMatchElimination(): Promise<boolean> {
       const res = await fetch('/api/partida', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'eliminate', room_id: roomId }),
+        body: JSON.stringify({
+          action: 'eliminate',
+          room_id: roomId,
+          ...(opts?.forfeitStars ? { forfeit_stars: true } : {}),
+        }),
       });
       if (res.ok) return true;
       // Errores de estado (finalizada/no participante): no reintentar.

@@ -93,6 +93,7 @@ async function mapRoom(room: {
     status: string;
     eliminated_on_question: number | null;
     stars: number;
+    stars_partida: number;
   }>(
     `SELECT mp.user_id, mp.display_name, a.sort_order AS avatar_sort,
             coalesce(u.custom_avatar, nullif(concat('/images/avatares/', a.image), '/images/avatares/')) AS avatar,
@@ -102,7 +103,8 @@ async function mapRoom(room: {
             coalesce(pa.progreso, 0)::int AS progreso,
             mp.status::text AS status,
             mp.eliminated_on_question,
-            coalesce(lp.stars, 0)::int AS stars
+            coalesce(lp.stars, 0)::int AS stars,
+            mp.stars_earned::int AS stars_partida
      FROM match_participants mp
      JOIN matches m ON m.id = mp.match_id
      LEFT JOIN users u ON u.id = mp.user_id
@@ -128,6 +130,7 @@ async function mapRoom(room: {
           avatar: p.avatar,
           avatar_id: p.avatar_sort ?? 1,
           estrellas: p.stars,
+          estrellasPartida: p.stars_partida,
           progreso: p.progreso,
           correctas: p.correctas,
           incorrectas: p.incorrectas,
@@ -155,6 +158,7 @@ async function mapRoom(room: {
               avatar: p.avatar ?? null,
               avatar_id: p.avatar_sort ?? 1,
               estrellas: stars?.stars ?? 0,
+              estrellasPartida: 0,
               progreso: 0,
               correctas: 0,
               incorrectas: 0,
@@ -597,6 +601,7 @@ export async function POST(req: NextRequest) {
         display_name: string;
         status: string;
         score: number;
+        stars_earned: number;
         answered: number;
         correct: number;
         incorrect: number;
@@ -604,6 +609,7 @@ export async function POST(req: NextRequest) {
         avg_response_ms: number | null;
       }>(
         `SELECT s.participant_id, s.user_id, s.display_name, s.status, s.score,
+                s.stars_earned::int AS stars_earned,
                 s.answered::int AS answered, s.correct::int AS correct,
                 s.incorrect::int AS incorrect, s.timeouts::int AS timeouts,
                 s.avg_response_ms::int AS avg_response_ms
@@ -627,6 +633,7 @@ export async function POST(req: NextRequest) {
                 ? ('jugando' as const)
                 : ('esperando' as const),
         score: s.score,
+        estrellas_partida: s.stars_earned,
         respondidas: s.answered,
         correctas: s.correct,
         incorrectas: s.incorrect,

@@ -216,6 +216,8 @@ export interface ParticipanteSala {
   avatar?: string | null;
   avatar_id?: number;
   estrellas?: number;
+  /** Estrellas de liga ganadas EN ESTA partida (0 si las perdió al caer al vacío). */
+  estrellasPartida?: number;
   progreso: number;
   correctas: number;
   incorrectas: number;
@@ -248,6 +250,8 @@ export interface ResultadoParticipanteSala {
   nombre: string;
   estado: EstadoParticipante;
   score: number;
+  /** Estrellas de liga ganadas EN ESTA partida (0 si las perdió al caer al vacío). */
+  estrellas_partida: number;
   respondidas: number;
   correctas: number;
   incorrectas: number;

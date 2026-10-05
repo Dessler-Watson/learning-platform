@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Square, Zap, Shield, Flame, Skull, Trophy, Search, X } from 'lucide-react';
+import { Square, Zap, Shield, Flame, Skull, Trophy, Search, X, Star } from 'lucide-react';
 import { ModeLogo, MODE_THEME, toGameModeId } from '@/shared/lib/game-modes';
 import { Button } from '../../../ui/button';
 import { Card, CardContent } from '../../../ui/card';
@@ -101,6 +101,7 @@ export default function MonitoreoPage() {
 
   const modeId = toGameModeId(sala.juegoId);
   const esLava = modeId === 'lava';
+  const esAbismos = modeId === 'abismos';
   const theme = modeId ? MODE_THEME[modeId] : null;
   const maxProgreso = Math.max(...sala.participantes.map((p) => p.progreso), 1);
   const progressPct = (progreso: number) => Math.round((progreso / sala.totalPreguntas) * 100);
@@ -172,7 +173,13 @@ export default function MonitoreoPage() {
                       <span className="flex-1 text-sm font-medium text-foreground truncate">{p.nombre}</span>
                       {eliminado && (
                         <span className="flex items-center gap-1 text-xs font-bold text-red-500">
-                          <Skull className="h-3.5 w-3.5" /> Eliminado
+                          <Skull className="h-3.5 w-3.5" /> {esAbismos ? 'Cayó al vacío' : 'Eliminado'}
+                          {esAbismos && (
+                            <>
+                              <span className="text-gray-400">·</span>
+                              <Star className="h-3 w-3 text-amber-500" /> 0
+                            </>
+                          )}
                         </span>
                       )}
                        <span className={`text-sm font-bold ${eliminado ? 'text-red-500' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>
@@ -213,6 +220,7 @@ export default function MonitoreoPage() {
           <AnimatePresence>
             {filtered.map((p, i) => {
               const eliminado = p.estado === 'eliminado';
+              const cayo = esAbismos && eliminado;
               return (
               <motion.div
                 key={p.estudianteId}
@@ -232,7 +240,7 @@ export default function MonitoreoPage() {
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.nombre}</p>
                       <StatusBadge
-                        label={eliminado ? 'Eliminado' : p.estado}
+                        label={cayo ? 'Cayó al vacío' : eliminado ? 'Eliminado' : p.estado}
                         icon={eliminado ? Skull : undefined}
                         iconClassName="text-red-500"
                         className={esLava && p.estado === 'jugando' ? 'bg-orange-50 text-orange-600 border border-orange-200' : ESTADO_COLOR[p.estado]}
@@ -258,9 +266,12 @@ export default function MonitoreoPage() {
                       transition={{ duration: 0.5 }}
                     />
                   </div>
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="flex items-center gap-1 text-emerald-500"><Zap className="h-3 w-3" /> {p.correctas} correctas</span>
                     <span className="flex items-center gap-1 text-rose-500"><Shield className="h-3 w-3" /> {p.incorrectas} incorrectas</span>
+                    <span className={`flex items-center gap-1 font-semibold ${cayo ? 'text-red-500' : 'text-amber-500'}`}>
+                      <Star className="h-3 w-3" /> {p.estrellasPartida ?? 0} estrellas{cayo ? ' de liga' : ''}
+                    </span>
                     {esLava && (
                       <span className="flex items-center gap-1 text-orange-500">
                         <Flame className="h-3 w-3" /> {p.distanciaLava}/3

@@ -471,10 +471,13 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       [participant.id, newScore, xpGain, starsDelta]
     );
     if (eliminated) {
+      // Entre-abismos: perder las plataformas es CAER AL VACÍO → el participante
+      // pierde todas las estrellas de liga ganadas en esta partida.
       await client.query(
-        `UPDATE match_participants SET status = 'eliminated', eliminated_on_question = $2
+        `UPDATE match_participants SET status = 'eliminated', eliminated_on_question = $2,
+                stars_earned = CASE WHEN $3::boolean THEN 0 ELSE stars_earned END
          WHERE id = $1 AND status = 'playing'`,
-        [participant.id, position + 1]
+        [participant.id, position + 1, room.mode_code === 'abismos']
       );
     }
 
@@ -519,15 +522,21 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
 
 /**
  * Eliminación sin respuesta: muertes que no vienen de fallar una pregunta
- * (p.ej. caída al agua en tierras-hundidas por salto fallido o al costado).
- * Idempotente: solo actualiza si el participante sigue 'playing' (si ya fue
- * eliminado por una respuesta incorrecta, conserva su eliminated_on_question).
- * Publica 'match:progress' para que el panel docente refresque al instante.
+ * (p.ej. caída al agua en tierras-hundidas por salto fallido o al costado,
+ * o caída al vacío en entre-abismos). Idempotente: solo actualiza si el
+ * participante sigue 'playing' (si ya fue eliminado por una respuesta
+ * incorrecta, conserva su eliminated_on_question). Publica 'match:progress'
+ * para que el panel docente refresque al instante.
+ *
+ * `forfeitStars` (entre-abismos): al caer al vacío el participante pierde
+ * TODAS las estrellas de liga ganadas en la partida (stars_earned = 0), por
+ * lo que finalizeMatch no le otorga nada.
  */
 export async function markParticipantEliminated(opts: {
   roomId: string;
   matchId: string;
   participantId: string;
+  forfeitStars?: boolean;
 }): Promise<boolean> {
   const answered = await queryOne<{ n: number }>(
     `SELECT count(*)::int AS n FROM participant_answers WHERE participant_id = $1`,
@@ -536,11 +545,12 @@ export async function markParticipantEliminated(opts: {
   const updated = await query<{ id: string }>(
     `UPDATE match_participants mp
         SET status = 'eliminated',
-            eliminated_on_question = LEAST($2, m.question_count)
+            eliminated_on_question = LEAST($2, m.question_count),
+            stars_earned = CASE WHEN $4::boolean THEN 0 ELSE mp.stars_earned END
        FROM matches m
       WHERE mp.id = $1 AND mp.match_id = $3 AND mp.match_id = m.id AND mp.status = 'playing'
       RETURNING mp.id`,
-    [opts.participantId, (answered?.n ?? 0) + 1, opts.matchId]
+    [opts.participantId, (answered?.n ?? 0) + 1, opts.matchId, opts.forfeitStars === true]
   );
   if (updated.length === 0) return false;
   publishRoomEvent('match:progress', opts.roomId);

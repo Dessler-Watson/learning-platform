@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, X, Minus, Clock, Target, Zap, Shield, Skull, Trophy } from 'lucide-react';
+import { ArrowLeft, Check, X, Minus, Clock, Target, Zap, Shield, Skull, Trophy, Star } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { Card, CardContent } from '../../../../ui/card';
 import { PageHeader } from '../../../../components/shared/PageHeader';
@@ -57,10 +57,12 @@ export default function EstudianteDetallePage() {
   const modeId = toGameModeId(sala.juegoId);
   const esLava = modeId === 'lava';
   const esEliminado = detalle.estadoFinal === 'eliminado';
+  const cayo = modeId === 'abismos' && esEliminado;
   const participante = sala.participantes.find((p) => p.estudianteId === estudianteId);
   const avatarId = participante?.avatar_id;
   const avatarSrc = participante?.avatar ?? null;
   const estrellas = participante?.estrellas ?? 0;
+  const estrellasPartida = participante?.estrellasPartida ?? 0;
 
   return (
     <div className="relative z-10 space-y-6">
@@ -88,7 +90,7 @@ export default function EstudianteDetallePage() {
                   <h2 className="text-lg font-bold text-foreground">{detalle.nombre}</h2>
                   <div className="flex items-center gap-2 mt-1">
                     <StatusBadge
-                      label={esEliminado ? 'Eliminado' : 'Completado'}
+                      label={cayo ? 'Cayó al vacío' : esEliminado ? 'Eliminado' : 'Completado'}
                       icon={esEliminado ? Skull : undefined}
                       iconClassName="text-red-500"
                       className={esEliminado
@@ -97,7 +99,14 @@ export default function EstudianteDetallePage() {
                       }
                     />
                     {esEliminado && detalle.preguntaEliminacion && (
-                      <span className="text-xs text-gray-400">Eliminado en pregunta #{detalle.preguntaEliminacion}</span>
+                      <span className="text-xs text-gray-400">
+                        {cayo ? 'Cayó al vacío en pregunta' : 'Eliminado en pregunta'} #{detalle.preguntaEliminacion}
+                      </span>
+                    )}
+                    {cayo && (
+                      <span className="flex items-center gap-1 text-xs font-bold text-red-500">
+                        <Star className="h-3.5 w-3.5" /> {estrellasPartida} estrellas de liga
+                      </span>
                     )}
                   </div>
                 </div>

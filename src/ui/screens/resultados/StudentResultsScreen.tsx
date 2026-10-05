@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Trophy, CheckCircle, XCircle, Clock, Home, Target, Timer, Skull, Zap, Shield, Hourglass, ArrowLeft,
+  Trophy, CheckCircle, XCircle, Clock, Home, Target, Timer, Skull, Zap, Shield, Hourglass, ArrowLeft, Star,
 } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { avatarUrl } from '@/lib/avatares';
@@ -93,6 +93,7 @@ export function StudentResultsScreen() {
   const { yo, partida, ranking, respuestas, sala } = data;
   const eliminado = yo.estado === 'eliminated';
   const enCurso = partida.status !== 'finished';
+  const cayo = eliminado && sala.modo === 'abismos';
 
   const stats = [
     { label: 'Puntos', value: String(yo.score), icon: Trophy, color: 'text-amber-500 bg-amber-50' },
@@ -101,6 +102,7 @@ export function StudentResultsScreen() {
     { label: 'Fallas', value: String(yo.incorrectas), icon: XCircle, color: 'text-rose-500 bg-rose-50' },
     { label: 'Timeouts', value: String(yo.timeouts), icon: Timer, color: 'text-orange-500 bg-orange-50' },
     { label: 'Sin responder', value: String(yo.sin_responder), icon: Hourglass, color: 'text-purple-500 bg-purple-50' },
+    { label: 'Estrellas liga', value: String(yo.estrellas_partida ?? 0), icon: Star, color: 'text-yellow-500 bg-yellow-50' },
   ];
 
   return (
@@ -138,7 +140,7 @@ export function StudentResultsScreen() {
             }`}
           >
             {eliminado ? (
-              <span className="flex items-center gap-1"><Skull size={12} /> Eliminado{yo.eliminado_en ? ` en la pregunta ${yo.eliminado_en}` : ''}</span>
+              <span className="flex items-center gap-1"><Skull size={12} /> {cayo ? 'Cayó al vacío' : 'Eliminado'}{yo.eliminado_en ? ` en la pregunta ${yo.eliminado_en}` : ''}</span>
             ) : (
               estadoLabel(yo.estado)
             )}
@@ -214,7 +216,9 @@ export function StudentResultsScreen() {
                         <span className="ml-1.5 rounded-full bg-edu-green px-1.5 py-0.5 text-[9px] font-black uppercase text-white">TÚ</span>
                       )}
                     </p>
-                    <p className="text-[10px] font-bold text-surface-400">{estadoLabel(r.estado)}</p>
+                    <p className="text-[10px] font-bold text-surface-400">
+                      {sala.modo === 'abismos' && r.estado === 'eliminated' ? 'Cayó al vacío' : estadoLabel(r.estado)}
+                    </p>
                   </div>
                   <span className="text-sm font-black text-surface-800">{r.score}</span>
                 </motion.div>

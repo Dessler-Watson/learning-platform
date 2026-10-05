@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { AbismosPhase, AbismosQuestion, AbismosResult, PlatformChoice } from '@/games/entre-abismos/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished, reportMatchElimination } from '@/lib/partida-client';
 
 interface AbismosStore {
   phase: AbismosPhase;
@@ -177,6 +177,11 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
     if (platforms <= 0) {
+      // Se acabaron las plataformas → cayó al vacío: reporta la eliminación
+      // y hace perder todas las estrellas de liga de la partida (servidor).
+      if (getMatchRoomId() && !isRoomFinished()) {
+        void reportMatchElimination({ forfeitStars: true });
+      }
       set({
         fellInAbyss: true,
         reachedFinish: false,
@@ -223,6 +228,13 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
   triggerFall: () => {
     const { phase, fellInAbyss } = get();
     if (phase === 'defeat' || phase === 'completed' || fellInAbyss) return;
+
+    // Cayó al vacío en el mundo 3D: reporta la eliminación al servidor (para
+    // la calavera del panel docente) y hace perder TODAS las estrellas de
+    // liga ganadas en esta partida. Idempotente (solo si sigue 'playing').
+    if (getMatchRoomId() && !isRoomFinished()) {
+      void reportMatchElimination({ forfeitStars: true });
+    }
 
     const { questions, correctCount, incorrectCount, platforms, answers, score } = get();
     const total = questions.length;

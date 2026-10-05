@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, AlertTriangle, Users, Check, X, Minus, Skull, ChevronRight } from 'lucide-react';
+import { Trophy, TrendingUp, AlertTriangle, Users, Check, X, Minus, Skull, ChevronRight, Star } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Card, CardContent } from '../../../ui/card';
 import { PageHeader } from '../../../components/shared/PageHeader';
@@ -58,6 +58,7 @@ export default function ResultadosPage() {
 
   const modeId = toGameModeId(sala.juegoId);
   const esLava = modeId === 'lava';
+  const esAbismos = modeId === 'abismos';
   const totalParticipantes = resumen?.participantes ?? sala.participantes.length;
   const completados = resumen?.completados ?? sala.participantes.filter((p) => p.estado === 'finalizado').length;
   const eliminados = resumen?.eliminados ?? sala.participantes.filter((p) => p.estado === 'eliminado').length;
@@ -113,6 +114,7 @@ export default function ResultadosPage() {
             <div className="space-y-2">
               {ranking.map((p, i) => {
                 const eliminado = p.estado === 'eliminado';
+                const cayo = esAbismos && eliminado;
                 return (
                 <motion.div
                   key={p.estudianteId}
@@ -132,11 +134,14 @@ export default function ResultadosPage() {
                   <StudentAvatar nombre={p.nombre} avatar={p.avatar} avatar_id={p.avatar_id} estrellas={p.estrellas} size="md" eliminado={eliminado} esLava={esLava} />
                   <span className="flex-1 text-sm font-semibold text-foreground">{p.nombre}</span>
                   <StatusBadge
-                    label={eliminado ? 'Eliminado' : 'Completado'}
+                    label={cayo ? 'Cayó al vacío' : eliminado ? 'Eliminado' : 'Completado'}
                     icon={eliminado ? Skull : undefined}
                     iconClassName="text-red-500"
                     className={eliminado ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}
                   />
+                  <span className={`flex shrink-0 items-center gap-1 text-xs font-bold ${cayo ? 'text-red-500' : 'text-amber-500'}`}>
+                    <Star className="h-3.5 w-3.5" /> {p.estrellasPartida ?? 0}{cayo ? ' de liga' : ''}
+                  </span>
                    <span className={`text-lg font-bold ${eliminado ? 'text-red-500' : esLava ? 'text-orange-500' : 'text-[#00A0B5]'}`}>{p.puntosNetos}</span>
                   <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
                 </motion.div>

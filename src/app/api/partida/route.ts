@@ -148,10 +148,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No eres participante de esta partida' }, { status: 403 });
       }
 
+      // Entre-abismos: caer al vacío hace perder todas las estrellas de liga
+      // ganadas en la partida (forfeit_stars, solo válido en ese modo).
+      const forfeitStars = body.forfeit_stars === true && room.mode_code === 'abismos';
       const changed = await markParticipantEliminated({
         roomId: room.id,
         matchId: match.id,
         participantId: participant.id,
+        forfeitStars,
       });
       return NextResponse.json({
         ok: true,
