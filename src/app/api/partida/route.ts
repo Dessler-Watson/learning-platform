@@ -8,6 +8,7 @@ import {
   listQuestionOptions,
   listMyAnswers,
   recordMatchAnswer,
+  markParticipantEliminated,
   type MatchInfo,
 } from '@/lib/db/matches';
 
@@ -113,11 +114,51 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const action = String(body.action ?? '');
 
-    if (action !== 'answer') {
+    if (action !== 'answer' && action !== 'eliminate') {
       return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
     }
 
     const roomId = String(body.room_id ?? '');
+
+    // Muerte sin respuesta (p.ej. caída al agua en tierras-hundidas): marca al
+    // participante como eliminado en el panel docente. Misma cadena de
+    // autorización que GET (sala, miembro activo, match y participante).
+    if (action === 'eliminate') {
+      if (!roomId) return NextResponse.json({ error: 'room_id requerido' }, { status: 400 });
+
+      const room = await getRoomById(roomId);
+      if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+      if (room.status === 'waiting') {
+        return NextResponse.json({ error: 'La partida no ha comenzado' }, { status: 409 });
+      }
+
+      const member = await queryOne<{ one: number }>(
+        `SELECT 1 AS one FROM room_participants WHERE room_id = $1 AND user_id = $2 AND left_at IS NULL`,
+        [room.id, session.id]
+      );
+      if (!member) {
+        return NextResponse.json({ error: 'No eres participante de esta partida' }, { status: 403 });
+      }
+
+      const match = await resolveMatch(room.id, session.id, room.status);
+      if (!match) return NextResponse.json({ error: 'No hay partida activa' }, { status: 409 });
+
+      const participant = await getMatchParticipant(match.id, session.id);
+      if (!participant) {
+        return NextResponse.json({ error: 'No eres participante de esta partida' }, { status: 403 });
+      }
+
+      const changed = await markParticipantEliminated({
+        roomId: room.id,
+        matchId: match.id,
+        participantId: participant.id,
+      });
+      return NextResponse.json({
+        ok: true,
+        eliminado: changed || participant.status === 'eliminated',
+        estado: changed ? 'eliminated' : participant.status,
+      });
+    }
     const questionId = String(body.question_id ?? '');
     if (!roomId) return NextResponse.json({ error: 'room_id requerido' }, { status: 400 });
     if (!questionId) return NextResponse.json({ error: 'question_id requerido' }, { status: 400 });

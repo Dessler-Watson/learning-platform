@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { TierrasPhase, TierrasQuestion, PlatformChoice, TierrasResult } from '@/games/tierras-hundidas/types';
 import { TIERRAS_CONFIG as CFG } from '@/games/tierras-hundidas/config';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
-import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished } from '@/lib/partida-client';
+import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished, reportMatchElimination } from '@/lib/partida-client';
 
 interface TierrasStore {
   phase: TierrasPhase;
@@ -214,6 +214,13 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
   },
 
   triggerFall: () => {
+    // Causa de la caída: (a) respuesta incorrecta → el servidor ya marcó
+    // 'eliminated' con la respuesta; (b) salto fallido o caída al costado →
+    // sin respuesta, hay que reportarla aquí para que el panel docente muestre
+    // la calavera. Idempotente en el servidor (solo si sigue 'playing').
+    if (getMatchRoomId() && !isRoomFinished()) {
+      void reportMatchElimination();
+    }
     const state = get();
     const total = state.questions.length;
     const accuracy = total > 0 ? Math.round((state.correctCount / total) * 100) : 0;

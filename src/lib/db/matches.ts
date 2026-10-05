@@ -517,6 +517,36 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
   }
 }
 
+/**
+ * Eliminación sin respuesta: muertes que no vienen de fallar una pregunta
+ * (p.ej. caída al agua en tierras-hundidas por salto fallido o al costado).
+ * Idempotente: solo actualiza si el participante sigue 'playing' (si ya fue
+ * eliminado por una respuesta incorrecta, conserva su eliminated_on_question).
+ * Publica 'match:progress' para que el panel docente refresque al instante.
+ */
+export async function markParticipantEliminated(opts: {
+  roomId: string;
+  matchId: string;
+  participantId: string;
+}): Promise<boolean> {
+  const answered = await queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n FROM participant_answers WHERE participant_id = $1`,
+    [opts.participantId]
+  );
+  const updated = await query<{ id: string }>(
+    `UPDATE match_participants mp
+        SET status = 'eliminated',
+            eliminated_on_question = LEAST($2, m.question_count)
+       FROM matches m
+      WHERE mp.id = $1 AND mp.match_id = $3 AND mp.match_id = m.id AND mp.status = 'playing'
+      RETURNING mp.id`,
+    [opts.participantId, (answered?.n ?? 0) + 1, opts.matchId]
+  );
+  if (updated.length === 0) return false;
+  publishRoomEvent('match:progress', opts.roomId);
+  return true;
+}
+
 export interface FinalizeMatchResult {
   ok: boolean;
   reason?: 'not_found' | 'forbidden' | 'bad_status';

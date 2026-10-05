@@ -234,6 +234,38 @@ export async function submitMatchAnswer(opts: {
 }
 
 /**
+ * Reporta una muerte SIN respuesta al servidor (p.ej. caída al agua en
+ * tierras-hundidas por salto fallido o caída al costado). Fire-and-forget:
+ * el servidor solo actualiza si el participante sigue 'playing', por lo que
+ * es seguro llamarlo también cuando la eliminación ya vino de una respuesta
+ * incorrecta (idempotente).
+ */
+export async function reportMatchElimination(): Promise<boolean> {
+  const roomId = getMatchRoomId();
+  if (!roomId) return false;
+  if (roomFinishedDetected) return false;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch('/api/partida', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'eliminate', room_id: roomId }),
+      });
+      if (res.ok) return true;
+      // Errores de estado (finalizada/no participante): no reintentar.
+      if (res.status === 409 || res.status === 403 || res.status === 404) return false;
+      if (attempt === 0) continue;
+      return false;
+    } catch {
+      if (attempt === 0) continue;
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
  * Reconciliación optimista: corrige la corrección de la respuesta ya registrada
  * si el servidor no coincide. Devuelve la MISMA referencia si no hay cambio.
  */
