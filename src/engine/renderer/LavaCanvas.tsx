@@ -21,6 +21,7 @@ import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
+import { AmbientMotes } from '@/shared/ui/AmbientMotes';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -29,6 +30,9 @@ const GRAVITY: [number, number, number] = [0, 0, 0];
 const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.5 } as const;
 const CAMERA_CONFIG = { fov: 55, near: 0.2, far: 200 } as const;
 const CANVAS_STYLE = { width: '100%', height: '100%', backgroundColor: '#2A2A2E' } as const;
+
+// Decoración extra (solo visual): ascuas subiendo desde la lava.
+const EMBER_MOTE_COLORS = ['rgba(255,122,24,0.85)', 'rgba(255,179,0,0.8)', 'rgba(255,87,34,0.75)'] as const;
 
 function Scene({ onReady }: { onReady: () => void }) {
   return (
@@ -248,6 +252,20 @@ export function LavaCanvas() {
         background: 'radial-gradient(ellipse at 85% 70%, rgba(255,100,0,0.1) 0%, transparent 50%)',
         animation: 'flash5 7.2s ease-in-out infinite',
       }} />
+
+      {/* Ember motes — ascuas flotando */}
+      <AmbientMotes
+        count={16}
+        colors={EMBER_MOTE_COLORS}
+        minSize={2}
+        maxSize={5}
+        minDur={7}
+        maxDur={14}
+        direction="up"
+        glow="rgba(255,110,20,0.8)"
+        zIndex={4}
+        seed={3}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
+import { gameAudio } from '@/shared/lib/gameAudio';
 import { Check, X, Star } from 'lucide-react';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
@@ -89,6 +90,14 @@ export function TierrasHUD() {
     timers.push(setTimeout(() => setFeedbackStage('done'), 800));
     return () => timers.forEach(clearTimeout);
   }, [showFeedback, qIndex]);
+
+  // Sting extra: la pregunta aparece sobre las plataformas del pantano.
+  const lastStingIndex = useRef(-1);
+  useEffect(() => {
+    if (phase !== 'playing' || !question || lastStingIndex.current === qIndex) return;
+    lastStingIndex.current = qIndex;
+    gameAudio.tierrasAppear();
+  }, [phase, qIndex, question]);
 
   if (phase === 'loading' || phase === 'completed' || phase === 'results') return null;
 

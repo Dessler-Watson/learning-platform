@@ -5,6 +5,7 @@ import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Check, X, Star } from 'lucide-react';
 import { hudTargets } from '@/shared/refs/hudRefs';
+import { gameAudio } from '@/shared/lib/gameAudio';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
@@ -57,6 +58,14 @@ export function DecisionHUD() {
     hudTargets.crossRef.current = crossIconRef.current;
     hudTargets.starRef.current = starIconRef.current;
   });
+
+  // Sting extra: destello mágico cuando aparece una pregunta del camino.
+  const lastStingIndex = useRef(-1);
+  useEffect(() => {
+    if (phase !== 'playing' || questions.length === 0 || lastStingIndex.current === currentQuestionIndex) return;
+    lastStingIndex.current = currentQuestionIndex;
+    gameAudio.decisionAppear();
+  }, [phase, currentQuestionIndex, questions.length]);
 
   if (phase === 'loading' || phase === 'intro' || phase === 'completed' || phase === 'results') return null;
 

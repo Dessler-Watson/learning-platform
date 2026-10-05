@@ -24,6 +24,7 @@ import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { PostProcessing } from '@/engine/effects/PostProcessing';
 import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
+import { AmbientMotes } from '@/shared/ui/AmbientMotes';
 import { isMatchRoom, postGameRoute } from '@/lib/partida-client';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
@@ -34,6 +35,9 @@ const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneM
 const CAMERA_CONFIG = { fov: 55, near: 0.2, far: 600 } as const;
 const PERFORMANCE_CONFIG = { min: 0.5 } as const;
 const CANVAS_STYLE = { width: '100%', height: '100%', backgroundColor: '#7EC8E3' } as const;
+
+// Decoración extra (solo visual): motas de luz cálidas flotando en el cielo.
+const SKY_MOTE_COLORS = ['rgba(255,224,130,0.8)', 'rgba(255,245,157,0.7)', 'rgba(255,255,255,0.6)'] as const;
 
 function Scene({ onReady }: { onReady: () => void }) {
   return (
@@ -121,6 +125,34 @@ export function GameCanvas() {
       <Leaderboard />
       <GameAchievementNotification />
       <LandscapeGate enabled={gamePhase !== 'completed' && gamePhase !== 'results'} />
+
+      {/* Warm corner glows — cálida luz de mañana en las esquinas superiores */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '45%', height: '32%', zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 0% 0%, rgba(255,205,90,0.16) 0%, transparent 70%)',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0, width: '45%', height: '32%', zIndex: 3, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 100% 0%, rgba(255,205,90,0.16) 0%, transparent 70%)',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: '16%', zIndex: 3, pointerEvents: 'none',
+        background: 'linear-gradient(to top, rgba(126,200,100,0.12) 0%, transparent 100%)',
+      }} />
+
+      {/* Light motes — chispas de luz flotando */}
+      <AmbientMotes
+        count={14}
+        colors={SKY_MOTE_COLORS}
+        minSize={3}
+        maxSize={6}
+        minDur={11}
+        maxDur={22}
+        direction="up"
+        zIndex={4}
+        seed={11}
+      />
+
       <div style={{
         position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%)',

@@ -126,6 +126,14 @@ export function AbismosHUD() {
     void submitAnswer(choice);
   };
 
+  // Sting extra: la pregunta surge con un eco gélido sobre el abismo.
+  const lastStingIndex = useRef(-1);
+  useEffect(() => {
+    if (phase !== 'questions' || !currentQuestion || lastStingIndex.current === currentQuestionIndex) return;
+    lastStingIndex.current = currentQuestionIndex;
+    gameAudio.abismosAppear();
+  }, [phase, currentQuestionIndex, currentQuestion]);
+
   if (phase === 'loading' || phase === 'completed' || phase === 'defeat' || phase === 'results') return null;
 
   return (

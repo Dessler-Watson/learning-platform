@@ -24,6 +24,7 @@ import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
+import { AmbientMotes } from '@/shared/ui/AmbientMotes';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -32,6 +33,9 @@ const GRAVITY: [number, number, number] = [0, -9.81, 0];
 const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.15 } as const;
 const CAMERA_CONFIG = { fov: 55, near: 0.1, far: 300 } as const;
 const CANVAS_STYLE = { background: 'linear-gradient(to bottom, #6aafe8, #a0c8e8)' } as const;
+
+// Decoración extra (solo visual): copos/nieve cayendo sobre el abismo.
+const SNOW_MOTE_COLORS = ['rgba(255,255,255,0.85)', 'rgba(220,238,255,0.75)', 'rgba(191,217,255,0.7)'] as const;
 
 function Scene({ onReady, onReachFinish }: { onReady: () => void; onReachFinish: () => void }) {
   return (
@@ -210,6 +214,37 @@ export function AbismosCanvas() {
         onDone={handleDefeatDone}
         duration={4000}
         message="Caíste al abismo!"
+      />
+
+      {/* Cool vignette — profundidad fría en los bordes */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at center, transparent 45%, rgba(8,18,38,0.26) 100%)',
+      }} />
+
+      {/* Cold top wash — cielo gélido arriba */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '22%', zIndex: 4, pointerEvents: 'none',
+        background: 'linear-gradient(to bottom, rgba(20,45,90,0.22) 0%, transparent 100%)',
+      }} />
+
+      {/* Icy bottom haze — resplandor gélido abajo */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: '16%', zIndex: 4, pointerEvents: 'none',
+        background: 'linear-gradient(to top, rgba(200,225,255,0.1) 0%, transparent 100%)',
+      }} />
+
+      {/* Snow motes — copos cayendo */}
+      <AmbientMotes
+        count={16}
+        colors={SNOW_MOTE_COLORS}
+        minSize={2}
+        maxSize={5}
+        minDur={10}
+        maxDur={20}
+        direction="down"
+        zIndex={5}
+        seed={9}
       />
     </div>
   );

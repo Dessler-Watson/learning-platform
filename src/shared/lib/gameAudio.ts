@@ -275,6 +275,42 @@ function sfxCompletion() {
 }
 
 /* ============================================================
+   QUESTION APPEAR — stings temáticos cuando aparece una pregunta
+   (SFX extra, 4 modos; no sustituyen a ningún sonido existente)
+   ============================================================ */
+
+function decisionAppear() {
+  // Warm magical shimmer — the question card materializing in the sky
+  playTone(660, 0.12, 0.05, 'sine', 880);
+  playTone(990, 0.14, 0.04, 'sine', 1320, 0.07);
+  playNoise(0.12, 0.02, 5000, 0.02);
+  playTone(1760, 0.1, 0.02, 'sine', 2090, 0.14);
+}
+
+function lavaAppear() {
+  // Deep stone chime — molten resonance waking up with a sub rumble
+  playTone(220, 0.2, 0.08, 'triangle', 262);
+  playTone(440, 0.18, 0.05, 'sine', 523, 0.05);
+  playTone(70, 0.25, 0.04, 'sine', 55, 0.03);
+  playNoise(0.15, 0.03, 700, 0.02);
+}
+
+function tierrasAppear() {
+  // Bog bubble + wooden pluck — swampy, organic
+  playTone(392, 0.14, 0.06, 'triangle', 494);
+  playTone(587, 0.12, 0.04, 'sine', 784, 0.06);
+  playNoise(0.1, 0.03, 900, 0.03);
+  playTone(196, 0.18, 0.03, 'sine', 147, 0.08);
+}
+
+function abismosAppear() {
+  // Cold airy chime — a wind-carried crystal over the void
+  playTone(880, 0.25, 0.04, 'sine', 1108);
+  playTone(1318, 0.2, 0.03, 'sine', 1760, 0.1);
+  playNoise(0.3, 0.03, 3500, 0.05);
+}
+
+/* ============================================================
    HEARTBEAT — realistic double-thump cardiac rhythm
    ============================================================ */
 
@@ -585,6 +621,12 @@ export const gameAudio = {
   lavaRise,
   lavaTickChange,
   lavaDefeat,
+
+  // ---- Question appear stings (extra, por modo) ----
+  decisionAppear,
+  lavaAppear,
+  tierrasAppear,
+  abismosAppear,
 
   // ---- Heartbeat ----
   startHeartbeat,

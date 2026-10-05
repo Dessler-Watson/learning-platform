@@ -122,6 +122,14 @@ export function LavaHUD() {
     return () => timers.forEach(clearTimeout);
   }, [showFeedback, qIndex]);
 
+  // Sting extra: la pregunta "despierta" al iniciar cada ronda.
+  const lastStingIndex = useRef(-1);
+  useEffect(() => {
+    if (phase !== 'roundActive' || !question || lastStingIndex.current === qIndex) return;
+    lastStingIndex.current = qIndex;
+    gameAudio.lavaAppear();
+  }, [phase, qIndex, question]);
+
   if (phase === 'loading' || phase === 'completed') return null;
 
   return (

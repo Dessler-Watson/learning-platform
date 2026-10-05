@@ -23,6 +23,7 @@ import { useGameFullscreen } from '@/shared/hooks/useFullscreen';
 import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
+import { AmbientMotes } from '@/shared/ui/AmbientMotes';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -31,6 +32,9 @@ const GRAVITY: [number, number, number] = [0, -9.81, 0];
 const GL_CONFIG = { antialias: false, powerPreference: 'high-performance', toneMapping: 3, toneMappingExposure: 1.2 } as const;
 const CAMERA_CONFIG = { fov: 55, near: 0.2, far: 300 } as const;
 const CANVAS_STYLE = { width: '100%', height: '100%', backgroundColor: '#0a1510' } as const;
+
+// Decoración extra (solo visual): esporas/luciérnagas del pantano.
+const SPORE_MOTE_COLORS = ['rgba(206,230,120,0.7)', 'rgba(176,220,120,0.6)', 'rgba(240,250,200,0.55)'] as const;
 
 function Scene({ onReady }: { onReady: () => void }) {
   return (
@@ -230,6 +234,29 @@ export function TierrasCanvas() {
         position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at 50% 70%, rgba(12,32,16,0.06) 0%, transparent 40%)',
         animation: 'fogDrift3 22s ease-in-out infinite',
+      }} />
+
+      {/* Swamp spores — esporas/luciérnagas flotando */}
+      <AmbientMotes
+        count={13}
+        colors={SPORE_MOTE_COLORS}
+        minSize={2}
+        maxSize={5}
+        minDur={13}
+        maxDur={26}
+        direction="up"
+        zIndex={4}
+        seed={5}
+      />
+
+      {/* Moonlit top corners — luz fría de luna en las esquinas superiores */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '40%', height: '26%', zIndex: 4, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 0% 0%, rgba(140,200,190,0.1) 0%, transparent 70%)',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0, width: '40%', height: '26%', zIndex: 4, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse at 100% 0%, rgba(140,200,190,0.1) 0%, transparent 70%)',
       }} />
     </div>
   );
