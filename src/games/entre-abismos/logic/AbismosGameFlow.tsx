@@ -32,6 +32,9 @@ export function AbismosGameFlow() {
           const state = await fetchMatchState(roomId);
           if (state.preguntas.length > 0) {
             setQuestions(state.preguntas.map(toStoreQuestion) as AbismosQuestion[]);
+            // Modificadores de la partida (Caos): mismos datos del boot del
+            // match; sin fetch adicional. Solo reflejo local del HUD.
+            useAbismosStore.getState().setModifiers(state.partida.modificadores);
             timerRef.current = setTimeout(() => setPhase('questions'), 400);
             return;
           }

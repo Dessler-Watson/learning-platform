@@ -136,3 +136,15 @@ p, span, label, input, textarea, select,
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+/* ================================================
+   MODO CAOS — 'pantalla_al_reves': rota 180° toda
+   la interfaz del jugador (canvas, HUD, ventanas,
+   feedback, overlays, menú y modales). La clase la
+   añade/retira <ChaosScreenFlip/> dentro de las
+   pantallas de juego; solo existe durante la
+   partida Caos y nunca en el panel docente.
+   ================================================ */
+html.chaos-screen-flip body {
+  transform: rotate(180deg);
+}

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Home, X, HelpCircle, Gamepad2, Maximize, Minimize } from 'lucide-react';
 import { HowToPlayModal } from './HowToPlayModal';
+import { ChaosGlobalTimer } from '@/shared/ui/ChaosGlobalTimer';
+import { ChaosSurvivalHud } from '@/shared/ui/ChaosSurvivalHud';
 import { ModeLogo, MODE_THEME } from '@/shared/lib/game-modes';
 import { audioManager } from '@/shared/lib/audio';
 import { useFullscreen } from '@/shared/hooks/useFullscreen';
@@ -133,6 +135,16 @@ export function GameMenuButton() {
       >
         <Menu size={22} />
       </motion.button>
+
+      {/* 'tiempo_compartido' (Grupo 2): presupuesto global junto al menú;
+          invisible (null) cuando la partida no tiene el modificador. */}
+      <div className="fixed right-16 top-4 z-[100]">
+        <ChaosGlobalTimer />
+      </div>
+
+      {/* Grupo 3 (supervivencia): vidas/racha/errores/banner de crítica.
+          Invisible cuando la partida no tiene estos modificadores. */}
+      <ChaosSurvivalHud />
 
       <AnimatePresence>
         {open && (

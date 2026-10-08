@@ -7,6 +7,9 @@ import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { gameAudio } from '@/shared/lib/gameAudio';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
+import { getChaosOptionLabel, getChaosHidePromptMs, getChaosHideOptionsMs } from '@/lib/chaos/effects';
+import { useChaosQuestionClock } from '@/shared/hooks/useChaosQuestionClock';
+import { ChaosCountdown } from '@/shared/ui/ChaosCountdown';
 
 function useAnimatedNumber(target: number, duration = 500) {
   const [display, setDisplay] = useState(target);
@@ -95,6 +98,8 @@ export function AbismosHUD() {
   const score = useAbismosStore((s) => s.score);
   const platforms = useAbismosStore((s) => s.platforms);
   const selectedPlatform = useAbismosStore((s) => s.selectedPlatform);
+  const localTimeout = useAbismosStore((s) => s.localTimeout);
+  const chaosModifiers = useAbismosStore((s) => s.modifiers);
   const submitAnswer = useAbismosStore((s) => s.submitAnswer);
 
   const isPractice = useIsPractice();
@@ -121,7 +126,7 @@ export function AbismosHUD() {
   }, [showFeedback, currentQuestionIndex]);
 
   const handleAnswer = (choice: 'A' | 'B') => {
-    if (selectedPlatform !== null) return;
+    if (selectedPlatform !== null || localTimeout) return;
     gameAudio.decisionSelect();
     void submitAnswer(choice);
   };
@@ -133,6 +138,22 @@ export function AbismosHUD() {
     lastStingIndex.current = currentQuestionIndex;
     gameAudio.abismosAppear();
   }, [phase, currentQuestionIndex, currentQuestion]);
+
+  // Reloj de pregunta (Modo Caos): contrarreloj 10 s (contador). Ocultados:
+  // 'pregunta_fugaz' y 'memoria' ocultan el enunciado a los 5 s; solo
+  // 'memoria' oculta además las opciones (fugaz: las respuestas siguen).
+  // SIEMPRE antes del return condicional (reglas de hooks).
+  const clock = useChaosQuestionClock({
+    active: phase === 'questions' && !!currentQuestion,
+    questionId: currentQuestion?.id ?? null,
+    modifiers: chaosModifiers,
+    hidePromptInMs: getChaosHidePromptMs(chaosModifiers, currentQuestion?.sorpresa),
+    hideOptionsInMs: getChaosHideOptionsMs(chaosModifiers, currentQuestion?.sorpresa),
+    onTimeout: () => {
+      const st = useAbismosStore.getState();
+      if (st.phase === 'questions' && st.selectedPlatform === null) void st.submitAnswer(null);
+    },
+  });
 
   if (phase === 'loading' || phase === 'completed' || phase === 'defeat' || phase === 'results') return null;
 
@@ -177,6 +198,7 @@ export function AbismosHUD() {
               }}>
                 Pregunta {currentQuestionIndex + 1}/{totalQuestions}
               </span>
+              <ChaosCountdown secondsLeft={clock.secondsLeft} />
             </div>
 
             <div style={{
@@ -200,7 +222,9 @@ export function AbismosHUD() {
                 pointerEvents: 'none',
               }} />
 
-              <p style={{
+              <p
+                data-chaos-hidden={clock.hidePrompt ? '' : undefined}
+                style={{
                 position: 'relative',
                 zIndex: 1,
                 color: 'rgba(255,255,255,0.95)',
@@ -211,6 +235,7 @@ export function AbismosHUD() {
                 lineHeight: 1.4,
                 fontFamily: 'var(--font-baloo)',
                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                ...(clock.hidePrompt ? { opacity: 0 } : {}),
                 // Móvil: acotar la altura del panel para que no encime el
                 // contador ROCAS en pantallas bajas.
                 ...(isMobile ? {
@@ -222,21 +247,24 @@ export function AbismosHUD() {
               }}>
                 {currentQuestion.statement}
               </p>
-              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 12 }}>
+              <div
+                data-chaos-options=""
+                data-chaos-hidden={clock.hideOptions ? '' : undefined}
+                style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 12, ...(clock.hideOptions ? { opacity: 0 } : {}) }}>
                 <AnswerCard
-                  label="A"
+                  label={getChaosOptionLabel(chaosModifiers, 'A', currentQuestion?.sorpresa)}
                   text={currentQuestion.optionA}
                   color="#E53935"
                   onClick={() => handleAnswer('A')}
-                  disabled={selectedPlatform !== null}
+                  disabled={selectedPlatform !== null || localTimeout}
                   selected={selectedPlatform === 'A'}
                 />
                 <AnswerCard
-                  label="B"
+                  label={getChaosOptionLabel(chaosModifiers, 'B', currentQuestion?.sorpresa)}
                   text={currentQuestion.optionB}
                   color="#42A5F5"
                   onClick={() => handleAnswer('B')}
-                  disabled={selectedPlatform !== null}
+                  disabled={selectedPlatform !== null || localTimeout}
                   selected={selectedPlatform === 'B'}
                 />
               </div>

@@ -9,7 +9,8 @@ import {
   leaveRoom,
   startRoom,
 } from '@/lib/db/rooms';
-import { finalizeMatch } from '@/lib/db/matches';
+import { getChaosRoom } from '@/lib/db/chaos';
+import { finalizeMatch, expireTimedSharedRoom, sharedClockRemainingMs } from '@/lib/db/matches';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,20 @@ export async function GET(req: NextRequest) {
     const room = code ? await getRoomByCode(code) : id ? await getRoomById(id) : null;
     if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
 
+    // 'tiempo_compartido' (punto de lectura): si el presupuesto global se
+    // agotó, la sala se finaliza AQUÍ (autoridad servidor) antes de responder;
+    // finalizeMatch dispara el SSE 'room:finished' a los conectados.
+    if (await expireTimedSharedRoom(room.id)) room.status = 'finished';
+    // ms restantes del presupuesto global (null sin 'tiempo_compartido' → se
+    // omite el campo en la respuesta).
+    const restarMs = await sharedClockRemainingMs(room.id);
+    const salaOut: typeof room & { tiempo_restar_ms?: number } =
+      restarMs != null ? { ...room, tiempo_restar_ms: restarMs } : room;
+
     const participantes = await listParticipants(room.id);
+    // Modo Caos (aditivo): metadatos de la configuración de la sala. Los
+    // endpoints Caos nunca exponen preguntas ni opciones correctas.
+    const caos = room.kind === 'caos' ? await getChaosRoom(room.id) : null;
     const flags = candidates.map((s) => ({
       session: s,
       soyParticipante: participantes.some((p) => p.user_id === s.id),
@@ -67,10 +81,11 @@ export async function GET(req: NextRequest) {
         }
         const lista = await listParticipants(room.id);
         return NextResponse.json({
-          sala: room,
+          sala: salaOut,
           participantes: lista,
           usuario_id: cand.session.id,
           es_host: cand.soyHost,
+          caos,
         });
       }
     }
@@ -95,10 +110,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'La sala no está disponible' }, { status: 400 });
       }
       return NextResponse.json({
-        sala: room,
+        sala: salaOut,
         participantes,
         usuario_id: cand.session.id,
         es_host: cand.soyHost,
+        caos,
       });
     }
 
@@ -113,10 +129,11 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      sala: room,
+      sala: salaOut,
       participantes,
       usuario_id: cand.session.id,
       es_host: cand.soyHost,
+      caos,
     });
   } catch (err) {
     console.error('[salas GET]', err);

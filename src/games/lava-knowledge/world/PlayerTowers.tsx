@@ -8,13 +8,21 @@ import { characterRigidBody } from '@/shared/refs/characterRef';
 import type { LavaPlayer } from '@/games/lava-knowledge/types';
 import RobloxAvatar from '@/shared/characters/RobloxAvatar';
 import { createProceduralStoneMaterial } from './ProceduralStoneMaterial';
+import { getChaosJumpMultiplier } from '@/lib/chaos/effects';
 
 const BLOCK_HEIGHT = 0.8;
 const LAVA_Y = -1.0;
 const AVATAR_FEET_OFFSET = 1.6;
 const SINK_SPEED = 1.5;
 
-function getPlatformY(blocks: number): number { return LAVA_Y + blocks * BLOCK_HEIGHT; }
+// ETAPA 2 — Caos: lava no tiene salto físico del jugador; el 'equivalente
+// vertical' de super_salto/salto_reducido es la altura de la torre: la
+// porción de altura ganada por bloques (bloques × 0.8) se multiplica por el
+// multiplicador de salto. Solo visual/anclaje del avatar: no toca blocks,
+// ticks, rondas ni puntuación.
+function getPlatformY(blocks: number): number {
+  return LAVA_Y + blocks * BLOCK_HEIGHT * getChaosJumpMultiplier(useLavaStore.getState().modifiers);
+}
 function getAvatarY(blocks: number): number { return getPlatformY(blocks) + AVATAR_FEET_OFFSET; }
 
 function PlayerAnchor({ player, sinkY }: { player: LavaPlayer; sinkY: number }) {

@@ -16,6 +16,17 @@ export function GameFlow() {
     useGameStore.getState().finishByRoom();
   }, [roomFinished]);
 
+  // Grupo 3 (supervivencia): si la eliminación del servidor llega DESPUÉS de
+  // que el feedback terminara (red lenta) y el juego ya volvió a 'playing',
+  // se entra al flujo de derrota igualmente (idempotente). Durante
+  // 'question'/'incorrectFeedback' el flujo normal muestra primero el
+  // feedback y FeedbackOverlay entra a la derrota en su etapa final.
+  const defeated = useGameStore((s) => s.defeated);
+  const phase = useGameStore((s) => s.phase);
+  useEffect(() => {
+    if (defeated && phase === 'playing') useGameStore.getState().enterDefeat();
+  }, [defeated, phase]);
+
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
@@ -27,6 +38,9 @@ export function GameFlow() {
           const state = await fetchMatchState(roomId);
           if (!cancelled && state.preguntas.length > 0) {
             useGameStore.getState().setQuestions(state.preguntas.map(toStoreQuestion));
+            // Modificadores de la partida (Caos): mismos datos del boot del
+            // match; sin fetch adicional. Solo reflejo local del HUD.
+            useGameStore.getState().setModifiers(state.partida.modificadores);
           }
         } catch (e) {
           console.error('[GameFlow] No se pudo cargar la partida:', e);

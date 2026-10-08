@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { TIERRAS_CONFIG as CFG, tierrasFinishZ } from '@/games/tierras-hundidas/config';
 import { createSwampWaterMaterial } from './SwampWaterMaterial';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 import { createGoldBrickTexture, createStoneMossTexture, createWoodPlankTexture, createGoldBrickNormal, createStoneMossNormal, createBarkTexture, createLeafTexture, createRockTexture, createRockNormal } from './PlatformTextures';
 
 function sr(seed: number): number {
@@ -47,7 +48,7 @@ interface PlatformProps {
   questionIndex?: number;
 }
 
-function makeLetterTexture(letter: string, bgColor: string): THREE.CanvasTexture {
+function makeLetterTexture(letter: string, bgColor: string, fontScale = 0.55): THREE.CanvasTexture {
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -68,7 +69,7 @@ function makeLetterTexture(letter: string, bgColor: string): THREE.CanvasTexture
   ctx.lineWidth = 4;
   ctx.stroke();
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${size * 0.55}px Arial`;
+  ctx.font = `bold ${size * fontScale}px Arial`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(letter, cx, cy + size * 0.02);
@@ -80,6 +81,13 @@ function makeLetterTexture(letter: string, bgColor: string): THREE.CanvasTexture
 const letterTextures = {
   A: makeLetterTexture('A', '#cc2222'),
   B: makeLetterTexture('B', '#2288cc'),
+};
+
+// ETAPA 2 — Caos 'opciones_numeradas': mismos colores, etiqueta numérica.
+// Los textos de los paneles (HUD) cambian con la misma regla en TierrasHUD.
+const numberTextures = {
+  A: makeLetterTexture('[1]', '#cc2222', 0.34),
+  B: makeLetterTexture('[2]', '#2288cc', 0.34),
 };
 
 const sharedTextures = {
@@ -100,6 +108,7 @@ function SwampPlatformInner({ position, width, depth, height, choice, isStart, i
   const sinkStartRef = useRef<number | null>(null);
   const sinkDoneRef = useRef(false);
   const glowRingRef = useRef<THREE.Mesh>(null);
+  const numberedOptions = useTierrasStore((s) => hasChaosModifier(s.modifiers, 'opciones_numeradas'));
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -299,7 +308,7 @@ function SwampPlatformInner({ position, width, depth, height, choice, isStart, i
           {choice && (
             <mesh position={[0, height / 2 + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[1.4, 1.4]} />
-              <meshBasicMaterial map={letterTextures[choice]} transparent side={THREE.DoubleSide} />
+              <meshBasicMaterial map={(numberedOptions ? numberTextures : letterTextures)[choice]} transparent side={THREE.DoubleSide} />
             </mesh>
           )}
         </group>

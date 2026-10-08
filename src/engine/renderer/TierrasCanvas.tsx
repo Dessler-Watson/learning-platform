@@ -24,6 +24,8 @@ import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
 import { AmbientMotes } from '@/shared/ui/AmbientMotes';
+import { ChaosScreenFlip, ChaosBlindness } from '@/shared/ui/ChaosPresentation';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -98,6 +100,8 @@ export function TierrasCanvas() {
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
   const tierrasPhase = useTierrasStore((s) => s.phase);
+  const chaosModifiers = useTierrasStore((s) => s.modifiers);
+  const chaosEnded = tierrasPhase === 'completed' || tierrasPhase === 'results';
   const fallenInWater = useTierrasStore((s) => s.fallenInWater);
   const starsEarned = useTierrasStore((s) => s.starsEarned);
   const tierrasScore = useTierrasStore((s) => s.score);
@@ -163,6 +167,8 @@ export function TierrasCanvas() {
         <TierrasLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
       <SceneCanvas onReady={handleReady} />
+      <ChaosScreenFlip active={!chaosEnded && hasChaosModifier(chaosModifiers, 'pantalla_al_reves')} />
+      <ChaosBlindness active={!chaosEnded && hasChaosModifier(chaosModifiers, 'ceguera')} zIndex={20} />
 
       <TierrasHUD />
       <FloatingRanking

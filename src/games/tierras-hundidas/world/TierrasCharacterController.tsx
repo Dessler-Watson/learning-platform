@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { useKeyboard } from '@/shared/hooks/useKeyboard';
 import { useTierrasStore } from '@/stores/tierras.store';
 import { CHARACTER } from '@/shared/config/game.config';
+import { hasChaosModifier, getChaosMoveMultiplier, getChaosJumpMultiplier } from '@/lib/chaos/effects';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from '@/shared/characters/RobloxAvatar';
 import { gameAudio } from '@/shared/lib/gameAudio';
@@ -63,6 +64,9 @@ export function TierrasCharacterController() {
     const keys = keysRef.current;
     const state = useTierrasStore.getState();
     const phase = state.phase;
+    const invertControls = hasChaosModifier(state.modifiers, 'controles_invertidos');
+    const moveSpeed = CHARACTER.maxSpeed * getChaosMoveMultiplier(state.modifiers);
+    const jumpForce = CHARACTER.jumpForce * getChaosJumpMultiplier(state.modifiers);
 
     if (phase === 'completed' && completedAt.current === 0) completedAt.current = performance.now();
     if (phase !== 'completed' && phase !== 'results') completedAt.current = 0;
@@ -169,15 +173,19 @@ export function TierrasCharacterController() {
     _cr.y = 0;
     _cr.normalize();
     _dir.set(0, 0, 0);
-    if (keys.forward) _dir.add(_cf);
-    if (keys.backward) _dir.sub(_cf);
-    if (keys.right) _dir.add(_cr);
-    if (keys.left) _dir.sub(_cr);
+    const keyF = invertControls ? keys.backward : keys.forward;
+    const keyB = invertControls ? keys.forward : keys.backward;
+    const keyR = invertControls ? keys.left : keys.right;
+    const keyL = invertControls ? keys.right : keys.left;
+    if (keyF) _dir.add(_cf);
+    if (keyB) _dir.sub(_cf);
+    if (keyR) _dir.add(_cr);
+    if (keyL) _dir.sub(_cr);
     const hasInput = _dir.lengthSq() > 0;
     if (hasInput) _dir.normalize();
 
-    const tgtX = _dir.x * CHARACTER.maxSpeed;
-    const tgtZ = _dir.z * CHARACTER.maxSpeed;
+    const tgtX = _dir.x * moveSpeed;
+    const tgtZ = _dir.z * moveSpeed;
     const acc = hasInput ? CHARACTER.acceleration : CHARACTER.deceleration;
     const t = Math.min(acc * delta, 1);
     const nx = THREE.MathUtils.lerp(vel.x, tgtX, t);
@@ -189,7 +197,7 @@ export function TierrasCharacterController() {
       grounded.current &&
       performance.now() - lastJumpAt.current > JUMP_COOLDOWN
     ) {
-      yv = CHARACTER.jumpForce;
+      yv = jumpForce;
       jumpRequested.current = false;
       jumpLocked.current = true;
       leftGroundSinceJump.current = false;

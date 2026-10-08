@@ -1,7 +1,20 @@
 import type { PoolClient } from 'pg';
+import { createHash } from 'crypto';
 import { getPool, query, queryOne } from './client';
 import { applyStarsDeltaInTx } from './leagues';
 import { publishRoomEvent } from '../realtime';
+import { SORPRESA_MODIFIER, SORPRESA_POOL, type ChaosSurpriseEffect } from '../chaos/sorpresa';
+import {
+  computeSurvival,
+  hasModifier,
+  hasSurvivalModifier,
+  rachaMultiplier,
+  errorMultiplier,
+  ERROR_ACUMULATIVO_MODIFIER,
+  RACHA_OBLIGATORIA_MODIFIER,
+  VIDA_LIMITADA_MODIFIER,
+  ULTIMA_OPORTUNIDAD_MODIFIER,
+} from '../chaos/survival';
 
 export interface ModeRules {
   correctPoints: number;
@@ -44,6 +57,8 @@ export interface MatchInfo {
   question_count: number;
   course_id: string | null;
   mode_code: string | null;
+  /** Modificadores de la partida (Caos). Salas docentes: []. Solo datos. */
+  modifiers: string[];
 }
 
 export interface MatchQuestionRow {
@@ -62,7 +77,7 @@ export interface MatchOptionRow {
 }
 
 const MATCH_SELECT = `
-  m.id, m.room_id, m.status, m.question_count, m.course_id,
+  m.id, m.room_id, m.status, m.question_count, m.course_id, m.modifiers,
   gm.code AS mode_code
   FROM matches m
   LEFT JOIN game_modes gm ON gm.id = m.game_mode_id
@@ -82,14 +97,15 @@ export async function getActiveMatch(roomId: string): Promise<MatchInfo | null> 
   );
 }
 
+/** IDs de las preguntas activas de un curso en orden normal (sort_order). */
+const BASE_QUESTION_IDS_SQL = `
+  SELECT id FROM questions
+  WHERE course_id = $1 AND status = 'active' AND deleted_at IS NULL
+  ORDER BY sort_order ASC, created_at ASC, id ASC
+  LIMIT $2`;
+
 export async function getCourseQuestionIds(courseId: string, limit: number): Promise<string[]> {
-  const rows = await query<{ id: string }>(
-    `SELECT id FROM questions
-     WHERE course_id = $1 AND status = 'active' AND deleted_at IS NULL
-     ORDER BY sort_order ASC, created_at ASC, id ASC
-     LIMIT $2`,
-    [courseId, Math.max(1, limit)]
-  );
+  const rows = await query<{ id: string }>(BASE_QUESTION_IDS_SQL, [courseId, Math.max(1, limit)]);
   return rows.map((r) => r.id);
 }
 
@@ -188,17 +204,291 @@ export async function ensureActiveMatch(roomId: string, startedBy: string): Prom
   }
 }
 
+/** Modificador Caos que cambia el orden de las preguntas (ETAPA 2). */
+const BARAJADO_MODIFIER = 'barajado';
+
+/* ------------------------------------------------------------------ */
+/*  MODIFICADORES DE TIEMPO (ETAPA 2, Grupo 2) — servidor autoritativo */
+/* ------------------------------------------------------------------ */
+
+/** 'contrarreloj': ventana de respuesta por pregunta. */
+const CONTRARRELOJ_MODIFIER = 'contrarreloj';
+/** 'tiempo_compartido': presupuesto global de la partida. */
+const TIEMPO_COMPARTIDO_MODIFIER = 'tiempo_compartido';
+/** Duración de la ventana de respuesta de contrarreloj (ms). */
+export const CONTRARRELOJ_MS = 10_000;
+/** Duración del presupuesto global de tiempo_compartido (ms). */
+export const TIEMPO_COMPARTIDO_MS = 240_000;
+
+/**
+ * Ventana de respuesta por pregunta según los modificadores de la partida:
+ * solo 'contrarreloj' (10 s); sin él → null (la partida no tiene reloj por
+ * pregunta y no se fuerza timeout por tiempo en el servidor).
+ * 'pregunta_fugaz' NO es ventana de respuesta (spec: el jugador puede seguir
+ * respondiendo tras ocultarse el enunciado): es solo ocultado visual.
+ */
+export function questionWindowMs(modifiers: unknown): number | null {
+  const mods = Array.isArray(modifiers) ? modifiers : [];
+  if (mods.includes(CONTRARRELOJ_MODIFIER)) return CONTRARRELOJ_MS;
+  return null;
+}
+
+/**
+ * 'pregunta_sorpresa': efecto adicional DETERMINISTA por pregunta. Bucket =
+ * primeros 4 bytes de sha256(matchId:questionId) mod 5 → 0..3 = efecto del
+ * pool (SORPRESA_POOL, en orden) y 4 = 'normal' (null). Igual para todos los
+ * jugadores, estable entre GET/renders y reproducible desde la BD; sin
+ * Math.random() ni hora. No toca matches.modifiers: el efecto solo se sirve
+ * por pregunta en GET /api/partida.
+ */
+export function surpriseEffectFor(matchId: string, questionId: string): ChaosSurpriseEffect | null {
+  const h = createHash('sha256').update(`${matchId}:${questionId}`).digest('hex');
+  const bucket = parseInt(h.slice(0, 8), 16) % (SORPRESA_POOL.length + 1);
+  return bucket === SORPRESA_POOL.length ? null : SORPRESA_POOL[bucket];
+}
+/** Tope de recorte del reclamo para la 1ª pregunta (desde el boot, ms). */
+const CLOCK_CAP_BOOT_MS = 15_000;
+/** Tope de recorte del reclamo para las siguientes (desde la respuesta previa, ms). */
+const CLOCK_CAP_MS = 8_000;
+/** Posición sintética del ancla de arranque en participant_question_clocks. */
+const CLOCK_BOOT_POSITION = -1;
+
+/**
+ * Ancla y tope de recorte para el reclamo de `position` (participante ya
+ * fijado por el caller): la respuesta de la posición previa si existe; si no,
+ * el ancla de boot (-1). Sin ancla no hay tope que aplicar (se estampa ahora).
+ */
+async function clockAnchorFor(
+  client: PoolClient | null,
+  participantId: string,
+  position: number
+): Promise<{ anchor: Date | null; capMs: number }> {
+  const sql = `
+    SELECT
+      (SELECT pa.answered_at FROM participant_answers pa
+        WHERE pa.participant_id = $1 AND pa.question_position = $2 - 1) AS prev,
+      (SELECT c.started_at FROM participant_question_clocks c
+        WHERE c.participant_id = $1 AND c.question_position = ${CLOCK_BOOT_POSITION}) AS boot`;
+  const row = client
+    ? (await client.query<{ prev: Date | null; boot: Date | null }>(sql, [participantId, position])).rows[0]
+    : await queryOne<{ prev: Date | null; boot: Date | null }>(sql, [participantId, position]);
+  if (position === 0) return { anchor: row?.boot ?? null, capMs: CLOCK_CAP_BOOT_MS };
+  if (row?.prev) return { anchor: row.prev, capMs: CLOCK_CAP_MS };
+  if (row?.boot) {
+    // Sin respuesta previa (flujo fuera de orden): tope generoso escalado.
+    return { anchor: row.boot, capMs: CLOCK_CAP_BOOT_MS + position * (CLOCK_CAP_MS + CONTRARRELOJ_MS) };
+  }
+  return { anchor: null, capMs: CLOCK_CAP_MS };
+}
+
+/**
+ * Ancla de arranque del participante (posición -1): la hora del primer
+ * GET /api/partida con reloj de pregunta ('contrarreloj') activo. Idempotente.
+ */
+export async function markMatchClockBoot(participantId: string): Promise<void> {
+  await query(
+    `INSERT INTO participant_question_clocks (participant_id, question_position)
+     VALUES ($1, ${CLOCK_BOOT_POSITION}) ON CONFLICT DO NOTHING`,
+    [participantId]
+  );
+}
+
+/**
+ * Reclamo de inicio de pregunta (action='question_started'): estampa now()
+ * EN EL SERVIDOR (nunca recibe la hora del cliente), recortado contra el
+ * ancla (LEAST) para que un reclamo tardío no alargue el plazo, y con
+ * primera escritura gana (ON CONFLICT DO NOTHING). No-op si la partida no
+ * tiene reloj de pregunta ('contrarreloj').
+ */
+export async function markQuestionStarted(input: {
+  roomId: string;
+  userId: string;
+  questionId: string;
+}): Promise<{ ok: boolean; status?: number; error?: string; claimed?: boolean }> {
+  const row = await queryOne<{
+    room_status: string;
+    match_id: string;
+    modifiers: unknown;
+    course_id: string | null;
+    question_count: number;
+    participant_id: string;
+    participant_status: string;
+  }>(
+    `SELECT r.status AS room_status, m.id AS match_id, m.modifiers, m.course_id, m.question_count,
+            mp.id AS participant_id, mp.status AS participant_status
+       FROM rooms r
+       JOIN matches m ON m.room_id = r.id AND m.status = 'in_progress'
+       JOIN match_participants mp ON mp.match_id = m.id AND mp.user_id = $2
+      WHERE r.id = $1
+      ORDER BY m.created_at DESC
+      LIMIT 1`,
+    [input.roomId, input.userId]
+  );
+  if (!row) return { ok: false, status: 404, error: 'Sala no encontrada' };
+  if (row.room_status !== 'in_progress') {
+    return { ok: false, status: 409, error: 'La partida no ha comenzado o ha finalizado' };
+  }
+  if (row.participant_status !== 'playing') {
+    return { ok: false, status: 409, error: 'No puedes responder en este estado' };
+  }
+  const mods = Array.isArray(row.modifiers) ? row.modifiers : [];
+  if (questionWindowMs(mods) == null) return { ok: true, claimed: false };
+
+  const order = await getMatchQuestionOrder(null, {
+    id: row.match_id,
+    course_id: row.course_id,
+    question_count: row.question_count,
+    modifiers: row.modifiers,
+  });
+  const position = order.indexOf(input.questionId);
+  if (position < 0) return { ok: false, status: 400, error: 'La pregunta no pertenece a esta partida' };
+
+  const { anchor, capMs } = await clockAnchorFor(null, row.participant_id, position);
+  await query(
+    `INSERT INTO participant_question_clocks (participant_id, question_position, started_at)
+     VALUES ($1, $2, LEAST(now(), COALESCE($3, now()) + $4::bigint * interval '1 millisecond'))
+     ON CONFLICT (participant_id, question_position) DO NOTHING`,
+    [row.participant_id, position, anchor, capMs]
+  );
+  return { ok: true, claimed: true };
+}
+
+/**
+ * ¿Superó la posición su plazo en el reloj del SERVIDOR? Usado dentro de la
+ * transacción de recordMatchAnswer (now() de la BD, sin reloj del cliente):
+ * reclamo + ventana si existe; si no, ancla (respuesta previa o boot) + tope
+ * + ventana. NULL/sin ancla → sin información → no se fuerza timeout.
+ */
+async function isAnswerPastDeadline(
+  client: PoolClient,
+  participantId: string,
+  position: number,
+  windowMs: number
+): Promise<boolean> {
+  const { anchor, capMs } = await clockAnchorFor(client, participantId, position);
+  const claimed = await client.query<{ started_at: Date }>(
+    `SELECT started_at FROM participant_question_clocks
+      WHERE participant_id = $1 AND question_position = $2`,
+    [participantId, position]
+  );
+  const started = claimed.rows[0]?.started_at ?? anchor;
+  if (!started) return false;
+  const deadline = new Date(started.getTime() + (claimed.rows[0] ? windowMs : capMs + windowMs));
+  const nowRes = await client.query<{ now_ms: number }>(
+    `SELECT (extract(epoch FROM now()) * 1000)::bigint AS now_ms`
+  );
+  return Number(nowRes.rows[0]?.now_ms ?? 0) > deadline.getTime();
+}
+
+/**
+ * 'tiempo_compartido' (perezoso): si la partida activa de la sala superó el
+ * presupuesto global, la finaliza con el MISMO flujo que el botón docente
+ * (finalizeMatch → rooms/matches 'finished' + SSE 'room:finished'). Se llama
+ * desde puntos de lectura (GET /api/salas, resultados) y tras confirmar una
+ * respuesta. Idempotente: finalizeMatch rechaza si la sala ya no está activa.
+ */
+export async function expireTimedSharedRoom(roomId: string): Promise<boolean> {
+  try {
+    const room = await queryOne<{ id: string; teacher_id: string; status: string }>(
+      `SELECT id, teacher_id, status FROM rooms WHERE id = $1 AND deleted_at IS NULL`,
+      [roomId]
+    );
+    if (!room || room.status !== 'in_progress') return false;
+    const match = await queryOne<{ started_at: Date | null; modifiers: unknown }>(
+      `SELECT started_at, modifiers FROM matches
+        WHERE room_id = $1 AND status = 'in_progress'
+        ORDER BY created_at DESC LIMIT 1`,
+      [roomId]
+    );
+    if (!match?.started_at) return false;
+    if (!Array.isArray(match.modifiers) || !match.modifiers.includes(TIEMPO_COMPARTIDO_MODIFIER)) return false;
+    if (Date.now() - match.started_at.getTime() < TIEMPO_COMPARTIDO_MS) return false;
+    const res = await finalizeMatch(roomId, room.teacher_id);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 'tiempo_compartido': ms restantes del presupuesto global de la partida
+ * activa de la sala (now() de la BD; 0 = agotado). null cuando la sala no
+ * tiene el modificador o no hay partida activa → el caller omite el campo.
+ */
+export async function sharedClockRemainingMs(roomId: string): Promise<number | null> {
+  try {
+    const row = await queryOne<{ restar_ms: number | null }>(
+      `SELECT CASE
+                WHEN m.modifiers @> '["tiempo_compartido"]'::jsonb AND m.started_at IS NOT NULL
+                THEN GREATEST(0, ${TIEMPO_COMPARTIDO_MS} -
+                     (extract(epoch FROM (now() - m.started_at)) * 1000)::bigint)
+                ELSE NULL
+              END AS restar_ms
+         FROM matches m
+        WHERE m.room_id = $1 AND m.status = 'in_progress'
+        ORDER BY m.created_at DESC
+        LIMIT 1`,
+      [roomId]
+    );
+    return row?.restar_ms == null ? null : Number(row.restar_ms);
+  } catch {
+    return null;
+  }
+}
+
+
+/**
+ * Único helper de orden de las preguntas de una partida.
+ *
+ * Base: siempre el orden normal del curso (sort_order), igual que hasta ahora.
+ * Si match.modifiers contiene 'barajado': permutación determinista derivada de
+ * match.id (persistido en BD), ordenando cada pregunta por
+ * sha256(matchId:questionId). El resultado es idéntico para todos los
+ * jugadores, estable durante toda la partida, independiente del navegador y
+ * del jugador, y reconstruible en cualquier momento desde la BD; el cliente
+ * no puede influir en él.
+ *
+ * GET /api/partida (vía listMatchQuestions) y recordMatchAnswer pasan por
+ * este helper: el orden servido en preguntas[] y el usado para calcular
+ * question_position son, por construcción, exactamente el mismo.
+ *
+ * `client` = transacción de recordMatchAnswer (misma snapshot de lectura);
+ * null = pool para las lecturas del GET. Salas docentes (modifiers = []) y
+ * Caos sin 'barajado' conservan el orden normal sin cambios.
+ */
+export async function getMatchQuestionOrder(
+  client: PoolClient | null,
+  match: { id: string; course_id: string | null; question_count: number; modifiers: unknown }
+): Promise<string[]> {
+  const params: [string | null, number] = [match.course_id, Math.max(1, match.question_count)];
+  const rows = client
+    ? (await client.query<{ id: string }>(BASE_QUESTION_IDS_SQL, params)).rows
+    : await query<{ id: string }>(BASE_QUESTION_IDS_SQL, params);
+  const base = rows.map((r) => r.id);
+  const mods = match.modifiers;
+  if (!Array.isArray(mods) || !mods.includes(BARAJADO_MODIFIER)) return base;
+  return [...base].sort((a, b) => {
+    const ka = createHash('sha256').update(`${match.id}:${a}`).digest('hex');
+    const kb = createHash('sha256').update(`${match.id}:${b}`).digest('hex');
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return a < b ? -1 : 1;
+  });
+}
+
 export async function listMatchQuestions(match: MatchInfo): Promise<MatchQuestionRow[]> {
   if (!match.course_id) return [];
-  const ids = await getCourseQuestionIds(match.course_id, match.question_count);
-  if (!ids.length) return [];
-  return query<MatchQuestionRow>(
+  const order = await getMatchQuestionOrder(null, match);
+  if (!order.length) return [];
+  const rows = await query<MatchQuestionRow>(
     `SELECT q.id, q.prompt, q.explanation, q.difficulty
      FROM questions q
-     WHERE q.id = ANY($1::uuid[]) AND q.deleted_at IS NULL AND q.status = 'active'
-     ORDER BY q.sort_order ASC, q.created_at ASC, q.id ASC`,
-    [ids]
+     WHERE q.id = ANY($1::uuid[]) AND q.deleted_at IS NULL AND q.status = 'active'`,
+    [order]
   );
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return order
+    .map((id) => byId.get(id))
+    .filter((q): q is MatchQuestionRow => q != null);
 }
 
 export async function listQuestionOptions(questionIds: string[]): Promise<MatchOptionRow[]> {
@@ -210,6 +500,81 @@ export async function listQuestionOptions(questionIds: string[]): Promise<MatchO
      ORDER BY question_id, sort_order ASC, id ASC`,
     [questionIds]
   );
+}
+
+/** Modificador Caos que cambia el orden de las OPCIONES dentro de cada pregunta. */
+const RESPUESTAS_MEZCLADAS_MODIFIER = 'respuestas_mezcladas';
+
+/**
+ * Único helper de orden de las OPCIONES de una partida (ETAPA 2, Grupo 1).
+ *
+ * Base: siempre el orden normal de sort_order (lo que devuelve
+ * listQuestionOptions), igual que hasta ahora.
+ * Si match.modifiers contiene 'respuestas_mezcladas': permutación
+ * determinista derivada de match.id + question_id + option_id (todo
+ * persistido en BD), ordenando cada opción por
+ * sha256(matchId:questionId:optionId). El resultado es idéntico para todos
+ * los jugadores, estable durante toda la partida y reconstruible desde la
+ * BD; el cliente no puede influir en él.
+ *
+ * Se aplica SOLO al servir (GET /api/partida): la validación de recordMatchAnswer
+ * es por option_id y no lee el orden visual, por lo que la respuesta correcta
+ * sigue siendo la misma aunque cambie de posición. El mapeo A/B del cliente
+ * (toStoreQuestion) es posicional, así que las letras/numeros visuales siguen
+ * a la posición servida sin tocar los option_id.
+ *
+ * Independiente de 'barajado' (orden de PREGUNTAS): ambos pueden coexistir.
+ * Salas docentes (modifiers = []) y Caos sin el modificador conservan el
+ * orden normal sin cambios.
+ */
+export function orderMatchOptions<T extends { id: string; question_id: string }>(
+  match: { id: string; modifiers: unknown },
+  options: T[],
+  surpriseByQuestion?: ReadonlyMap<string, ChaosSurpriseEffect | null>
+): T[] {
+  const mods = match.modifiers;
+  const baseOn = Array.isArray(mods) && mods.includes(RESPUESTAS_MEZCLADAS_MODIFIER);
+  if (baseOn) {
+    if (options.length < 2) return options;
+    return [...options].sort((a, b) => {
+      const ka = createHash('sha256').update(`${match.id}:${a.question_id}:${a.id}`).digest('hex');
+      const kb = createHash('sha256').update(`${match.id}:${b.question_id}:${b.id}`).digest('hex');
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return a.id < b.id ? -1 : 1;
+    });
+  }
+  // 'pregunta_sorpresa' con efecto 'respuestas_mezcladas' en ALGUNAS
+  // preguntas: mismo algoritmo determinista, aplicado solo a esas preguntas
+  // (el resto conserva su orden normal). La mezcla se agrupa por pregunta
+  // para no alterar el orden de las preguntas sin efecto.
+  if (!surpriseByQuestion || options.length < 2) return options;
+  const forced = new Set<string>();
+  for (const o of options) {
+    if (surpriseByQuestion.get(o.question_id) === 'respuestas_mezcladas') forced.add(o.question_id);
+  }
+  if (forced.size === 0) return options;
+  const byQuestion = new Map<string, T[]>();
+  const qOrder: string[] = [];
+  for (const o of options) {
+    let list = byQuestion.get(o.question_id);
+    if (!list) {
+      list = [];
+      byQuestion.set(o.question_id, list);
+      qOrder.push(o.question_id);
+    }
+    list.push(o);
+  }
+  for (const qid of qOrder) {
+    const list = byQuestion.get(qid);
+    if (!list || !forced.has(qid) || list.length < 2) continue;
+    list.sort((a, b) => {
+      const ka = createHash('sha256').update(`${match.id}:${a.question_id}:${a.id}`).digest('hex');
+      const kb = createHash('sha256').update(`${match.id}:${b.question_id}:${b.id}`).digest('hex');
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return a.id < b.id ? -1 : 1;
+    });
+  }
+  return qOrder.flatMap((qid) => byQuestion.get(qid) as T[]);
 }
 
 export async function getMatchParticipant(matchId: string, userId: string) {
@@ -255,6 +620,12 @@ export type AnswerOutcome =
       status: string;
       state: { ticks?: number; platforms?: number } | null;
       resync?: boolean;
+      /** Grupo 3 (supervivencia): solo con el modificador correspondiente activo.
+       * El cliente NUNCA envía estos valores; son derivados del historial. */
+      vidas?: number;
+      racha?: number;
+      errores?: number;
+      critico?: boolean;
     }
   | { ok: false; status: number; error: string; code?: string; correct?: boolean; correct_option_id?: string | null; points_delta?: number; score?: number; xp?: number };
 
@@ -309,8 +680,15 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       return { ok: false, status: 409, error };
     }
 
-    const matchRes = await client.query<{ id: string; question_count: number; status: string; stars_per_correct: number }>(
-      `SELECT m.id, m.question_count, m.status, gm.stars_per_correct
+    const matchRes = await client.query<{
+      id: string;
+      question_count: number;
+      status: string;
+      stars_per_correct: number;
+      modifiers: unknown;
+      started_at: Date | null;
+    }>(
+      `SELECT m.id, m.question_count, m.status, m.modifiers, m.started_at, gm.stars_per_correct
        FROM matches m
        JOIN game_modes gm ON gm.id = m.game_mode_id
        WHERE m.room_id = $1 AND m.status = 'in_progress'
@@ -342,24 +720,48 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
       return { ok: false, status: 409, error };
     }
 
-    // Orden consistente de preguntas de la partida (derivado del curso, determinista).
-    const orderRes = await client.query<{ id: string }>(
-      `SELECT id FROM questions
-       WHERE course_id = $1 AND status = 'active' AND deleted_at IS NULL
-       ORDER BY sort_order ASC, created_at ASC, id ASC
-       LIMIT $2`,
-      [room.course_id, Math.max(1, match.question_count)]
-    );
-    const order = orderRes.rows.map((r) => r.id);
+    // Orden de las preguntas de la partida: MISMO helper que usa GET
+    // /api/partida (orden normal por sort_order; barajado determinista si el
+    // match incluye 'barajado'). Así question_position coincide siempre con
+    // la posición que el cliente recibió en preguntas[]. El cliente solo
+    // envía question_id + option_id: el servidor decide posición, validez y
+    // puntuación.
+    const order = await getMatchQuestionOrder(client, {
+      id: match.id,
+      course_id: room.course_id,
+      question_count: match.question_count,
+      modifiers: match.modifiers,
+    });
     const position = order.indexOf(input.questionId);
     if (position < 0) {
       await client.query('ROLLBACK');
       return { ok: false, status: 400, error: 'La pregunta no pertenece a esta partida' };
     }
 
+    const mods: unknown[] = Array.isArray(match.modifiers) ? match.modifiers : [];
+
+    // Reloj del SERVIDOR (Grupo 2): nunca se confía en body.timed_out ni en
+    // la hora del cliente. 'contrarreloj' (10 s) fuerza timeout si la respuesta
+    // llega después del plazo (reclamo/ancla + ventana, now() de la BD);
+    // 'tiempo_compartido' fuerza timeout pasados los 240 s del presupuesto
+    // global (el auto-fin lo hace expireTimedSharedRoom). 'pregunta_fugaz'
+    // NO limita el tiempo de respuesta (spec).
+    let timedOut = input.timedOut;
+    const questionWindow = questionWindowMs(mods);
+    if (!timedOut && questionWindow != null) {
+      if (await isAnswerPastDeadline(client, participant.id, position, questionWindow)) timedOut = true;
+    }
+    if (!timedOut && mods.includes(TIEMPO_COMPARTIDO_MODIFIER) && match.started_at) {
+      const lateRes = await client.query<{ late: boolean }>(
+        `SELECT now() > $1::timestamptz + $2::bigint * interval '1 millisecond' AS late`,
+        [match.started_at, TIEMPO_COMPARTIDO_MS]
+      );
+      if (lateRes.rows[0]?.late) timedOut = true;
+    }
+
     let isCorrect = false;
     let optionId: string | null = null;
-    if (input.timedOut) {
+    if (timedOut) {
       isCorrect = false;
       optionId = null;
     } else {
@@ -411,7 +813,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
         code: 'duplicate',
         error: 'Respuesta ya registrada',
         correct: dup.is_correct === true,
-        correct_option_id: input.timedOut ? null : (correctOpt.rows[0]?.id ?? null),
+        correct_option_id: timedOut ? null : (correctOpt.rows[0]?.id ?? null),
         points_delta: dup.points_delta,
         score: selfNow.rows[0]?.score ?? participant.score,
         xp: selfNow.rows[0]?.xp ?? participant.xp,
@@ -419,7 +821,42 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
     }
 
     const rules = rulesForMode(room.mode_code);
-    const pointsDelta = isCorrect ? rules.correctPoints : rules.incorrectPoints;
+
+    // Grupo 3 (supervivencia): estado previo del historial ANTES de insertar
+    // esta respuesta (racha, errores consecutivos, escudo de
+    // 'ultima_oportunidad'). Solo con modificadores del Grupo 3 activos: sin
+    // ellos no hay consulta extra ni cambio de conducta (regresión intacta).
+    const survivalActive = hasSurvivalModifier(mods);
+    const rachaMod = hasModifier(mods, RACHA_OBLIGATORIA_MODIFIER);
+    const errorMod = hasModifier(mods, ERROR_ACUMULATIVO_MODIFIER);
+    const ultimaMod = hasModifier(mods, ULTIMA_OPORTUNIDAD_MODIFIER);
+    const vidaMod = hasModifier(mods, VIDA_LIMITADA_MODIFIER);
+    let prevFlags: boolean[] = [];
+    if (survivalActive) {
+      const prevRes = await client.query<{ is_correct: boolean | null }>(
+        `SELECT is_correct FROM participant_answers
+          WHERE participant_id = $1 ORDER BY question_position ASC`,
+        [participant.id]
+      );
+      prevFlags = prevRes.rows.map((r) => r.is_correct === true);
+    }
+    const survival = survivalActive ? computeSurvival(mods, prevFlags, isCorrect) : null;
+
+    // Modificador Caos 'doble_puntos': DOBLE solo en aciertos (decisiones
+    // 10→20, lava 15→30, tierras 20→40, abismos 20→40). Las penalizaciones
+    // NUNCA se multiplican y las estrellas/XP siguen con sus reglas
+    // originales. El valor sale de match.modifiers (persistido en BD): el
+    // cliente no puede decidir points_delta, score ni activar el modificador.
+    // Orden de cálculo (Grupo 3): base → doble_puntos (acierto) →
+    // racha_obligatoria (acierto, ×1..×4) → error_acumulativo (fallo con
+    // penalización, ×1..×4 sobre el valor ya calculado).
+    const basePoints = isCorrect ? rules.correctPoints : rules.incorrectPoints;
+    const doublePoints = Array.isArray(match.modifiers) && match.modifiers.includes('doble_puntos');
+    let pointsDelta = isCorrect && doublePoints ? basePoints * 2 : basePoints;
+    if (survival) {
+      if (isCorrect && rachaMod) pointsDelta *= rachaMultiplier(survival.racha);
+      else if (!isCorrect && errorMod && pointsDelta < 0) pointsDelta *= errorMultiplier(survival.errores);
+    }
     const starsDelta = isCorrect ? match.stars_per_correct : 0;
     const rawScore = participant.score + pointsDelta;
     const newScore = rules.floorAtZero ? Math.max(0, rawScore) : rawScore;
@@ -438,7 +875,7 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
           optionId,
           position,
           isCorrect,
-          input.timedOut,
+          timedOut,
           input.responseTimeMs,
           pointsDelta,
           starsDelta,
@@ -462,9 +899,16 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
     );
     const flags = histRes.rows.map((r) => r.is_correct === true);
     const resourceValue = replayResource(rules, flags);
-    const eliminated =
+    let eliminated =
       (rules.resource != null && (resourceValue ?? 0) <= 0) ||
       (rules.eliminateOnIncorrect && !isCorrect);
+    // Grupo 3: el escudo de 'ultima_oportunidad' (primer error de la partida)
+    // suprime CUALQUIER muerte —incluida la del modo—; una muerte de Grupo 3
+    // (instakill /3ª vida /2º error de ultima) elimina aunque el modo no.
+    if (survival) {
+      if (survival.shield) eliminated = false;
+      else if (survival.death) eliminated = true;
+    }
 
     await client.query(
       `UPDATE match_participants SET score = $2, xp = xp + $3, stars_earned = stars_earned + $4 WHERE id = $1`,
@@ -484,7 +928,13 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
     await client.query('COMMIT');
     publishRoomEvent('match:progress', input.roomId);
 
-    const correctOptionRes = input.timedOut
+    // 'tiempo_compartido' (fuerza finalizar si se agotó el presupuesto). Nunca
+    // dentro de la transacción (FOR UPDATE de rooms → deadlock); solo si el
+    // modificador está activo. Best-effort: el resto de puntos de lectura
+    // (GET /api/salas, resultados) también lo llaman.
+    if (mods.includes(TIEMPO_COMPARTIDO_MODIFIER)) void expireTimedSharedRoom(input.roomId);
+
+    const correctOptionRes = timedOut
       ? null
       : await queryOne<{ id: string }>(
           `SELECT id FROM question_options WHERE question_id = $1 AND is_correct = TRUE LIMIT 1`,
@@ -494,14 +944,14 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
     return {
       ok: true,
       correct: isCorrect,
-      correct_option_id: input.timedOut ? null : (correctOptionRes?.id ?? null),
+      correct_option_id: timedOut ? null : (correctOptionRes?.id ?? null),
       points_delta: pointsDelta,
       stars_delta: starsDelta,
       score: newScore,
       xp: participant.xp + xpGain,
       question_position: position,
       eliminated,
-      timed_out: input.timedOut,
+      timed_out: timedOut,
       status: eliminated ? 'eliminated' : 'playing',
       state:
         rules.resource && resourceValue !== undefined
@@ -509,6 +959,12 @@ export async function recordMatchAnswer(input: RecordAnswerInput): Promise<Answe
             ? { ticks: resourceValue }
             : { platforms: resourceValue }
           : null,
+      // Grupo 3: estado de supervivencia servido SOLO con su modificador
+      // activo (derivado del historial en el servidor; el cliente lo pinta).
+      ...(survival && vidaMod ? { vidas: survival.vidas } : {}),
+      ...(survival && rachaMod ? { racha: survival.racha } : {}),
+      ...(survival && errorMod ? { errores: survival.errores } : {}),
+      ...(survival && ultimaMod ? { critico: survival.critico } : {}),
     };
   } catch (err) {
     try {

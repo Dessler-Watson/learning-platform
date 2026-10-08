@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper, AlertTriangle } from 'lucide-react';
+import { Users, ArrowLeft, Sparkles, GraduationCap, BookOpen, Gamepad2, PartyPopper, AlertTriangle, Play, Dices } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
 import { gameRouteFor, type RoomData } from '@/lib/rooms';
@@ -23,12 +23,30 @@ interface Player {
 
 type Phase = 'loading' | 'error' | 'waiting' | 'full' | 'countdown' | 'go' | 'closed';
 
+/** Metadatos de la configuración Caos (nunca incluye preguntas/respuestas). */
+interface ChaosInfo {
+  difficulty: string;
+  tema: string | null;
+  generation_status: string;
+  question_count: number;
+  game_code: string;
+}
+
+const CAOS_DIFF_LABELS: Record<string, string> = {
+  facil: 'Fácil',
+  medio: 'Medio',
+  dificil: 'Difícil',
+  experto: 'Experto',
+  caos: 'Caos',
+};
+
 interface RoomSnapshot {
   room: RoomData;
   players: Player[];
   myId: string;
   esHost: boolean;
   estado: string;
+  caos: ChaosInfo | null;
 }
 
 function mapPlayer(p: {
@@ -61,6 +79,8 @@ export function WaitingRoomScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [startLoading, setStartLoading] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevIdsRef = useRef<Set<string>>(new Set());
@@ -113,6 +133,7 @@ export function WaitingRoomScreen() {
     }>;
     usuario_id: string;
     es_host: boolean;
+    caos?: ChaosInfo | null;
   }) => {
     const room: RoomData = {
       id: data.sala.id,
@@ -138,7 +159,7 @@ export function WaitingRoomScreen() {
     }
     prevIdsRef.current = nextIds;
 
-    setSnapshot({ room, players, myId: data.usuario_id, esHost: data.es_host, estado: data.sala.status });
+    setSnapshot({ room, players, myId: data.usuario_id, esHost: data.es_host, estado: data.sala.status, caos: data.caos ?? null });
 
     if (data.sala.status === 'in_progress') {
       beginCountdown(data.sala.mode_code, data.sala.id);
@@ -238,10 +259,51 @@ export function WaitingRoomScreen() {
     window.location.href = '/inicio';
   };
 
+  // Modo Caos: solo el anfitrión inicia, con ≥2 jugadores y preguntas 'ready'
+  // (ambas validaciones se repiten en el servidor, /api/caos start).
+  const iniciarCaos = async () => {
+    const roomId = snapshot?.room.id;
+    if (!roomId || startLoading) return;
+    setStartLoading(true);
+    setStartError(null);
+    audioManager.play('submit');
+    try {
+      const res = await fetch('/api/caos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start', room_id: roomId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStartError(data.error || 'No se pudo iniciar la partida');
+        setStartLoading(false);
+        return;
+      }
+      // La sala pasa a in_progress: SSE 'room:started' / polling recargan el
+      // snapshot y arranca el countdown hacia el juego.
+    } catch {
+      setStartError('Error de conexión. Intenta de nuevo.');
+      setStartLoading(false);
+    }
+  };
+
   const room = snapshot?.room;
   const players = snapshot?.players ?? [];
   const pct = room ? Math.round((players.length / room.maxJugadores) * 100) : 0;
   const modeTheme = getModeTheme(room?.modo);
+  const caosInfo = snapshot?.caos ?? null;
+  // Requisitos del botón Iniciar (el servidor los vuelve a validar).
+  const canStart =
+    !!caosInfo && caosInfo.generation_status === 'ready' && players.length >= 2 && !startLoading;
+  const caosStartHint = !caosInfo
+    ? null
+    : caosInfo.generation_status === 'failed'
+      ? 'No se pudieron generar las preguntas de esta sala'
+      : caosInfo.generation_status !== 'ready'
+        ? 'La IA está generando las preguntas...'
+        : players.length < 2
+          ? 'Se necesitan mínimo 2 jugadores'
+          : 'Todo listo: el servidor sorteará el juego al iniciar';
 
   if (phase === 'loading' && !snapshot) {
     return (
@@ -338,10 +400,59 @@ export function WaitingRoomScreen() {
           transition={{ delay: 0.12 }}
           className="card-game mt-5 p-4 xl:mt-0"
         >
-          <InfoRow icon={<GraduationCap size={20} />} label="Docente" value={room.docente} color="#EB5D70" />
+          <InfoRow icon={<GraduationCap size={20} />} label={caosInfo ? 'Anfitrión' : 'Docente'} value={room.docente} color="#EB5D70" />
           <InfoRow icon={<BookOpen size={20} />} label="Curso" value={room.curso} color="#00A0B5" />
           <InfoRow icon={<Gamepad2 size={20} />} label="Actividad" value={room.actividad} color={modeTheme?.colorDark ?? '#FFA000'} />
         </motion.div>
+
+        {/* Modo Caos: dificultad, tema, juego sorteado y estado de generación
+            (solo metadatos: las preguntas/respuestas nunca salen de /api/partida). */}
+        {snapshot?.caos && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16 }}
+            className="card-game mt-5 p-4"
+            style={{ borderColor: '#7C3AED' }}
+          >
+            <div className="mb-1 flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#7C3AED]">
+              <Dices size={13} /> Modo Caos
+            </div>
+            <InfoRow
+              icon={<Dices size={20} />}
+              label="Dificultad"
+              value={CAOS_DIFF_LABELS[snapshot.caos.difficulty] ?? snapshot.caos.difficulty}
+              color="#7C3AED"
+            />
+            <InfoRow
+              icon={<Sparkles size={20} />}
+              label="Tema"
+              value={
+                snapshot.caos.tema ??
+                (snapshot.caos.generation_status === 'failed' ? 'Sin tema' : 'Sorteando tema...')
+              }
+              color="#F9A825"
+            />
+            <InfoRow
+              icon={<Gamepad2 size={20} />}
+              label="Juego sorteado"
+              value={getModeTheme(snapshot.caos.game_code)?.label ?? snapshot.caos.game_code}
+              color={getModeTheme(snapshot.caos.game_code)?.colorDark ?? '#FFA000'}
+            />
+            <InfoRow
+              icon={<BookOpen size={20} />}
+              label="Preguntas"
+              value={
+                snapshot.caos.generation_status === 'ready'
+                  ? `${snapshot.caos.question_count} generadas`
+                  : snapshot.caos.generation_status === 'failed'
+                    ? 'Error al generar'
+                    : 'Generando con IA...'
+              }
+              color="#00A0B5"
+            />
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -428,14 +539,52 @@ export function WaitingRoomScreen() {
           transition={{ delay: 0.35 }}
           className="mt-6 text-center xl:col-span-2 xl:mt-0"
         >
-          {(phase === 'waiting' || phase === 'loading') && (
+          {/* Modo Caos: solo el anfitrión inicia (≥2 jugadores + preguntas ready). */}
+          {caosInfo && snapshot?.esHost && snapshot.estado === 'waiting' && (
+            <div className="flex flex-col items-center gap-2">
+              <motion.button
+                type="button"
+                whileHover={{ scale: canStart ? 1.03 : 1 }}
+                whileTap={{ scale: canStart ? 0.97 : 1, y: 2 }}
+                onClick={() => void iniciarCaos()}
+                disabled={!canStart}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5B21B6] px-6 py-3 text-sm font-black text-white shadow-game-sm disabled:opacity-70"
+              >
+                <Play size={18} />
+                {startLoading ? 'Iniciando...' : 'Iniciar partida'}
+              </motion.button>
+              {caosStartHint && (
+                <p className="text-xs font-bold text-surface-400">{caosStartHint}</p>
+              )}
+              {startError && <p className="text-sm font-black text-edu-pink">{startError}</p>}
+            </div>
+          )}
+
+          {(phase === 'waiting' || phase === 'loading') && !(caosInfo && snapshot?.esHost) && (
             <div>
-              <p className="text-base font-black text-surface-500">
-                Esperando al docente <Dots />
-              </p>
-              <p className="mt-1 text-xs font-bold text-surface-400">
-                El juego comenzara cuando el docente este listo.
-              </p>
+              {caosInfo ? (
+                <>
+                  <p className="text-base font-black text-surface-500">
+                    Esperando a que el anfitrión inicie <Dots />
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-surface-400">
+                    {caosInfo.generation_status === 'ready'
+                      ? `${caosInfo.question_count} preguntas listas. El juego empezará cuando el anfitrión lo indique.`
+                      : caosInfo.generation_status === 'failed'
+                        ? 'No se pudieron generar las preguntas de esta sala.'
+                        : 'La IA está generando las preguntas de la sala...'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-base font-black text-surface-500">
+                    Esperando al docente <Dots />
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-surface-400">
+                    El juego comenzara cuando el docente este listo.
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -453,7 +602,7 @@ export function WaitingRoomScreen() {
                 <PartyPopper size={22} /> TODOS ESTAN LISTOS!
               </div>
               <p className="text-xs font-bold text-surface-500">
-                Sala completa! El docente dara comienzo...
+                {caosInfo ? 'Sala completa! El anfitrión dara comienzo...' : 'Sala completa! El docente dara comienzo...'}
               </p>
             </motion.div>
           )}

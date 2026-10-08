@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { CAMERA } from '@/shared/config/game.config';
 import { clamp } from '@/shared/utils/helpers';
 import { characterRigidBody } from '@/shared/refs/characterRef';
+import { useGameStore } from '@/stores/game.store';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 
 export function CameraController() {
   const { camera, gl } = useThree();
@@ -14,7 +16,7 @@ export function CameraController() {
   useEffect(() => {
     if (isTouchDevice.current) return;
     const canvas = gl.domElement;
-    const onMouseMove = (e: MouseEvent) => { if (document.pointerLockElement !== canvas) return; state.current.theta -= e.movementX * CAMERA.lookSpeed; state.current.phi = clamp(state.current.phi - e.movementY * CAMERA.lookSpeed, CAMERA.minPhi, CAMERA.maxPhi); };
+    const onMouseMove = (e: MouseEvent) => { if (document.pointerLockElement !== canvas) return; const inv = hasChaosModifier(useGameStore.getState().modifiers, 'mouse_invertido'); const mx = inv ? -e.movementX : e.movementX; const my = inv ? -e.movementY : e.movementY; state.current.theta -= mx * CAMERA.lookSpeed; state.current.phi = clamp(state.current.phi - my * CAMERA.lookSpeed, CAMERA.minPhi, CAMERA.maxPhi); };
     const onWheel = (e: WheelEvent) => { if (document.pointerLockElement !== canvas) return; e.preventDefault(); state.current.distance = clamp(state.current.distance + e.deltaY * 0.01 * CAMERA.zoomSpeed, CAMERA.minDistance, CAMERA.maxDistance); };
     canvas.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -45,8 +47,11 @@ export function CameraController() {
       lastY = e.clientY;
       const s = state.current;
       const speed = CAMERA.lookSpeed * 1.5;
-      s.theta -= dx * speed;
-      s.phi = clamp(s.phi - dy * speed, CAMERA.minPhi, CAMERA.maxPhi);
+      const inv = hasChaosModifier(useGameStore.getState().modifiers, 'mouse_invertido');
+      const kx = inv ? dx : -dx;
+      const ky = inv ? dy : -dy;
+      s.theta += kx * speed;
+      s.phi = clamp(s.phi + ky * speed, CAMERA.minPhi, CAMERA.maxPhi);
     };
     const onPointerEnd = (e: PointerEvent) => {
       if (activeId === e.pointerId) activeId = null;

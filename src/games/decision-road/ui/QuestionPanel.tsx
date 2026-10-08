@@ -1,7 +1,11 @@
 'use client';
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { useChaosQuestionClock } from '@/shared/hooks/useChaosQuestionClock';
+import { ChaosCountdown } from '@/shared/ui/ChaosCountdown';
+import { getChaosHidePromptMs, getChaosHideOptionsMs } from '@/lib/chaos/effects';
 
 /** Rumbo: nubes tenues solo en las esquinas superiores. */
 const SoftCloudSVG = ({ flip = false }: { flip?: boolean }) => (
@@ -32,11 +36,33 @@ export function QuestionPanel() {
   const phase = useGameStore((s) => s.phase);
   const questions = useGameStore((s) => s.questions);
   const currentQuestionIndex = useGameStore((s) => s.currentQuestionIndex);
+  const modifiers = useGameStore((s) => s.modifiers);
   const isMobile = useIsMobile();
   const visible = phase === 'playing' || phase === 'question';
   const question = questions[currentQuestionIndex];
   const total = questions.length;
   const current = Math.min(currentQuestionIndex + 1, total);
+
+  // Reloj de pregunta (Modo Caos): contrarreloj 10 s (contador). Ocultados:
+  // 'pregunta_fugaz' y 'memoria' ocultan el enunciado a los 5 s; solo
+  // 'memoria' oculta además las opciones (fugaz: las respuestas siguen).
+  const clock = useChaosQuestionClock({
+    active: visible && !!question,
+    questionId: question?.id ?? null,
+    modifiers,
+    hidePromptInMs: getChaosHidePromptMs(modifiers, question?.sorpresa),
+    hideOptionsInMs: getChaosHideOptionsMs(modifiers, question?.sorpresa),
+    onTimeout: () => {
+      void useGameStore.getState().timeoutAnswer();
+    },
+  });
+
+  // 'memoria': el enunciado se oculta en el HUD (más abajo) y las OPCIONES en
+  // 3D (DoorSystem/StationPanel) leen este flag del store.
+  const hideOptions = clock.hideOptions;
+  useEffect(() => {
+    useGameStore.getState().setChaosHideOptions(hideOptions);
+  }, [hideOptions]);
 
   return (
     <AnimatePresence>
@@ -75,6 +101,7 @@ export function QuestionPanel() {
             }}>
               Pregunta {current}/{total}
             </div>
+            <ChaosCountdown secondsLeft={clock.secondsLeft} />
           </div>
 
           {/* Question card */}
@@ -102,7 +129,9 @@ export function QuestionPanel() {
                 pointerEvents: 'none',
               }} />
 
-              <p style={{
+              <p
+                data-chaos-hidden={clock.hidePrompt ? '' : undefined}
+                style={{
                 color: 'rgba(255,255,255,0.95)',
                 fontSize: isMobile ? 15 : 20,
                 fontWeight: 700,
@@ -114,6 +143,7 @@ export function QuestionPanel() {
                 zIndex: 1,
                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
                 paddingTop: isMobile ? 2 : 4,
+                ...(clock.hidePrompt ? { opacity: 0 } : {}),
               }}>
                 {question.statement}
               </p>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser, getRoomById, query, queryOne } from '@/lib/db';
-import { getActiveMatch, getLatestMatch, getMatchParticipant, type MatchInfo } from '@/lib/db/matches';
+import { getActiveMatch, getLatestMatch, getMatchParticipant, expireTimedSharedRoom, type MatchInfo } from '@/lib/db/matches';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +26,10 @@ export async function GET(req: NextRequest) {
 
     const room = await getRoomById(roomId);
     if (!room) return NextResponse.json({ error: 'Sala no encontrada' }, { status: 404 });
+
+    // 'tiempo_compartido' (punto de lectura): agotado el presupuesto global,
+    // la sala se finaliza aquí (autoridad servidor) antes de servir resultados.
+    await expireTimedSharedRoom(room.id);
 
     const match: MatchInfo | null = (await getActiveMatch(room.id)) ?? (await getLatestMatch(room.id));
     if (!match) {

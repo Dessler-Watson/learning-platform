@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { useKeyboard } from '@/shared/hooks/useKeyboard';
 import { useGameStore } from '@/stores/game.store';
 import { CHARACTER } from '@/shared/config/game.config';
+import { hasChaosModifier, getChaosMoveMultiplier, getChaosJumpMultiplier } from '@/lib/chaos/effects';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from './RobloxAvatar';
 import { gameAudio } from '@/shared/lib/gameAudio';
@@ -49,6 +50,9 @@ export function CharacterController() {
     const vel = rb.current.linvel();
     const keys = keysRef.current;
     const phase = useGameStore.getState().phase;
+    const chaosMods = useGameStore.getState().modifiers;
+    const invertControls = hasChaosModifier(chaosMods, 'controles_invertidos');
+    const moveSpeed = CHARACTER.maxSpeed * getChaosMoveMultiplier(chaosMods);
     if (phase === 'completed' && completedAt.current === 0) completedAt.current = performance.now();
     if (phase !== 'completed' && phase !== 'results') completedAt.current = 0;
     const blocked = (phase === 'completed' || phase === 'results') && completedAt.current > 0 && performance.now() - completedAt.current > 500;
@@ -93,10 +97,14 @@ export function CharacterController() {
     const cf = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); cf.y = 0; cf.normalize();
     const cr = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); cr.y = 0; cr.normalize();
     const dir = new THREE.Vector3();
-    if (keys.forward) dir.add(cf); if (keys.backward) dir.sub(cf);
-    if (keys.right) dir.add(cr); if (keys.left) dir.sub(cr);
+    const keyF = invertControls ? keys.backward : keys.forward;
+    const keyB = invertControls ? keys.forward : keys.backward;
+    const keyR = invertControls ? keys.left : keys.right;
+    const keyL = invertControls ? keys.right : keys.left;
+    if (keyF) dir.add(cf); if (keyB) dir.sub(cf);
+    if (keyR) dir.add(cr); if (keyL) dir.sub(cr);
     const hasInput = dir.lengthSq() > 0; if (hasInput) dir.normalize();
-    const tgtX = dir.x * CHARACTER.maxSpeed; const tgtZ = dir.z * CHARACTER.maxSpeed;
+    const tgtX = dir.x * moveSpeed; const tgtZ = dir.z * moveSpeed;
     const acc = hasInput ? CHARACTER.acceleration : CHARACTER.deceleration;
     const t = Math.min(acc * delta, 1);
     const nx = THREE.MathUtils.lerp(vel.x, tgtX, t); const nz = THREE.MathUtils.lerp(vel.z, tgtZ, t);
@@ -106,7 +114,7 @@ export function CharacterController() {
       grounded.current &&
       performance.now() - lastJumpAt.current > JUMP_COOLDOWN
     ) {
-      yv = CHARACTER.jumpForce;
+      yv = CHARACTER.jumpForce * getChaosJumpMultiplier(chaosMods);
       jumpRequested.current = false;
       jumpLocked.current = true;
       leftGroundSinceJump.current = false;

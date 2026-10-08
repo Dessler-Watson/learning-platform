@@ -26,6 +26,8 @@ import { DecisionRoadLoadingScreen } from './DecisionRoadLoadingScreen';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { AmbientMotes } from '@/shared/ui/AmbientMotes';
 import { isMatchRoom, postGameRoute } from '@/lib/partida-client';
+import { ChaosScreenFlip, ChaosBlindness } from '@/shared/ui/ChaosPresentation';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -93,6 +95,8 @@ export function GameCanvas() {
     useGameStore.getState().setPhase('results');
   }, []);
   const gamePhase = useGameStore((s) => s.phase);
+  const chaosModifiers = useGameStore((s) => s.modifiers);
+  const chaosEnded = gamePhase === 'completed' || gamePhase === 'results';
 
   useEffect(() => {
     useAchievementStore.getState().init();
@@ -112,6 +116,8 @@ export function GameCanvas() {
         <DecisionRoadLoadingScreen complete={phase === 'completing'} onComplete={handleComplete} />
       )}
       <SceneCanvas onReady={handleReady} />
+      <ChaosScreenFlip active={!chaosEnded && hasChaosModifier(chaosModifiers, 'pantalla_al_reves')} />
+      <ChaosBlindness active={!chaosEnded && hasChaosModifier(chaosModifiers, 'ceguera')} zIndex={8} />
       <DecisionHUD />
       <QuestionPanel />
       <FeedbackOverlay />

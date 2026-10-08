@@ -23,9 +23,17 @@ interface TierrasStore {
   starsEarned: number;
   reachedFinish: boolean;
   fallenInWater: boolean;
+  /** Timeout local (contrarreloj): respuesta registrada sin elegir plataforma;
+   * permite que el RoundManager procese el resultado con choice null. */
+  localTimeout: boolean;
+  /** Modificadores de la partida (Caos) para reflejar el HUD/feedback local.
+   * Solo lectura visual: la puntuación real la decide el servidor. */
+  modifiers: string[];
   setPhase: (phase: TierrasPhase) => void;
   setQuestions: (questions: TierrasQuestion[]) => void;
-  submitAnswer: (choice: PlatformChoice) => Promise<{ correct: boolean } | null>;
+  setModifiers: (modifiers: string[]) => void;
+  /** `null` = tiempo agotado (contrarreloj): respuesta incorrecta con timed_out. */
+  submitAnswer: (choice: PlatformChoice | null) => Promise<{ correct: boolean } | null>;
   setExplanation: (text: string | null) => void;
   advanceQuestion: () => void;
   advanceToPlaying: () => void;
@@ -54,6 +62,8 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
   starsEarned: 0,
   reachedFinish: false,
   fallenInWater: false,
+  localTimeout: false,
+  modifiers: [],
 
   setPhase: (phase) => set({ phase }),
 
@@ -74,15 +84,23 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
     starsEarned: 0,
     reachedFinish: false,
     fallenInWater: false,
+    localTimeout: false,
+    modifiers: [],
     phase: 'loading',
   }),
+
+  setModifiers: (modifiers) => set({ modifiers: Array.isArray(modifiers) ? modifiers : [] }),
 
   submitAnswer: async (choice) => {
     // Sala finalizada: no se responde ni se avanza localmente.
     if (isRoomFinished()) return null;
-    const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned } = get();
+    const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned, modifiers } = get();
     const question = questions[currentQuestionIndex];
     if (!question) return null;
+    // Idempotencia: una pregunta solo se registra una vez (evita doble POST
+    // si el timeout local choca con el procesamiento del RoundManager).
+    const existing = answers.find((a) => a.questionId === question.id);
+    if (existing) return { correct: existing.correct };
 
     // Feedback inmediato: el resultado se calcula y muestra ya (la respuesta
     // correcta viene en el boot). En modo sala, el POST /api/partida se lanza
@@ -94,7 +112,10 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
-    const pointsEarned = isCorrect ? CFG.correctPoints : 0;
+    // 'doble_puntos' (Caos): solo DOBLA el acierto en el cálculo local; la
+    // penalización (0 en tierras) no cambia. El POST reconcilia con res.score.
+    const doubleMult = isCorrect && modifiers.includes('doble_puntos') ? 2 : 1;
+    const pointsEarned = isCorrect ? CFG.correctPoints * doubleMult : 0;
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
     // Paridad con el flujo anterior: en sala las estrellas no se acumulan aquí.
     const starsEarnedNow = !isSala && isCorrect && !isPractice ? 20 : 0;
@@ -102,6 +123,7 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
 
     set({
       selectedPlatform: choice,
+      ...(choice == null ? { localTimeout: true } : {}),
       answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
       correctCount: correctCount + (isCorrect ? 1 : 0),
       incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
@@ -131,7 +153,12 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
       // Sincronización en segundo plano: no bloquea el feedback ni el avance.
       void (async () => {
         try {
-          const res = await submitMatchAnswer({ roomId: roomId!, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
+          const res = await submitMatchAnswer({
+            roomId: roomId!,
+            questionId: question.id,
+            ...(choice == null ? {} : { optionId: ids[choice === 'A' ? 0 : 1] }),
+            timedOut: choice == null,
+          });
           if (!res) return;
           const st = get();
           const patch: Partial<ReturnType<typeof get>> = {};
@@ -167,6 +194,7 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
     selectedPlatform: null,
     sinkingPlatform: null,
     explanation: null,
+    localTimeout: false,
   })),
 
   advanceToPlaying: () => set((s) => ({
@@ -174,6 +202,7 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
     selectedPlatform: null,
     sinkingPlatform: null,
     explanation: null,
+    localTimeout: false,
     phase: 'playing' as const,
   })),
 
@@ -280,6 +309,8 @@ export const useTierrasStore = create<TierrasStore>((set, get) => ({
     starsEarned: 0,
     reachedFinish: false,
     fallenInWater: false,
+    localTimeout: false,
+    modifiers: [],
   }),
 
   triggerScoreCount: () => set((s) => ({ countTick: s.countTick + 1 })),

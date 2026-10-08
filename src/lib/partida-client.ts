@@ -1,5 +1,7 @@
 'use client';
 import type { GameQuestion } from '@/games/decision-road/types';
+import type { ChaosSurpriseEffect } from '@/lib/chaos/sorpresa';
+import { useSurvivalStore } from '@/stores/survival.store';
 
 export function getMatchRoomId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -44,15 +46,36 @@ export interface MatchQuestionDTO {
   explanation: string;
   difficulty: string;
   correct_option_id?: string | null;
+  /** 'pregunta_sorpresa': efecto determinista de ESTA pregunta según el
+   * servidor (null = 'normal'). Solo presente con el modificador activo;
+   * solo lectura: el cliente no lo envía nunca al responder. */
+  sorpresa?: ChaosSurpriseEffect | null;
   options: MatchOptionDTO[];
 }
 
 export interface MatchStateDTO {
-  partida: { id: string; room_id: string; status: string; question_count: number; modo: string };
+  partida: {
+    id: string;
+    room_id: string;
+    status: string;
+    question_count: number;
+    modo: string;
+    /** Modificadores de la partida (Caos). Sala docente: []. Solo lectura:
+     * el servidor sigue siendo la autoridad en puntuación. */
+    modificadores: string[];
+    /** 'tiempo_compartido' (Grupo 2): ms restantes del presupuesto global
+     * (now() del servidor). Solo presente con el modificador activo. */
+    tiempo?: { restar_ms: number };
+  };
   yo: {
     score: number;
     xp: number;
     estado: string;
+    /** Grupo 3 (supervivencia): solo con el modificador correspondiente activo. */
+    vidas?: number;
+    racha?: number;
+    errores?: number;
+    critico?: boolean;
     respondidas: { question_id: string; position: number; is_correct: boolean | null; timed_out: boolean; points_delta: number }[];
   };
   preguntas: MatchQuestionDTO[];
@@ -79,6 +102,7 @@ export function toStoreQuestion(q: MatchQuestionDTO): GameQuestion {
     explanation: q.explanation ?? '',
     difficulty: mapDifficulty(q.difficulty),
     optionIds: [q.options[0]?.id ?? '', q.options[1]?.id ?? ''],
+    sorpresa: q.sorpresa ?? null,
   };
 }
 
@@ -86,7 +110,44 @@ export async function fetchMatchState(roomId: string): Promise<MatchStateDTO> {
   const res = await fetch(`/api/partida?room_id=${encodeURIComponent(roomId)}`, { cache: 'no-store' });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || 'No se pudo cargar la partida');
+  ingestMatchClock(data as MatchStateDTO);
+  // Grupo 3 (supervivencia): vidas/racha/errores/crítico del boot → HUD.
+  useSurvivalStore.getState().ingestState(data as MatchStateDTO);
   return data as MatchStateDTO;
+}
+
+/* ------------------------------------------------------------------ */
+/*  'tiempo_compartido' (Grupo 2): reloj global compartido de la sala    */
+/* ------------------------------------------------------------------ */
+
+let chaosClockMs: number | null = null;
+let chaosClockAt = 0;
+
+/** Fija el presupuesto global restante (ms); null lo limpia. */
+export function setChaosClock(ms: number | null): void {
+  chaosClockMs = ms == null ? null : Math.max(0, ms);
+  chaosClockAt = Date.now();
+}
+
+/**
+ * Actualiza el reloj global desde un estado servido que lleve
+ * `partida.tiempo.restar_ms` (GET /api/partida). Ausencia del campo = la
+ * partida no tiene 'tiempo_compartido' → limpia el reloj.
+ */
+export function ingestMatchClock(state: { partida?: { tiempo?: { restar_ms?: number } } } | null | undefined): void {
+  const ms = state?.partida?.tiempo?.restar_ms;
+  setChaosClock(typeof ms === 'number' && Number.isFinite(ms) ? ms : null);
+}
+
+/**
+ * Ms restantes del presupuesto global: decrece localmente a partir del
+ * último ingest (el pintado usa el reloj del navegador; la autoridad sigue
+ * siendo el servidor: GET /api/salas finaliza la sala al agotarse). null =
+ * sin 'tiempo_compartido'.
+ */
+export function getChaosClockRemaining(): number | null {
+  if (chaosClockMs == null) return null;
+  return Math.max(0, chaosClockMs - (Date.now() - chaosClockAt));
 }
 
 /* ------------------------------------------------------------------ */
@@ -172,6 +233,11 @@ export interface MatchAnswerResult {
   timed_out: boolean;
   status: string;
   state: { ticks?: number; platforms?: number } | null;
+  /** Grupo 3 (supervivencia): solo con el modificador correspondiente activo. */
+  vidas?: number;
+  racha?: number;
+  errores?: number;
+  critico?: boolean;
 }
 
 function normalize(data: Record<string, unknown>): MatchAnswerResult {
@@ -187,6 +253,10 @@ function normalize(data: Record<string, unknown>): MatchAnswerResult {
     timed_out: data.timed_out === true,
     status: String(data.status ?? ''),
     state: st,
+    ...(typeof data.vidas === 'number' ? { vidas: data.vidas } : {}),
+    ...(typeof data.racha === 'number' ? { racha: data.racha } : {}),
+    ...(typeof data.errores === 'number' ? { errores: data.errores } : {}),
+    ...(typeof data.critico === 'boolean' ? { critico: data.critico } : {}),
   };
 }
 
@@ -217,10 +287,16 @@ export async function submitMatchAnswer(opts: {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) return normalize(data);
+      if (res.ok) {
+        const out = normalize(data);
+        useSurvivalStore.getState().ingestAnswer(out);
+        return out;
+      }
       if (res.status === 409 && data?.code === 'duplicate') {
         // Resync: el servidor ya registró la respuesta; devuelve el estado real.
-        return normalize(data);
+        const out = normalize(data);
+        useSurvivalStore.getState().ingestAnswer(out);
+        return out;
       }
       // Errores de estado (finalizada/eliminado/no participante): no reintentar.
       if (res.status === 409 || res.status === 403 || res.status === 404) return null;
@@ -232,6 +308,40 @@ export async function submitMatchAnswer(opts: {
     }
   }
   return null;
+}
+
+/**
+ * 'contrarreloj': aviso de que una pregunta SE MUESTRA ahora (el reloj lo
+ * marca el SERVIDOR con su propio now(); nunca se envía la hora del cliente).
+ * Fire-and-forget con 1 reintento: si no llega, el plazo se deriva del ancla
+ * (respuesta previa / boot) sin romper la partida.
+ */
+export async function notifyQuestionStarted(questionId: string): Promise<void> {
+  const roomId = getMatchRoomId();
+  if (!roomId || !questionId) return;
+  if (roomFinishedDetected) return;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch('/api/partida', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'question_started',
+          room_id: roomId,
+          question_id: questionId,
+        }),
+      });
+      if (res.ok) return;
+      // Errores de estado (finalizada/no participante): no reintentar.
+      if (res.status === 409 || res.status === 403 || res.status === 404) return;
+      if (attempt === 0) continue;
+      return;
+    } catch {
+      if (attempt === 0) continue;
+      return;
+    }
+  }
 }
 
 /**

@@ -5,6 +5,9 @@ import { useLavaStore } from '@/stores/lava.store';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
 import { Check, X, Star } from 'lucide-react';
 import { gameAudio } from '@/shared/lib/gameAudio';
+import { getChaosOptionLabel, getChaosHidePromptMs, getChaosHideOptionsMs } from '@/lib/chaos/effects';
+import { useChaosQuestionClock } from '@/shared/hooks/useChaosQuestionClock';
+import { ChaosCountdown } from '@/shared/ui/ChaosCountdown';
 
 const MAX_TICKS = 3;
 
@@ -90,6 +93,7 @@ export function LavaHUD() {
   const incorrectCount = useLavaStore((s) => s.incorrectCount);
   const score = useLavaStore((s) => s.score);
   const countTick = useLavaStore((s) => s.countTick);
+  const chaosModifiers = useLavaStore((s) => s.modifiers);
   const screen = useScreenSize();
   const isPhone = screen === 'phone';
   const isTablet = screen === 'tablet';
@@ -129,6 +133,21 @@ export function LavaHUD() {
     lastStingIndex.current = qIndex;
     gameAudio.lavaAppear();
   }, [phase, qIndex, question]);
+
+  // Reloj de pregunta (Modo Caos): contrarreloj 10 s (contador). Ocultados:
+  // 'pregunta_fugaz' y 'memoria' ocultan el enunciado a los 5 s; solo
+  // 'memoria' oculta además las opciones (fugaz: las respuestas siguen).
+  // SIEMPRE antes del return condicional (reglas de hooks).
+  const clock = useChaosQuestionClock({
+    active: phase === 'roundActive' && !!question,
+    questionId: question?.id ?? null,
+    modifiers: chaosModifiers,
+    hidePromptInMs: getChaosHidePromptMs(chaosModifiers, question?.sorpresa),
+    hideOptionsInMs: getChaosHideOptionsMs(chaosModifiers, question?.sorpresa),
+    onTimeout: () => {
+      useLavaStore.getState().timeoutLocal();
+    },
+  });
 
   if (phase === 'loading' || phase === 'completed') return null;
 
@@ -338,6 +357,7 @@ export function LavaHUD() {
               }}>
                 Pregunta {current}/{total}
               </span>
+              <ChaosCountdown secondsLeft={clock.secondsLeft} />
             </div>
 
             <div style={{
@@ -359,7 +379,9 @@ export function LavaHUD() {
                 pointerEvents: 'none',
               }} />
 
-              <p style={{
+              <p
+                data-chaos-hidden={clock.hidePrompt ? '' : undefined}
+                style={{
                 position: 'relative',
                 zIndex: 1,
                 color: 'rgba(255,255,255,0.95)',
@@ -367,12 +389,16 @@ export function LavaHUD() {
                 fontWeight: 700, textAlign: 'center', margin: `0 0 ${isPhone ? 10 : 16}px`, lineHeight: 1.35,
                 fontFamily: 'var(--font-baloo)',
                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                ...(clock.hidePrompt ? { opacity: 0 } : {}),
               }}>
                 {question.statement}
               </p>
-              <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: isPhone ? 6 : isTablet ? 9 : 12 }}>
-                <ABtn label="A" text={question.optionA} color="#E53935" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
-                <ABtn label="B" text={question.optionB} color="#42A5F5" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
+              <div
+                data-chaos-options=""
+                data-chaos-hidden={clock.hideOptions ? '' : undefined}
+                style={{ position: 'relative', zIndex: 1, display: 'flex', gap: isPhone ? 6 : isTablet ? 9 : 12, ...(clock.hideOptions ? { opacity: 0 } : {}) }}>
+<ABtn label={getChaosOptionLabel(chaosModifiers, 'A', question?.sorpresa)} text={question.optionA} color="#E53935" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'A'} myCorrect={myResult} side="A" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
+<ABtn label={getChaosOptionLabel(chaosModifiers, 'B', question?.sorpresa)} text={question.optionB} color="#42A5F5" disabled={localAnswer !== null || phase !== 'roundActive'} selected={localAnswer === 'B'} myCorrect={myResult} side="B" revealed={phase === 'roundResult'} actualCorrect={question.correctAnswer} isPhone={isPhone} isTablet={isTablet} />
               </div>
             </div>
           </motion.div>

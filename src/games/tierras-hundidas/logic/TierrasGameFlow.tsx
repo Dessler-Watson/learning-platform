@@ -25,6 +25,9 @@ export function TierrasGameFlow() {
           const state = await fetchMatchState(roomId);
           if (!cancelled && state.preguntas.length > 0) {
             useTierrasStore.getState().setQuestions(state.preguntas.map(toStoreQuestion));
+            // Modificadores de la partida (Caos): mismos datos del boot del
+            // match; sin fetch adicional. Solo reflejo local del HUD.
+            useTierrasStore.getState().setModifiers(state.partida.modificadores);
           }
         } catch (e) {
           console.error('[TierrasGameFlow] No se pudo cargar la partida:', e);

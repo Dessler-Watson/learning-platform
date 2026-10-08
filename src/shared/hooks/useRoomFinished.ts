@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRoomEvents, type RoomRealtimeEvent } from '@/shared/hooks/useRoomEvents';
-import { markRoomFinished } from '@/lib/partida-client';
+import { markRoomFinished, setChaosClock } from '@/lib/partida-client';
 
 /**
  * Detecta que el docente finalizó la sala mientras se está jugando.
@@ -30,9 +30,14 @@ export function useRoomFinished(roomId: string | null | undefined): boolean {
       if (!res.ok) return;
       const data = await res.json().catch(() => ({}));
       const status = data?.sala?.status as string | undefined;
+      // 'tiempo_compartido': relee los ms restantes en cada consulta (solo si
+      // el campo está: sin modificador no se toca el reloj).
+      const restarMs = data?.sala?.tiempo_restar_ms;
+      if (typeof restarMs === 'number' && Number.isFinite(restarMs)) setChaosClock(restarMs);
       if (status === 'finished' || status === 'archived') {
         doneRef.current = true;
         markRoomFinished();
+        setChaosClock(null);
         setFinished(true);
       }
     } catch {

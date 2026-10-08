@@ -8,12 +8,23 @@ interface LavaStore {
   phase: LavaPhase; questions: GameQuestion[]; currentQuestionIndex: number;
   players: LavaPlayer[];
   localAnswer: 'A' | 'B' | null; roundResults: { playerId: number; correct: boolean }[];
-  answerHistory: { questionIndex: number; correct: boolean; choice: 'A' | 'B' }[];
+  answerHistory: { questionIndex: number; correct: boolean; choice: 'A' | 'B' | null }[];
+  /** Timeout local (contrarreloj): respuesta registrada SIN elegir opción;
+   * el RoundManager procesa el resultado con localAnswer null. */
+  localTimeout: boolean;
   ticks: number; correctCount: number; incorrectCount: number; score: number; countTick: number;
   defeated: boolean;
   starsEarned: number;
+  /** Modificadores de la partida (Caos) para reflejar el HUD/feedback local.
+   * Solo lectura visual: la puntuación real la decide el servidor. */
+  modifiers: string[];
   setPhase: (p: LavaPhase) => void; setQuestions: (q: GameQuestion[]) => void;
+  setModifiers: (modifiers: string[]) => void;
   setLocalAnswer: (a: 'A' | 'B') => void;
+  /** Timeout local (contrarreloj): solo marca el flag; el RoundManager hace
+   * el resto (resultado, sonidos, avance y POST con timed_out). No-op si ya
+   * hay respuesta o la ronda no está activa. */
+  timeoutLocal: () => void;
   applyResults: (results: { playerId: number; correct: boolean }[], override?: { score?: number; ticks?: number }) => void;
   reconcileAnswer: (args: {
     questionIndex: number;
@@ -45,7 +56,9 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
   phase: 'loading', questions: [], currentQuestionIndex: 0,
   players: createPlayers(),
   localAnswer: null, roundResults: [], answerHistory: [],
+  localTimeout: false,
   ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false, starsEarned: 0,
+  modifiers: [],
 
   setPhase: (p) => set({ phase: p }),
 
@@ -53,11 +66,20 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     questions: q, currentQuestionIndex: 0,
     players: createPlayers(),
     localAnswer: null, roundResults: [], answerHistory: [],
+    localTimeout: false,
     ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0,
-    phase: 'playing', defeated: false, starsEarned: 0,
+    phase: 'playing', defeated: false, starsEarned: 0, modifiers: [],
   }),
 
+  setModifiers: (modifiers) => set({ modifiers: Array.isArray(modifiers) ? modifiers : [] }),
+
   setLocalAnswer: (a) => set({ localAnswer: a }),
+
+  timeoutLocal: () => {
+    const s = get();
+    if (s.phase !== 'roundActive' || s.localAnswer !== null || s.localTimeout) return;
+    set({ localTimeout: true });
+  },
 
   /**
    * Reconciliación optimista (modo sala): el resultado se muestra ya con el
@@ -126,7 +148,11 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     } else {
       newTicks = Math.max(0, s.ticks - 1);
     }
-    const newScore = override?.score !== undefined ? override.score : isCorrect ? s.score + 15 : s.score - 5;
+    // 'doble_puntos' (Caos): solo DOBLA el acierto en el cálculo local; la
+    // penalización (-5) no se multiplica. El override.score del servidor
+    // (reconcileAnswer) sigue teniendo prioridad en modo sala.
+    const mult = isCorrect && s.modifiers.includes('doble_puntos') ? 2 : 1;
+    const newScore = override?.score !== undefined ? override.score : isCorrect ? s.score + 15 * mult : s.score - 5;
     const newCorrect = s.correctCount + (isCorrect ? 1 : 0);
     const newIncorrect = s.incorrectCount + (isCorrect ? 0 : 1);
     const eliminated = newTicks <= 0;
@@ -146,7 +172,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     return {
       players: [nextPlayer],
       roundResults: results,
-      answerHistory: [...s.answerHistory, { questionIndex: s.currentQuestionIndex, correct: isCorrect, choice: s.localAnswer as 'A' | 'B' }],
+      answerHistory: [...s.answerHistory, { questionIndex: s.currentQuestionIndex, correct: isCorrect, choice: s.localAnswer }],
       ticks: newTicks,
       correctCount: newCorrect,
       incorrectCount: newIncorrect,
@@ -159,6 +185,7 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
   advanceQuestion: () => set((s) => ({
     currentQuestionIndex: s.currentQuestionIndex + 1,
     localAnswer: null, roundResults: [],
+    localTimeout: false,
     players: s.players.map((p) => ({ ...p, answer: null, correct: null, towerY: p.targetY })),
   })),
 
@@ -207,6 +234,8 @@ export const useLavaStore = create<LavaStore>((set, get) => ({
     phase: 'loading', questions: [], currentQuestionIndex: 0,
     players: createPlayers(),
     localAnswer: null, roundResults: [], answerHistory: [],
+    localTimeout: false,
     ticks: START_TICKS, correctCount: 0, incorrectCount: 0, score: 0, countTick: 0, defeated: false, starsEarned: 0,
+    modifiers: [],
   }),
 }));

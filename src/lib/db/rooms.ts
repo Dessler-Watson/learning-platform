@@ -12,6 +12,8 @@ export interface RoomRow {
   course_id: string;
   max_players: number | null;
   status: string;
+  /** 'docente' (panel) o 'caos' (Modo Caos, config en chaos_rooms). */
+  kind: string;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -32,6 +34,7 @@ export interface RoomParticipant {
 const ROOM_SELECT = `
   SELECT r.id, r.code, r.name, gm.code AS mode_code, gm.name AS mode_name,
          r.teacher_id, r.course_id, r.max_players, r.status::text AS status,
+         r.kind::text AS kind,
          r.created_at::text AS created_at,
          r.started_at::text AS started_at, r.finished_at::text AS finished_at,
          tu.nombre AS docente, c.name AS curso

@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { ABISMOS_CONFIG as C } from '@/games/entre-abismos/config';
+import { getChaosTiming } from '@/lib/chaos/timing';
 
 export function AbismosRoundManager() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -13,7 +14,9 @@ export function AbismosRoundManager() {
     if (store.phase !== 'questions') return;
 
     const selected = store.selectedPlatform;
-    if (selected === null) {
+    // Timeout de contrarreloj: la respuesta se registró sin elegir plataforma
+    // (localTimeout) y también debe procesarse como feedback.
+    if (selected === null && !store.localTimeout) {
       processedRef.current = -1;
       return;
     }
@@ -35,6 +38,9 @@ export function AbismosRoundManager() {
       useAbismosStore.setState({ phase: 'incorrectFeedback' });
     }
 
+    // 'ritmo_expres' (Caos): la pausa de feedback va a ×0.6; sin el
+    // modificador, feedbackDuration intacto (1.5 s). Modificadores del
+    // store (boot de la partida), sin fetch.
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       const st = useAbismosStore.getState();
@@ -44,7 +50,7 @@ export function AbismosRoundManager() {
         st.advanceQuestion();
         st.setPhase('questions');
       }
-    }, C.feedbackDuration * 1000);
+    }, getChaosTiming(C.feedbackDuration * 1000, useAbismosStore.getState().modifiers));
   });
 
   return null;

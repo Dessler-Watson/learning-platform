@@ -1,3 +1,5 @@
+import type { ChaosSurpriseEffect } from '@/lib/chaos/sorpresa';
+
 export type AbismosPhase =
   | 'loading'
   | 'intro'
@@ -22,6 +24,8 @@ export interface AbismosQuestion {
   explanation?: string;
   difficulty?: string;
   optionIds?: [string, string];
+  /** 'pregunta_sorpresa': efecto determinista del servidor para ESTA pregunta (null = normal). */
+  sorpresa?: ChaosSurpriseEffect | null;
 }
 
 export interface AbismosResult {

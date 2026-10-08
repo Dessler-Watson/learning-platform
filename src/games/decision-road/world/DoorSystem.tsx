@@ -8,6 +8,7 @@ import { characterRigidBody } from '@/shared/refs/characterRef';
 import { useGameStore } from '@/stores/game.store';
 import type { DoorChoice, GameQuestion } from '@/games/decision-road/types';
 import { gameAudio } from '@/shared/lib/gameAudio';
+import { getChaosOptionLabel } from '@/lib/chaos/effects';
 
 const PW = 7.5;
 const PH = 5.5;
@@ -109,6 +110,13 @@ function Diamond({ position, size, color, opacity }: { position: [number, number
 function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorChoice; option: string; state: PanelState; phase: string; isCorrect: boolean }) {
   const xOff = side === 'A' ? -PW / 2 - 0.15 : PW / 2 + 0.15;
   const selectedDoor = useGameStore((s) => s.selectedDoor);
+  const chaosModifiers = useGameStore((s) => s.modifiers);
+  // 'pregunta_sorpresa': efecto determinista de la pregunta actual (servidor);
+  // con 'opciones_numeradas' cambia la etiqueta [1]/[2] del panel 3D.
+  const currentQuestion = useGameStore((s) => s.questions[s.currentQuestionIndex]);
+  // 'memoria' (Caos): a los 5 s el texto de la opci\u00f3n se oculta (opacity 0)
+  // mientras la puerta/panel sigue visible; solo visual.
+  const hideOptions = useGameStore((s) => s.chaosHideOptions);
 
   let mainColor: string;
   let glowColor: string;
@@ -185,8 +193,9 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
       )}
 
       {showContent && (
-        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" font={DOOR_FONT} outlineColor="#000000" outlineWidth={0.06} letterSpacing={0.05}>
-          {side}
+        <Text position={[0, 1.2, 0.14]} fontSize={0.9} color="#ffffff" anchorX="center" anchorY="middle" font={DOOR_FONT} outlineColor="#000000" outlineWidth={0.06} letterSpacing={0.05}
+          fillOpacity={hideOptions ? 0 : 1} strokeOpacity={hideOptions ? 0 : 1}>
+          {getChaosOptionLabel(chaosModifiers, side, currentQuestion?.sorpresa)}
         </Text>
       )}
 
@@ -204,6 +213,8 @@ function StationPanel({ side, option, state, phase, isCorrect }: { side: DoorCho
           outlineWidth={0.05}
           letterSpacing={0.03}
           lineHeight={1.15}
+          fillOpacity={hideOptions ? 0 : 1}
+          strokeOpacity={hideOptions ? 0 : 1}
         >
           {answerText}
         </Text>

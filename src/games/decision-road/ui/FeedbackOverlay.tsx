@@ -2,8 +2,10 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from '@/stores/game.store';
+import { getChaosTiming } from '@/lib/chaos/timing';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { gameAudio } from '@/shared/lib/gameAudio';
+import { localSurvivalDeath } from '@/lib/chaos/survival';
 
 type Stage = 'idle' | 'impact' | 'text' | 'fly' | 'land' | 'done';
 
@@ -25,18 +27,25 @@ export function FeedbackOverlay() {
 
   useEffect(() => {
     if (!showCorrect && !showIncorrect) { setStage('idle'); return; }
+    // 'ritmo_expres' (Caos): la timeline de feedback completa va a ×0.6; sin
+    // el modificador, las MISMAS duraciones de siempre. Los modificadores ya
+    // están en el store (boot de la partida), sin fetch.
+    const mods = useGameStore.getState().modifiers;
     const timers: ReturnType<typeof setTimeout>[] = [];
     timers.push(setTimeout(() => setStage('impact'), 0));
-    timers.push(setTimeout(() => setStage('text'), 120));
-    timers.push(setTimeout(() => setStage('fly'), 1000));
-    timers.push(setTimeout(() => setStage('land'), 2500));
-    timers.push(setTimeout(() => setStage('done'), 2850));
+    timers.push(setTimeout(() => setStage('text'), getChaosTiming(120, mods)));
+    timers.push(setTimeout(() => setStage('fly'), getChaosTiming(1000, mods)));
+    timers.push(setTimeout(() => setStage('land'), getChaosTiming(2500, mods)));
+    timers.push(setTimeout(() => setStage('done'), getChaosTiming(2850, mods)));
     return () => timers.forEach(clearTimeout);
   }, [showCorrect, showIncorrect, currentQuestionIndex]);
 
   useEffect(() => {
     if (stage !== 'fly') return;
-    const t = setTimeout(() => useGameStore.getState().triggerScoreCount(), 1200);
+    const t = setTimeout(
+      () => useGameStore.getState().triggerScoreCount(),
+      getChaosTiming(1200, useGameStore.getState().modifiers)
+    );
     return () => clearTimeout(t);
   }, [stage]);
 
@@ -47,10 +56,20 @@ export function FeedbackOverlay() {
       // Carrera con finalización de sala: si la fase cambió (→ 'results'),
       // no se avanza ni se cruza la meta; los Resultados ya están en pantalla.
       if (store.phase !== 'correctFeedback' && store.phase !== 'incorrectFeedback') return;
+      // Grupo 3 (supervivencia): el feedback de la respuesta YA se mostró;
+      // si esta respuesta eliminó al jugador (instakill /3ª vida /2º error de
+      // ultima_oportunidad, con escudo del primer error) se entra al flujo de
+      // derrota en vez de avanzar a la siguiente pregunta.
+      const totalErr = store.answers.reduce((n, a) => (a.correct ? n : n + 1), 0);
+      const death = store.defeated || localSurvivalDeath(store.modifiers, totalErr, store.answers[store.answers.length - 1]?.correct ?? true);
+      if (death) {
+        store.enterDefeat();
+        return;
+      }
       const next = store.currentQuestionIndex + 1;
       if (next >= store.questions.length) { gameAudio.decisionVictory(); store.setPhase('finishing'); }
       else { gameAudio.decisionAdvance(); store.advanceQuestion(); store.setPhase('playing'); }
-    }, 250);
+    }, getChaosTiming(250, useGameStore.getState().modifiers));
     return () => clearTimeout(t);
   }, [stage]);
 

@@ -25,6 +25,8 @@ import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { gameAudio, initAudio } from '@/shared/lib/gameAudio';
 import { postGameRoute } from '@/lib/partida-client';
 import { AmbientMotes } from '@/shared/ui/AmbientMotes';
+import { ChaosScreenFlip, ChaosBlindness } from '@/shared/ui/ChaosPresentation';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -106,6 +108,8 @@ export function AbismosCanvas() {
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
   const gamePhase = useAbismosStore((s) => s.phase);
+  const chaosModifiers = useAbismosStore((s) => s.modifiers);
+  const chaosEnded = gamePhase === 'completed' || gamePhase === 'defeat' || gamePhase === 'results';
   const result = useAbismosStore((s) => s.result);
   const starsEarned = useAbismosStore((s) => s.starsEarned);
   const fellInAbyss = useAbismosStore((s) => s.fellInAbyss);
@@ -173,6 +177,8 @@ export function AbismosCanvas() {
       )}
 
       <SceneCanvas onReady={handleReady} onReachFinish={handleReachFinish} />
+      <ChaosScreenFlip active={!chaosEnded && hasChaosModifier(chaosModifiers, 'pantalla_al_reves')} />
+      <ChaosBlindness active={!chaosEnded && hasChaosModifier(chaosModifiers, 'ceguera')} zIndex={40} />
 
       <AbismosHUD />
       <FloatingRanking

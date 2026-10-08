@@ -13,17 +13,20 @@ Migrar EduPlay de mocks / localStorage / JSON en disco a **PostgreSQL real**, us
 
 | Fuente | Rol |
 |---|---|
-| `db/schema.sql` | Esquema completo (24 tablas, 6 vistas, 13 enums, 11 triggers, ~45 índices `idx_*`) |
+| `db/schema.sql` | Esquema completo (27 tablas, 6 vistas, 13 enums, 11 triggers, ~45 índices `idx_*`) |
+| `db/migrations/0003_chaos.sql` | Modo Caos ETAPA 1 (idempotente, ya aplicada): `rooms.kind`, `chaos_rooms`, `matches.modifiers` + `matches.chaos_room_id` |
+| `db/migrations/0004_chaos_modifiers.sql` | Modo Caos ETAPA 2 (Paso 1, idempotente, ya aplicada): `chaos_rooms.modifiers` (JSONB, sorteo único al crear la sala) |
+| `db/migrations/0005_chaos_question_clocks.sql` | Modo Caos ETAPA 2 (Grupo 2, idempotente, ya aplicada): tabla `participant_question_clocks` — reloj de pregunta del servidor para `contrarreloj` (posición -1 = ancla de boot) |
 | `db/seed.sql` | Seeds idempotentes: 3 roles, 4 modos, 30 ligas, 13 avatares, 150 logros |
 | `eduplay_db` | BD aplicada y verificada en runtime |
 
 Verificación en BD:
 
-- 24 tablas base (`information_schema.tables`)
+- 27 tablas base (`information_schema.tables`)
 - 6 vistas
 - 13 enums
 - 11 triggers (incl. `sync_league_from_stars`)
-- 40 índices `idx_*` (79 índices totales en `pg_indexes`; el brief menciona ~45 — el resto son unique/PK)
+- 45 índices `idx_*` (86 índices totales en `pg_indexes`; el brief menciona ~45 — el resto son unique/PK)
 
 ## 3. Variables de entorno
 
@@ -50,6 +53,7 @@ Módulos en `src/lib/db/`:
 | `achievements.ts` | Catálogo + progreso de logros |
 | `practices.ts` | Prácticas, preguntas, `practice_plays` |
 | `rooms.ts` | Salas, participantes, ciclo waiting→in_progress→finished |
+| `chaos.ts` | Modo Caos: creación de sala Caos (curso sintético + `chaos_rooms`), estado y enlace de la partida |
 | `courses.ts` | Cursos / inscripciones |
 | `index.ts` | Barrel público |
 

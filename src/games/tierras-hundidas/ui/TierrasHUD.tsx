@@ -6,6 +6,9 @@ import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useShortScreen } from '@/shared/hooks/useShortScreen';
 import { gameAudio } from '@/shared/lib/gameAudio';
 import { Check, X, Star } from 'lucide-react';
+import { getChaosOptionLabel, getChaosHidePromptMs, getChaosHideOptionsMs } from '@/lib/chaos/effects';
+import { useChaosQuestionClock } from '@/shared/hooks/useChaosQuestionClock';
+import { ChaosCountdown } from '@/shared/ui/ChaosCountdown';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
@@ -64,6 +67,7 @@ export function TierrasHUD() {
   const incorrectCount = useTierrasStore((s) => s.incorrectCount);
   const score = useTierrasStore((s) => s.score);
   const countTick = useTierrasStore((s) => s.countTick);
+  const chaosModifiers = useTierrasStore((s) => s.modifiers);
   const isMobile = useIsMobile();
   const isShort = useShortScreen();
 
@@ -98,6 +102,22 @@ export function TierrasHUD() {
     lastStingIndex.current = qIndex;
     gameAudio.tierrasAppear();
   }, [phase, qIndex, question]);
+
+  // Reloj de pregunta (Modo Caos): contrarreloj 10 s (contador). Ocultados:
+  // 'pregunta_fugaz' y 'memoria' ocultan el enunciado a los 5 s; solo
+  // 'memoria' oculta además las opciones (fugaz: las respuestas siguen).
+  // SIEMPRE antes del return condicional (reglas de hooks).
+  const clock = useChaosQuestionClock({
+    active: phase === 'playing' && !!question,
+    questionId: question?.id ?? null,
+    modifiers: chaosModifiers,
+    hidePromptInMs: getChaosHidePromptMs(chaosModifiers, question?.sorpresa),
+    hideOptionsInMs: getChaosHideOptionsMs(chaosModifiers, question?.sorpresa),
+    onTimeout: () => {
+      const st = useTierrasStore.getState();
+      if (st.phase === 'playing' && st.selectedPlatform === null) void st.submitAnswer(null);
+    },
+  });
 
   if (phase === 'loading' || phase === 'completed' || phase === 'results') return null;
 
@@ -185,6 +205,7 @@ export function TierrasHUD() {
               }}>
                 Pregunta {current}/{total}
               </span>
+              <ChaosCountdown secondsLeft={clock.secondsLeft} />
             </div>
 
             <div style={{
@@ -200,7 +221,9 @@ export function TierrasHUD() {
               <VineSVG />
               <VineSVGRight />
 
-              <p style={{
+              <p
+                data-chaos-hidden={clock.hidePrompt ? '' : undefined}
+                style={{
                 color: 'rgba(255,255,255,0.95)',
                 fontSize: isMobile ? 13 : 19,
                 fontWeight: 700,
@@ -209,12 +232,16 @@ export function TierrasHUD() {
                 lineHeight: 1.35,
                 fontFamily: 'var(--font-baloo)',
                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                ...(clock.hidePrompt ? { opacity: 0 } : {}),
               }}>
                 {question.statement}
               </p>
-              <div style={{ display: 'flex', gap: isMobile ? 8 : 14 }}>
-                <AnswerCard label="A" text={question.optionA} color="#E53935" isMobile={isMobile} />
-                <AnswerCard label="B" text={question.optionB} color="#42A5F5" isMobile={isMobile} />
+              <div
+                data-chaos-options=""
+                data-chaos-hidden={clock.hideOptions ? '' : undefined}
+                style={{ display: 'flex', gap: isMobile ? 8 : 14, ...(clock.hideOptions ? { opacity: 0 } : {}) }}>
+                <AnswerCard label={getChaosOptionLabel(chaosModifiers, 'A', question?.sorpresa)} text={question.optionA} color="#E53935" isMobile={isMobile} />
+                <AnswerCard label={getChaosOptionLabel(chaosModifiers, 'B', question?.sorpresa)} text={question.optionB} color="#42A5F5" isMobile={isMobile} />
               </div>
             </div>
           </motion.div>

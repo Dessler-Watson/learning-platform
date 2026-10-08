@@ -6,9 +6,12 @@ Estructura aprobada y **ya aplicada** en `eduplay_db` (fuente única de verdad e
 
 | Archivo | Propósito |
 |---|---|
-| `schema.sql` | Esquema completo: 24 tablas, enums, índices, constraints, triggers y 6 vistas. Fuente de referencia. |
+| `schema.sql` | Esquema completo: 27 tablas, enums, índices, constraints, triggers y 6 vistas. Fuente de referencia. |
 | `migrations/0001_init.sql` | Primera migración histórica (base inicial; **no** incluye `solo_plays`). Punto de partida del historial de migraciones. |
 | `migrations/0002_solo_plays.sql` | Agrega `solo_plays` + índice (ya contenido en `schema.sql` actual). |
+| `migrations/0003_chaos.sql` | MODO CAOS ETAPA 1: `rooms.kind` ('docente'/'caos'), tabla `chaos_rooms`, `matches.modifiers` + `matches.chaos_room_id` (ya contenido en `schema.sql` actual). |
+| `migrations/0004_chaos_modifiers.sql` | MODO CAOS ETAPA 2 (Paso 1): `chaos_rooms.modifiers` (JSONB, sorteo único al crear la sala; ya contenido en `schema.sql` actual). |
+| `migrations/0005_chaos_question_clocks.sql` | MODO CAOS ETAPA 2 (Grupo 2): tabla `participant_question_clocks` — reloj de pregunta del servidor para `contrarreloj` (posición -1 = ancla de boot; ya contenido en `schema.sql` actual). |
 | `seed.sql` | Datos iniciales idempotentes: roles (3), modos de juego (4), ligas (30), avatares (13), logros (150). |
 | `generate_achievement_seed.js` | Regenera la sección de logros del seed desde `src/shared/lib/achievements-data.ts`. |
 | `INFORME.md` | Informe de auditoría, diseño, decisiones y plan de migración. |
@@ -37,8 +40,8 @@ Ambos archivos están envueltos en `BEGIN/COMMIT` y el seed usa `ON CONFLICT` pa
 
 Aplicado y verificado en `eduplay_db`:
 
-- **24** tablas base, **6** vistas, **13** enums, **11** triggers
-- **40** índices `idx_*` (79 índices totales en `pg_indexes`; el diseño apunta a ~45 sin duplicados)
+- **26** tablas base, **6** vistas, **13** enums, **11** triggers
+- **45** índices `idx_*` (86 índices totales en `pg_indexes`; el diseño apunta a ~45 sin duplicados)
 - Seeds: 3 roles / 4 modos / 30 ligas / 13 avatares / 150 logros
 
 Usuarios demo (hash scrypt, idempotente): exporta `DATABASE_URL` en el entorno (el script **no** lee `.env.local`) y ejecuta `npm run seed:demo` → `scripts/seed_demo_users.mjs`.

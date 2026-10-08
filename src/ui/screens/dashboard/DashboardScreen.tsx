@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Sparkles, Gamepad2, Trophy, Brain, Home } from 'lucide-react';
+import { Settings, Sparkles, Gamepad2, Trophy, Brain, Home, Dices } from 'lucide-react';
 import { Background } from '@/ui/components/primitives/Background';
 import { ProfileModal } from './ProfileModal';
 import { LeagueBadge } from '@/ui/components/LeagueBadge';
@@ -444,6 +444,42 @@ export function DashboardScreen() {
             </motion.button>
           </div>
         </motion.div>
+
+        {/* Card: Modo Caos (entrada mínima; creación de salas por estudiantes) */}
+        {!isGuest && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="relative mt-5 overflow-hidden rounded-[28px] xl:col-span-3 xl:mt-0"
+            style={{
+              background: 'linear-gradient(90deg, #7C3AED 0%, #5B21B6 100%)',
+              boxShadow: '0 8px 0 rgba(76, 29, 149, 0.35), 0 12px 32px rgba(124, 58, 237, 0.35)',
+            }}
+          >
+            <Dices size={16} color="rgba(255,255,255,0.45)" className="absolute right-5 top-5" />
+
+            <div className="p-6">
+              <div className="mb-1 flex items-center gap-2">
+                <Dices size={22} color="#fff" />
+                <h2 className="text-xl font-black text-white">Modo Caos</h2>
+              </div>
+              <p className="mb-5 text-sm font-bold text-white/85">
+                Crea una sala con preguntas generadas por IA. El tema y el juego se sortean solos.
+              </p>
+
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97, y: 2 }}
+                onClick={() => { audioManager.play('click'); window.location.href = '/caos/crear'; }}
+                className="rounded-xl bg-white px-6 py-3 text-sm font-black shadow-game-sm"
+                style={{ color: '#5B21B6' }}
+              >
+                Crear sala
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
         </div>
       </motion.div>
 

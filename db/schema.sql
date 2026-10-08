@@ -362,6 +362,10 @@ CREATE TABLE rooms (
     -- default: lo decide el backend/panel al crear la sala.
     max_players   SMALLINT CHECK (max_players IS NULL OR max_players > 0),
     status        room_status NOT NULL DEFAULT 'waiting',
+    -- 'docente' = sala creada desde el panel (flujo histórico, default);
+    -- 'caos'    = sala creada por un estudiante en Modo Caos (config en
+    --             chaos_rooms; el curso de la sala es sintético por partida).
+    kind          TEXT NOT NULL DEFAULT 'docente' CHECK (kind IN ('docente', 'caos')),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at    TIMESTAMPTZ,
     finished_at   TIMESTAMPTZ,
@@ -375,6 +379,30 @@ CREATE UNIQUE INDEX uq_rooms_code_active
 CREATE INDEX idx_rooms_teacher ON rooms (teacher_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_rooms_status  ON rooms (status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_rooms_created ON rooms (created_at DESC);
+CREATE INDEX idx_rooms_kind    ON rooms (kind) WHERE deleted_at IS NULL;
+
+-- Configuración de las salas Modo Caos (una fila por sala kind='caos').
+-- difficulty: dificultad pedida al crear (5 valores del selector del lobby);
+--   las questions usan el CHECK corto ('facil','media','dificil') — el mapa
+--   de conversión vive en src/lib/chaos/generator.ts.
+-- generation_status: 'pending' → la IA aún genera; 'running' → worker con la
+--   generación reclamada (evita doble INSERT); 'ready' → preguntas insertadas
+--   en el curso sintético; 'failed' → ni IA ni banco local.
+-- game_code: juego sorteado server-side al crear (único de los 4 modos).
+CREATE TABLE chaos_rooms (
+    room_id           UUID PRIMARY KEY REFERENCES rooms (id) ON DELETE CASCADE,
+    difficulty        TEXT NOT NULL DEFAULT 'media'
+                        CHECK (difficulty IN ('facil', 'medio', 'dificil', 'experto', 'caos')),
+    tema              TEXT,
+    generation_status TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (generation_status IN ('pending', 'running', 'ready', 'failed')),
+    question_count    INTEGER NOT NULL DEFAULT 0 CHECK (question_count >= 0),
+    game_code         TEXT NOT NULL
+                        CHECK (game_code IN ('decisiones', 'lava', 'tierras', 'abismos')),
+    modifiers         JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Membership en el lobby de la sala.
 CREATE TABLE room_participants (
@@ -399,6 +427,10 @@ CREATE TABLE matches (
     started_by     UUID REFERENCES users (id) ON DELETE SET NULL,
     status         match_status NOT NULL DEFAULT 'in_progress',
     question_count SMALLINT NOT NULL CHECK (question_count > 0),  -- snapshot del curso al iniciar
+    -- Modo Caos: modificadores activos de la partida (ETAPA 2; vacío hoy) y
+    -- enlace con la configuración de la sala Caos que la originó.
+    modifiers      JSONB NOT NULL DEFAULT '[]'::jsonb,
+    chaos_room_id  UUID REFERENCES chaos_rooms (room_id) ON DELETE SET NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at    TIMESTAMPTZ
@@ -406,6 +438,7 @@ CREATE TABLE matches (
 CREATE INDEX idx_matches_room    ON matches (room_id, created_at DESC);
 CREATE INDEX idx_matches_status  ON matches (status);
 CREATE INDEX idx_matches_started ON matches (started_at DESC);
+CREATE INDEX idx_matches_chaos   ON matches (chaos_room_id) WHERE chaos_room_id IS NOT NULL;
 
 -- Participación individual dentro de una partida.
 -- score/stars_earned/xp son caché de carrera en vivo (ranking live);
@@ -448,6 +481,16 @@ CREATE TABLE participant_answers (
 CREATE INDEX idx_panswers_match    ON participant_answers (match_id);
 CREATE INDEX idx_panswers_part     ON participant_answers (participant_id);
 CREATE INDEX idx_panswers_question ON participant_answers (question_id);
+
+-- Caos 'contrarreloj': hora SERVIDOR en que empezó cada pregunta de cada
+-- participante. position = -1 = ancla de arranque (boot del GET /api/partida).
+-- El servidor calcula el plazo (reclamo + ventana) sin confiar en el cliente.
+CREATE TABLE participant_question_clocks (
+    participant_id    UUID NOT NULL REFERENCES match_participants (id) ON DELETE CASCADE,
+    question_position SMALLINT NOT NULL,
+    started_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (participant_id, question_position)
+);
 
 -- ============================================================================
 -- PRÁCTICA (independiente de la competitiva; nunca otorga estrellas de liga)

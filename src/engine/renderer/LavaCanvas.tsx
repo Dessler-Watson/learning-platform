@@ -22,6 +22,8 @@ import { clampDpr } from '@/engine/quality';
 import { AdaptiveDpr } from '@/engine/adaptive-dpr';
 import { postGameRoute } from '@/lib/partida-client';
 import { AmbientMotes } from '@/shared/ui/AmbientMotes';
+import { ChaosScreenFlip, ChaosBlindness } from '@/shared/ui/ChaosPresentation';
+import { hasChaosModifier } from '@/lib/chaos/effects';
 
 // Constantes de módulo: evitan recrear objetos en cada render del wrapper
 // (identidades nuevas ⇒ R3F re-aplicaría gl/camera/physics y rapier crearía
@@ -110,6 +112,8 @@ export function LavaCanvas() {
   const handleReady = useCallback(() => setPhase('completing'), []);
   const handleComplete = useCallback(() => setPhase('done'), []);
   const lavaPhase = useLavaStore((s) => s.phase);
+  const chaosModifiers = useLavaStore((s) => s.modifiers);
+  const chaosEnded = lavaPhase === 'completed';
   const defeated = useLavaStore((s) => s.defeated);
   const starsEarned = useLavaStore((s) => s.starsEarned);
   const lavaScore = useLavaStore((s) => s.score);
@@ -164,6 +168,8 @@ export function LavaCanvas() {
         @keyframes flash5 { 0%,100%{opacity:0} 25%{opacity:0.3} 55%{opacity:0.6} 80%{opacity:0.15} }
       `}</style>
       <SceneCanvas onReady={handleReady} />
+      <ChaosScreenFlip active={!chaosEnded && hasChaosModifier(chaosModifiers, 'pantalla_al_reves')} />
+      <ChaosBlindness active={!chaosEnded && hasChaosModifier(chaosModifiers, 'ceguera')} zIndex={20} />
 
       <LavaHUD />
       <FloatingRanking

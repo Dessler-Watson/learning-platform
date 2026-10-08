@@ -6,6 +6,8 @@ import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { Check, X, Star } from 'lucide-react';
 import { hudTargets } from '@/shared/refs/hudRefs';
 import { gameAudio } from '@/shared/lib/gameAudio';
+import { DefeatOverlay } from '@/shared/ui/DefeatOverlay';
+import { postGameRoute } from '@/lib/partida-client';
 
 function useAnimatedNumber(target: number, trigger: number, duration = 650) {
   const [display, setDisplay] = useState(target);
@@ -38,6 +40,7 @@ function useAnimatedNumber(target: number, trigger: number, duration = 650) {
 
 export function DecisionHUD() {
   const phase = useGameStore((s) => s.phase);
+  const defeated = useGameStore((s) => s.defeated);
   const score = useGameStore((s) => s.score);
   const countTick = useGameStore((s) => s.countTick);
   const questions = useGameStore((s) => s.questions);
@@ -67,7 +70,23 @@ export function DecisionHUD() {
     gameAudio.decisionAppear();
   }, [phase, currentQuestionIndex, questions.length]);
 
-  if (phase === 'loading' || phase === 'intro' || phase === 'completed' || phase === 'results') return null;
+  if (phase === 'loading' || phase === 'intro' || phase === 'completed' || phase === 'results') {
+    // Grupo 3 (supervivencia): eliminado → mismo overlay de derrota que los
+    // demás juegos y salida a Resultados de sala al terminar la animación.
+    if (defeated) {
+      return (
+        <DefeatOverlay
+          show
+          onDone={() => {
+            window.location.href = postGameRoute();
+          }}
+          duration={4000}
+          message="¡Has sido eliminado!"
+        />
+      );
+    }
+    return null;
+  }
 
   const total = questions.length;
   const answered = correctCount + incorrectCount;

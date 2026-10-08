@@ -6,6 +6,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useAbismosStore } from '@/stores/abismos.store';
 import { CHARACTER } from '@/shared/config/game.config';
+import { hasChaosModifier, getChaosMoveMultiplier, getChaosJumpMultiplier } from '@/lib/chaos/effects';
 import { characterRigidBody } from '@/shared/refs/characterRef';
 import RobloxAvatar from '@/shared/characters/RobloxAvatar';
 import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
@@ -80,6 +81,9 @@ export function AbismosCharacterController() {
   useFrame((state, delta) => {
     const store = useAbismosStore.getState();
     const phase = store.phase;
+    const invertControls = hasChaosModifier(store.modifiers, 'controles_invertidos');
+    const moveSpeed = CHARACTER.maxSpeed * getChaosMoveMultiplier(store.modifiers);
+    const jumpForce = CHARACTER.jumpForce * getChaosJumpMultiplier(store.modifiers);
 
     canMove.current = phase === 'freeMove' || phase === 'crossing';
 
@@ -119,15 +123,19 @@ export function AbismosCharacterController() {
     const hasInput = canMove.current && (input.forward || input.backward || input.left || input.right);
 
     if (hasInput) {
-      if (input.forward) moveDir.add(forward);
-      if (input.backward) moveDir.sub(forward);
-      if (input.left) moveDir.sub(right);
-      if (input.right) moveDir.add(right);
+      const keyF = invertControls ? input.backward : input.forward;
+      const keyB = invertControls ? input.forward : input.backward;
+      const keyL = invertControls ? input.right : input.left;
+      const keyR = invertControls ? input.left : input.right;
+      if (keyF) moveDir.add(forward);
+      if (keyB) moveDir.sub(forward);
+      if (keyL) moveDir.sub(right);
+      if (keyR) moveDir.add(right);
       moveDir.normalize();
     }
 
-    const tgtX = moveDir.x * CHARACTER.maxSpeed;
-    const tgtZ = moveDir.z * CHARACTER.maxSpeed;
+    const tgtX = moveDir.x * moveSpeed;
+    const tgtZ = moveDir.z * moveSpeed;
     const acc = hasInput ? CHARACTER.acceleration : CHARACTER.deceleration;
     const t = Math.min(acc * delta, 1);
     let nx = THREE.MathUtils.lerp(vel.x, tgtX, t);
@@ -136,8 +144,8 @@ export function AbismosCharacterController() {
     if (pos.z < MIN_Z) nz = Math.max(nz, 0.5);
     if (pos.z > MAX_Z) nz = Math.min(nz, -0.5);
 
-    nx = THREE.MathUtils.clamp(nx, -CHARACTER.maxSpeed, CHARACTER.maxSpeed);
-    nz = THREE.MathUtils.clamp(nz, -CHARACTER.maxSpeed, CHARACTER.maxSpeed);
+    nx = THREE.MathUtils.clamp(nx, -moveSpeed, moveSpeed);
+    nz = THREE.MathUtils.clamp(nz, -moveSpeed, moveSpeed);
 
     let yv = vel.y;
     const onSurface = isOnSurface(rigidBodyRef.current);
@@ -160,7 +168,7 @@ export function AbismosCharacterController() {
       grounded.current &&
       performance.now() - lastJumpAt.current > JUMP_COOLDOWN
     ) {
-      yv = CHARACTER.jumpForce;
+      yv = jumpForce;
       jumpRequested.current = false;
       jumpLocked.current = true;
       leftGroundSinceJump.current = false;

@@ -3,12 +3,13 @@ import { ABISMOS_CONFIG as CFG } from '@/games/entre-abismos/config';
 import { AbismosPhase, AbismosQuestion, AbismosResult, PlatformChoice } from '@/games/entre-abismos/types';
 import { recordAchievementEvent, bestStreakOf } from '@/shared/lib/achievement-service';
 import { getMatchRoomId, submitMatchAnswer, replaceLastAnswer, trailingStreak, isRoomFinished, reportMatchElimination } from '@/lib/partida-client';
+import { localSurvivalShielded } from '@/lib/chaos/survival';
 
 interface AbismosStore {
   phase: AbismosPhase;
   currentQuestionIndex: number;
   questions: AbismosQuestion[];
-  answers: { questionId: string; choice: PlatformChoice; correct: boolean }[];
+  answers: { questionId: string; choice: PlatformChoice | null; correct: boolean }[];
   correctCount: number;
   incorrectCount: number;
   score: number;
@@ -21,10 +22,18 @@ interface AbismosStore {
   starsEarned: number;
   fellInAbyss: boolean;
   reachedFinish: boolean;
+  /** Timeout local (contrarreloj): respuesta registrada sin elegir plataforma;
+   * permite que el RoundManager procese el resultado con choice null. */
+  localTimeout: boolean;
+  /** Modificadores de la partida (Caos) para reflejar el HUD/feedback local.
+   * Solo lectura visual: la puntuación real la decide el servidor. */
+  modifiers: string[];
 
   setPhase: (phase: AbismosPhase) => void;
   setQuestions: (questions: AbismosQuestion[]) => void;
-  submitAnswer: (choice: PlatformChoice) => Promise<{ correct: boolean } | null>;
+  setModifiers: (modifiers: string[]) => void;
+  /** `null` = tiempo agotado (contrarreloj): respuesta incorrecta con timed_out. */
+  submitAnswer: (choice: PlatformChoice | null) => Promise<{ correct: boolean } | null>;
   setExplanation: (text: string | null) => void;
   advanceQuestion: () => void;
   completeQuestions: () => void;
@@ -50,6 +59,8 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
   starsEarned: 0,
   fellInAbyss: false,
   reachedFinish: false,
+  localTimeout: false,
+  modifiers: [],
 
   setPhase: (phase) => set({ phase }),
 
@@ -68,15 +79,22 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     selectedPlatform: null,
     fellInAbyss: false,
     reachedFinish: false,
+    localTimeout: false,
+    modifiers: [],
     phase: 'questions',
   }),
+
+  setModifiers: (modifiers) => set({ modifiers: Array.isArray(modifiers) ? modifiers : [] }),
 
   submitAnswer: async (choice) => {
     // Sala finalizada: no se responde ni se avanza localmente.
     if (isRoomFinished()) return null;
-    const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned, platforms } = get();
+    const { currentQuestionIndex, questions, answers, correctCount, incorrectCount, score, xp, streak, starsEarned, platforms, modifiers } = get();
     const question = questions[currentQuestionIndex];
     if (!question) return null;
+    // Idempotencia: una pregunta solo se registra una vez.
+    const existing = answers.find((a) => a.questionId === question.id);
+    if (existing) return { correct: existing.correct };
 
     // Feedback inmediato: el resultado se calcula y muestra ya (la respuesta
     // correcta viene en el boot). En modo sala, el POST /api/partida se lanza
@@ -88,7 +106,10 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
 
     const isCorrect = choice === question.correctAnswer;
     const newStreak = isCorrect ? streak + 1 : 0;
-    const pointsEarned = isCorrect ? CFG.correctPoints : -CFG.wrongPoints;
+    // 'doble_puntos' (Caos): solo DOBLA el acierto en el cálculo local; la
+    // penalización no se multiplica. El POST reconcilia con res.score.
+    const doubleMult = isCorrect && modifiers.includes('doble_puntos') ? 2 : 1;
+    const pointsEarned = isCorrect ? CFG.correctPoints * doubleMult : -CFG.wrongPoints;
     const isPractice = typeof window !== 'undefined' && !!sessionStorage.getItem('eduplay_practice');
     // Paridad con el flujo anterior: en sala las estrellas no se acumulan aquí.
     const starsEarnedNow = !isSala && isCorrect && !isPractice ? 20 : 0;
@@ -97,6 +118,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
 
     set({
       selectedPlatform: choice,
+      ...(choice == null ? { localTimeout: true } : {}),
       answers: [...answers, { questionId: question.id, choice, correct: isCorrect }],
       correctCount: correctCount + (isCorrect ? 1 : 0),
       incorrectCount: incorrectCount + (isCorrect ? 0 : 1),
@@ -124,7 +146,12 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
       // Sincronización en segundo plano: no bloquea el feedback ni el avance.
       void (async () => {
         try {
-          const res = await submitMatchAnswer({ roomId: roomId!, questionId: question.id, optionId: ids[choice === 'A' ? 0 : 1] });
+          const res = await submitMatchAnswer({
+            roomId: roomId!,
+            questionId: question.id,
+            ...(choice == null ? {} : { optionId: ids[choice === 'A' ? 0 : 1] }),
+            timedOut: choice == null,
+          });
           if (!res) return;
           const st = get();
           const patch: Partial<ReturnType<typeof get>> = {};
@@ -168,15 +195,21 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     currentQuestionIndex: s.currentQuestionIndex + 1,
     selectedPlatform: null,
     explanation: null,
+    localTimeout: false,
   })),
 
   completeQuestions: () => {
-    const { questions, correctCount, incorrectCount, score, xp, platforms, phase, fellInAbyss, answers } = get();
+    const { questions, correctCount, incorrectCount, score, xp, platforms, phase, fellInAbyss, answers, modifiers } = get();
     if (phase === 'defeat' || fellInAbyss) return;
     const total = questions.length;
     const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
-    if (platforms <= 0) {
+    // 'ultima_oportunidad' (Grupo 3): el PRIMER error quedó protegido por el
+    // escudo del servidor (sigue 'playing'), aunque las plataformas estén a0.
+    // Sin ese escudo el cero de plataformas sigue siendo caída al vacío.
+    const shieldedAlive = localSurvivalShielded(modifiers, incorrectCount);
+
+    if (platforms <= 0 && !shieldedAlive) {
       // Se acabaron las plataformas → cayó al vacío: reporta la eliminación
       // y hace perder todas las estrellas de liga de la partida (servidor).
       if (getMatchRoomId() && !isRoomFinished()) {
@@ -338,5 +371,7 @@ export const useAbismosStore = create<AbismosStore>((set, get) => ({
     starsEarned: 0,
     fellInAbyss: false,
     reachedFinish: false,
+    localTimeout: false,
+    modifiers: [],
   }),
 }));
